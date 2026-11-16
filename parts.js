@@ -423,6 +423,7 @@
     $('partOperation').disabled = !custom;
     $('extrudeDepthLabel').hidden = !extruded;
     $('extrudeDepth').value = display(part.extrudeDepth);
+    $('confirmExtrudeDepth').hidden = true;
     $('partSketchKicker').textContent = extruded ? 'CONTORNO · 2D' : 'CORTE AXIAL · 2D';
     $('firstAxisLabel').textContent = extruded ? 'X' : 'Raio';
     $('partViewBadge').textContent = extruded ?
@@ -529,14 +530,23 @@
     part.operation = $('partOperation').value;
     save(); refresh();
   });
-  $('extrudeDepth').addEventListener('change', () => {
+  $('extrudeDepth').addEventListener('input', () => {
+    $('confirmExtrudeDepth').hidden = $('extrudeDepth').value.trim() === display(part.extrudeDepth);
+  });
+  function confirmExtrudeDepth() {
     const depth = number($('extrudeDepth').value);
     if (depth == null || depth <= 0) {
       $('profileStatus').textContent = 'Digite uma profundidade maior que 0 mm.';
-      $('extrudeDepth').value = display(part.extrudeDepth);
       return;
     }
-    part.extrudeDepth = depth; save(); refresh();
+    part.extrudeDepth = depth;
+    $('extrudeDepth').blur();
+    save(); refresh();
+    $('profileHint').textContent = `Profundidade confirmada: ${display(depth)} mm.`;
+  }
+  $('confirmExtrudeDepth').addEventListener('click', confirmExtrudeDepth);
+  $('extrudeDepth').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); confirmExtrudeDepth(); }
   });
   $('drawProfileTool').addEventListener('click', () => {
     if (part.mode !== 'custom' || part.closed) return;

@@ -145,7 +145,7 @@
             <label>Parede <span>mm</span><input id="cupWall" type="text" inputmode="decimal" value="2,5" aria-label="Espessura do copo em milímetros" /></label>
             <label>Fundo <span>mm</span><input id="cupBase" type="text" inputmode="decimal" value="4" aria-label="Espessura do fundo em milímetros" /></label>
           </div>
-          <div class="shape-method"><label>Como transformar o desenho<select id="partOperation" aria-label="Operação 3D da peça"><option value="extrude">Extrusão · mantém o contorno</option><option value="revolve">Revolução · gira 360°</option></select></label><label id="extrudeDepthLabel">Profundidade <input id="extrudeDepth" type="text" inputmode="decimal" value="20" aria-label="Profundidade da extrusão em milímetros" /> mm</label><span id="operationHint">Feche o contorno para criar um sólido.</span></div>
+          <div class="shape-method"><label>Como transformar o desenho<select id="partOperation" aria-label="Operação 3D da peça"><option value="extrude">Extrusão · mantém o contorno</option><option value="revolve">Revolução · gira 360°</option></select></label><div id="extrudeDepthLabel" class="depth-control"><label for="extrudeDepth">Profundidade</label><input id="extrudeDepth" type="text" inputmode="decimal" value="20" aria-label="Profundidade da extrusão em milímetros" /><span>mm</span><button id="confirmExtrudeDepth" type="button" hidden>✓ OK</button></div><span id="operationHint">Feche o contorno para criar um sólido.</span></div>
           <div class="workspace parts-workspace">
             <div class="panel">
               <div class="panel-head"><div><p class="panel-kicker" id="partSketchKicker">CONTORNO · 2D</p><h2>Perfil da peça</h2></div><span class="panel-index">01 / 02</span></div>
