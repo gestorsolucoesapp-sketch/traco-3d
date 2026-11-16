@@ -4,6 +4,10 @@ Editor web híbrido. **Arquitetura** desenha paredes em planta e vê o resultado
 
 ## Desenho preciso
 
+O modo Arquitetura começa em **Alicerce**, com os traços na planta e uma base baixa na vista 3D. Use **Retângulo** e arraste dois cantos para criar quatro lados fechados de uma vez, ou use **Linha** para montar o contorno por segmentos. A prévia do retângulo mostra largura e comprimento em metros.
+
+Depois de desenhar, use **Equidistância** para informar a espessura entre 10 e 30 cm. A espessura é aplicada igualmente para os dois lados da linha central; a planta mostra as duas bordas. Use **Empurrar/Puxar paredes** no painel 3D para elevar o alicerce: arraste para cima/baixo ou digite diretamente a altura em metros enquanto move o modelo e pressione **Enter**. A vista muda para Perspectiva para mostrar a elevação. **Esc** cancela a prévia.
+
 1. Selecione **Linha**, clique ou toque no ponto inicial e aponte a direção. No PC, digite a medida diretamente no teclado, sem clicar no campo, e pressione **Enter** para concluir. A linha só vira parede quando você informar a medida.
 2. Pontos existentes, eixos horizontal/vertical e a grade de 10 cm atraem a linha. O toque tem uma área de encaixe maior no celular. Segure **Alt** para ignorar o encaixe com mouse.
 3. Digite uma medida como `2,50 m`, `250 cm` ou `2500 mm` e pressione **Enter**. A prévia assume a medida enquanto você digita. Você também pode digitar antes do segundo clique: esse clique conclui a parede. Sem medida, o segundo clique no PC abre a caixa e a linha permanece em prévia; cliques fora dela pedem a medida, sem apagar o desenho anterior. Se o fim estiver encaixado em outra ponta e a medida for incompatível, a linha aguarda a correção. **Esc** cancela a prévia.
@@ -18,7 +22,7 @@ Editor web híbrido. **Arquitetura** desenha paredes em planta e vê o resultado
 - **Espessura da parede** ajusta todas as paredes entre 10 e 30 cm.
 - **Piso no contorno fechado** gera uma laje de 14 cm apenas quando existe um ciclo simples de paredes. A área mostrada usa a linha central das paredes e é aproximada. Planta aberta não recebe piso automático.
 
-Use **Perspectiva**, **Alicerce** (vista de cima da base das paredes) ou **Frontal** para mudar a câmera. Arraste o painel 3D para girar e use a roda do mouse para ampliar. Ajuste a altura das paredes e a escala do plano. **Ver exemplo** carrega uma planta de demonstração.
+Use **Perspectiva**, **Alicerce** ou **Frontal** para mudar a câmera. Fora da ferramenta Empurrar/Puxar, arraste o painel 3D para girar e use a roda do mouse para ampliar. Ajuste a altura preparada para a elevação e a escala do plano. **Ver exemplo** carrega um alicerce de demonstração.
 Defina a escala antes de desenhar. Depois da primeira parede, ela fica travada para preservar as medidas já confirmadas.
 
 ## Arquivos

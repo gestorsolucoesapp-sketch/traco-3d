@@ -20,6 +20,8 @@ const state = {
   future: [],
   draft: null,
   tool: 'line',
+  rectangleStart: null,
+  rectanglePointerId: null,
   lineStart: null,
   linePreview: null,
   linePending: false,
@@ -31,11 +33,15 @@ const state = {
   moveDrag: null,
   stlMesh: null,
   height: 2.7,
+  wallsRaised: false,
+  modelTool: 'orbit',
+  pushDraftHeight: null,
+  pushDrag: null,
   thickness: .15,
   floorEnabled: true,
   pixelsPerMeter: 80,
   yaw: -0.73,
-  pitch: 0.62,
+  pitch: 0.92,
   zoom: 1,
   draggingModel: null,
 };
@@ -74,6 +80,7 @@ function projectPayload() {
     strokes: state.strokes,
     openings: state.openings,
     height: state.height,
+    wallsRaised: state.wallsRaised,
     thickness: state.thickness,
     floorEnabled: state.floorEnabled,
     pixelsPerMeter: state.pixelsPerMeter,
@@ -116,7 +123,8 @@ function parseProject(raw) {
   return {
     strokes: project.strokes,
     openings: openings.filter((opening) => keys.has(opening.wallKey)),
-    height: safeNumber(project.height, 2.7, 1.8, 4),
+    height: safeNumber(project.height, 2.7, .2, 10),
+    wallsRaised: typeof project.wallsRaised === 'boolean' ? project.wallsRaised : project.strokes.length > 0,
     thickness: safeNumber(project.thickness, .15, .1, .3),
     floorEnabled: project.floorEnabled !== false,
     pixelsPerMeter: safeNumber(project.pixelsPerMeter, 80, 40, 160),
@@ -591,13 +599,18 @@ function placeOpening(point) {
 }
 
 function snapshot() {
-  return { strokes: state.strokes, openings: state.openings };
+  return { strokes: state.strokes, openings: state.openings,
+    height: state.height, thickness: state.thickness, wallsRaised: state.wallsRaised };
 }
 
-function commit(next, openings = state.openings) {
+function recordHistory() {
   state.history.push(snapshot());
   if (state.history.length > 50) state.history.shift();
   state.future = [];
+}
+
+function commit(next, openings = state.openings) {
+  recordHistory();
   state.strokes = next;
   const keys = segmentKeys(next);
   state.openings = openings.filter((opening) => keys.has(opening.wallKey));
@@ -614,11 +627,24 @@ function sketchPoint(event) {
   ];
 }
 
+function rectangleOutline(a, b) {
+  const left = Math.min(a[0], b[0]), right = Math.max(a[0], b[0]);
+  const top = Math.min(a[1], b[1]), bottom = Math.max(a[1], b[1]);
+  return [[left, top], [right, top], [right, bottom], [left, bottom], [left, top]];
+}
+
 sketchCanvas.addEventListener('pointerdown', (event) => {
   if (event.button !== 0 && event.pointerType === 'mouse') return;
   event.preventDefault();
   if (state.tool === 'line') sketchCanvas.focus({ preventScroll: true });
   const point = sketchPoint(event);
+  if (state.tool === 'rectangle') {
+    state.rectangleStart = snapPoint(point, null, event.altKey, event.pointerType).point;
+    state.rectanglePointerId = event.pointerId;
+    state.draft = rectangleOutline(state.rectangleStart, state.rectangleStart);
+    sketchCanvas.setPointerCapture(event.pointerId);
+    requestRender(); return;
+  }
   if (state.tool === 'door' || state.tool === 'window') {
     placeOpening(point);
     return;
@@ -685,6 +711,11 @@ sketchCanvas.addEventListener('pointerdown', (event) => {
 });
 
 sketchCanvas.addEventListener('pointermove', (event) => {
+  if (state.rectangleStart && event.pointerId === state.rectanglePointerId) {
+    const end = snapPoint(sketchPoint(event), null, event.altKey, event.pointerType).point;
+    state.draft = rectangleOutline(state.rectangleStart, end);
+    requestRender(); return;
+  }
   if (state.moveDrag && event.pointerId === state.moveDrag.pointerId) {
     updateWallMove(sketchPoint(event));
     return;
@@ -705,6 +736,23 @@ sketchCanvas.addEventListener('pointermove', (event) => {
 });
 
 function finishStroke(event) {
+  if (state.rectangleStart && event.pointerId === state.rectanglePointerId) {
+    const end = snapPoint(sketchPoint(event), null, event.altKey, event.pointerType).point;
+    const outline = rectangleOutline(state.rectangleStart, end);
+    state.rectangleStart = null; state.rectanglePointerId = null; state.draft = null;
+    const width = outline[1][0] - outline[0][0];
+    const height = outline[2][1] - outline[1][1];
+    if (width < state.pixelsPerMeter * .15 || height < state.pixelsPerMeter * .15) {
+      notify('Arraste ao menos 15 cm em cada direção para criar o retângulo.');
+      requestRender(); return;
+    }
+    if (state.strokes.length >= MAX_STROKES || segments().length + 4 > MAX_SEGMENTS) {
+      notify('O projeto chegou ao limite de paredes.'); return;
+    }
+    commit([...state.strokes, outline]);
+    $('toolHint').textContent = 'Retângulo criado. Use Equidistância para definir a espessura.';
+    return;
+  }
   if (state.moveDrag && event.pointerId === state.moveDrag.pointerId) {
     finishWallMove();
     return;
@@ -741,6 +789,7 @@ function finishStroke(event) {
 sketchCanvas.addEventListener('pointerup', finishStroke);
 sketchCanvas.addEventListener('pointercancel', () => {
   if (state.moveDrag) finishWallMove(true);
+  state.rectangleStart = null; state.rectanglePointerId = null;
   state.draft = null; state.lineDragOrigin = null; requestRender();
 });
 $('measureInput').addEventListener('keydown', (event) => {
@@ -804,7 +853,8 @@ function drawSketch() {
     context.fillStyle = '#eaf0e8'; context.fill();
   }
   for (const stroke of state.strokes) {
-    drawStroke(context, stroke, '#c97954', Math.max(7, state.thickness * state.pixelsPerMeter));
+    drawStroke(context, stroke, '#e8b99d', Math.max(7, state.thickness * state.pixelsPerMeter));
+    drawWallPlanEdges(context, stroke);
     if (stroke.length === 2 && pointDistance(stroke[0], stroke[1]) >= 25)
       drawDimension(context, stroke[0], stroke[1]);
   }
@@ -833,7 +883,15 @@ function drawSketch() {
     context.textAlign = 'center'; context.textBaseline = 'middle';
     context.fillText(opening.kind === 'window' ? 'J' : 'P', center[0], center[1] - 13);
   }
-  if (state.draft) drawStroke(context, state.draft, '#db9876', 6);
+  if (state.draft) {
+    drawStroke(context, state.draft, '#db9876', 6);
+    if (state.tool === 'rectangle' && state.draft.length === 5) {
+      if (pointDistance(state.draft[0], state.draft[1]) >= 12)
+        drawDimension(context, state.draft[0], state.draft[1], true);
+      if (pointDistance(state.draft[1], state.draft[2]) >= 12)
+        drawDimension(context, state.draft[1], state.draft[2], true);
+    }
+  }
   if (state.lineStart) {
     let end = state.linePreview ?? state.lineStart;
     const measured = parseLength($('measureInput').value);
@@ -876,6 +934,23 @@ function drawDimension(context, start, end, preview = false) {
   context.fillText(text, midX, midY + 1);
 }
 
+function drawWallPlanEdges(context, stroke) {
+  const half = state.thickness * state.pixelsPerMeter / 2;
+  context.beginPath();
+  for (let i = 1; i < stroke.length; i++) {
+    const a = stroke[i - 1], b = stroke[i];
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const length = Math.hypot(dx, dy);
+    if (length < 1) continue;
+    const nx = -dy / length * half, ny = dx / length * half;
+    for (const sign of [-1, 1]) {
+      context.moveTo(a[0] + nx * sign, a[1] + ny * sign);
+      context.lineTo(b[0] + nx * sign, b[1] + ny * sign);
+    }
+  }
+  context.strokeStyle = '#aa5f46'; context.lineWidth = 1.5; context.stroke();
+}
+
 function drawStroke(context, stroke, color, width) {
   if (!stroke.length) return;
   context.beginPath();
@@ -899,7 +974,16 @@ function worldPoint(point) {
     (point[1] - DESIGN_HEIGHT / 2) / state.pixelsPerMeter];
 }
 
-function wallVertices(start, end, z0 = 0, z1 = state.height) {
+function effectiveWallHeight() {
+  if (state.modelTool === 'push') {
+    const typed = parseLength($('pushHeightInput').value);
+    if (typed != null && typed >= .2 && typed <= 10) return typed;
+    if (state.pushDraftHeight != null) return state.pushDraftHeight;
+  }
+  return state.wallsRaised ? state.height : .15;
+}
+
+function wallVertices(start, end, z0 = 0, z1 = effectiveWallHeight()) {
   const [ax, ay] = worldPoint(start);
   const [bx, by] = worldPoint(end);
   const length = Math.hypot(bx - ax, by - ay);
@@ -915,6 +999,8 @@ function wallVertices(start, end, z0 = 0, z1 = state.height) {
 }
 
 function wallBoxes(start, end) {
+  const height = effectiveWallHeight();
+  if (height < 1.2) return [wallVertices(start, end)].filter(Boolean);
   const opening = state.openings.find((item) => item.wallKey === wallKey(start, end));
   if (!opening) return [wallVertices(start, end)].filter(Boolean);
   const length = pointDistance(start, end) / state.pixelsPerMeter;
@@ -923,11 +1009,11 @@ function wallBoxes(start, end) {
     start[1] + (end[1] - start[1]) * t];
   const left = at(opening.t - half), right = at(opening.t + half);
   const sill = opening.kind === 'window' ? .9 : 0;
-  const head = Math.min(state.height - .1, 2.1);
+  const head = Math.min(height - .1, 2.1);
   return [
     wallVertices(start, left), wallVertices(right, end),
     sill > 0 ? wallVertices(left, right, 0, sill) : null,
-    wallVertices(left, right, head, state.height),
+    wallVertices(left, right, head, height),
   ].filter(Boolean);
 }
 
@@ -1001,7 +1087,7 @@ function drawModel() {
     ys.length ? (Math.max(...ys) - Math.min(...ys)) / state.pixelsPerMeter : 0);
   const centerWorldX = xs.length ? ((Math.min(...xs) + Math.max(...xs)) / 2 - DESIGN_WIDTH / 2) / state.pixelsPerMeter : 0;
   const centerWorldY = ys.length ? ((Math.min(...ys) + Math.max(...ys)) / 2 - DESIGN_HEIGHT / 2) / state.pixelsPerMeter : 0;
-  const unit = Math.min(width, height) / (spanMeters * 1.42 + state.height) * state.zoom;
+  const unit = Math.min(width, height) / (spanMeters * 1.42 + effectiveWallHeight()) * state.zoom;
   const centerX = width * .5;
   const centerY = height * .61;
   const toScreen = (vertex) => project([vertex[0] - centerWorldX, vertex[1] - centerWorldY, vertex[2]], centerX, centerY, unit);
@@ -1064,8 +1150,12 @@ function requestRender() {
 function refreshControls() {
   const count = segments().length;
   const floor = floorOutline();
-  $('wallCount').textContent = `${count} ${count === 1 ? 'parede' : 'paredes'}`;
-  $('modelStatus').textContent = [count ? `${count} ${count === 1 ? 'parede gerada' : 'paredes geradas'}` : null,
+  $('wallCount').textContent = state.wallsRaised ?
+    `${count} ${count === 1 ? 'parede' : 'paredes'}` :
+    `${count} ${count === 1 ? 'segmento do alicerce' : 'segmentos do alicerce'}`;
+  $('modelStatus').textContent = [count ? state.wallsRaised ?
+    `${count} ${count === 1 ? 'parede elevada' : 'paredes elevadas'}` :
+    `${count} ${count === 1 ? 'traço do alicerce' : 'traços do alicerce'}` : null,
     state.openings.length ? `${state.openings.length} ${state.openings.length === 1 ? 'abertura' : 'aberturas'}` : null,
     floor ? `piso ${(polygonArea(floor) / state.pixelsPerMeter ** 2).toFixed(1).replace('.', ',')} m²` : null,
     state.stlMesh ? 'STL importado' : null].filter(Boolean).join(' · ') || 'Aguardando desenho';
@@ -1074,6 +1164,7 @@ function refreshControls() {
   $('undoButton').disabled = state.history.length === 0;
   $('redoButton').disabled = state.future.length === 0;
   $('exportButton').disabled = count === 0;
+  $('pushWallsTool').disabled = count === 0;
   $('heightValue').textContent = `${state.height.toFixed(1).replace('.', ',')} m`;
   $('thicknessRange').value = String(Math.round(state.thickness * 100));
   $('thicknessValue').textContent = `${Math.round(state.thickness * 100)} cm`;
@@ -1093,8 +1184,11 @@ function refreshControls() {
 
 function setTool(tool) {
   if (state.tool === 'line' && tool !== 'line') cancelLine();
+  state.rectangleStart = null; state.rectanglePointerId = null; state.draft = null;
   state.tool = tool;
-  for (const [id, name] of [['lineTool', 'line'], ['drawTool', 'draw'], ['doorTool', 'door'],
+  $('measureBox').hidden = tool !== 'line';
+  for (const [id, name] of [['lineTool', 'line'], ['drawTool', 'draw'],
+    ['rectangleArchTool', 'rectangle'], ['doorTool', 'door'],
     ['windowTool', 'window'], ['eraseTool', 'erase']]) {
     const active = name === tool;
     $(id).classList.toggle('active', active);
@@ -1104,17 +1198,22 @@ function setTool(tool) {
   $('toolHint').textContent = tool === 'door' ? 'Toque numa parede para colocar porta' :
     tool === 'window' ? 'Toque numa parede para colocar janela' :
     tool === 'erase' ? 'Toque numa abertura ou parede para apagar' :
-    tool === 'draw' ? 'Desenho livre, sem medida exata' : 'Arraste uma parede para mover · toque para editar';
+    tool === 'draw' ? 'Desenho livre, sem medida exata' :
+    tool === 'rectangle' ? 'Arraste no alicerce para criar um retângulo fechado' :
+    'Arraste uma parede para mover · toque para editar';
   refreshMeasure();
+  requestRender();
 }
 
 $('lineTool').addEventListener('click', () => setTool('line'));
 $('drawTool').addEventListener('click', () => setTool('draw'));
+$('rectangleArchTool').addEventListener('click', () => setTool('rectangle'));
 $('doorTool').addEventListener('click', () => setTool('door'));
 $('windowTool').addEventListener('click', () => setTool('window'));
 $('eraseTool').addEventListener('click', () => setTool('erase'));
 $('undoButton').addEventListener('click', () => {
   if (!state.history.length) return;
+  if (state.modelTool === 'push') stopPush();
   cancelLine();
   state.future.push(snapshot());
   Object.assign(state, state.history.pop());
@@ -1122,24 +1221,52 @@ $('undoButton').addEventListener('click', () => {
 });
 $('redoButton').addEventListener('click', () => {
   if (!state.future.length) return;
+  if (state.modelTool === 'push') stopPush();
   cancelLine();
   state.history.push(snapshot());
   Object.assign(state, state.future.pop());
   saveProject(); refreshControls(); requestRender();
 });
 $('clearButton').addEventListener('click', () => {
+  if (state.modelTool === 'push') stopPush();
   cancelLine();
   if (!state.strokes.length) return;
   commit([]);
+  state.wallsRaised = false;
+  saveProject(); refreshControls(); setView('foundation');
   notify('Quadro limpo. Use Desfazer para recuperar os traços.');
 });
 $('heightRange').addEventListener('input', (event) => {
-  state.height = safeNumber(event.target.value, 2.7, 1.8, 4);
+  state.height = safeNumber(event.target.value, 2.7, .2, 10);
   scheduleSave(); refreshControls(); requestRender();
 });
 $('thicknessRange').addEventListener('input', (event) => {
   state.thickness = safeNumber(Number(event.target.value) / 100, .15, .1, .3);
   scheduleSave(); refreshControls(); requestRender();
+});
+$('offsetTool').addEventListener('click', () => {
+  $('offsetBox').hidden = !$('offsetBox').hidden;
+  if (!$('offsetBox').hidden) {
+    $('offsetInput').value = `${(state.thickness).toFixed(2).replace('.', ',')} m`;
+    $('offsetInput').focus(); $('offsetInput').select();
+  }
+});
+function applyOffset() {
+  const match = /^\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?\s*$/i.exec($('offsetInput').value);
+  const unit = match?.[2]?.toLowerCase() ?? 'm';
+  const value = match ? Number(match[1].replace(',', '.')) *
+    (unit === 'mm' ? .001 : unit === 'cm' ? .01 : 1) : NaN;
+  if (!Number.isFinite(value) || value < .1 || value > .3) {
+    notify('Digite uma espessura entre 10 e 30 cm. Ex.: 20 cm.'); return;
+  }
+  recordHistory();
+  state.thickness = value; $('offsetBox').hidden = true;
+  saveProject(); refreshControls(); requestRender();
+  $('toolHint').textContent = `Equidistância aplicada: ${Math.round(value * 100)} cm de espessura.`;
+}
+$('applyOffset').addEventListener('click', applyOffset);
+$('offsetInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') { event.preventDefault(); applyOffset(); }
 });
 $('floorToggle').addEventListener('change', (event) => {
   state.floorEnabled = event.target.checked;
@@ -1151,11 +1278,83 @@ $('scaleRange').addEventListener('input', (event) => {
   scheduleSave(); refreshControls(); requestRender();
 });
 
+function stopPush() {
+  state.modelTool = 'orbit'; state.pushDraftHeight = null; state.pushDrag = null;
+  state.pushTyping = false; modelCanvas.dataset.tool = 'orbit';
+  $('pushWallsTool').setAttribute('aria-pressed', 'false');
+  $('pushHeightLabel').hidden = true; $('applyPushHeight').hidden = true;
+  refreshControls(); requestRender();
+}
+function applyPushHeight() {
+  if (!segments().length) return;
+  const height = parseLength($('pushHeightInput').value);
+  if (height == null || height < .2 || height > 10) {
+    notify('Digite uma altura entre 20 cm e 10 m. Ex.: 2,70 m.'); return;
+  }
+  recordHistory();
+  state.height = height; state.wallsRaised = true;
+  stopPush(); saveProject(); refreshControls();
+  $('toolHint').textContent = `Paredes elevadas a ${height.toFixed(2).replace('.', ',')} m.`;
+}
+$('pushWallsTool').addEventListener('click', () => {
+  if (!segments().length) return;
+  if (state.modelTool === 'push') { stopPush(); return; }
+  state.modelTool = 'push'; state.pushDraftHeight = state.height;
+  state.pushTyping = false; modelCanvas.dataset.tool = 'push';
+  $('pushWallsTool').setAttribute('aria-pressed', 'true');
+  $('pushHeightLabel').hidden = false; $('applyPushHeight').hidden = false;
+  $('exportButton').disabled = true;
+  $('pushHeightInput').value = `${state.height.toFixed(2).replace('.', ',')} m`;
+  setView('perspective'); modelCanvas.focus({ preventScroll: true });
+  $('toolHint').textContent = 'Arraste o modelo para cima ou digite a altura e pressione Enter.';
+});
+$('applyPushHeight').addEventListener('click', applyPushHeight);
+$('pushHeightInput').addEventListener('input', () => {
+  state.pushTyping = true; requestRender();
+});
+$('pushHeightInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') { event.preventDefault(); applyPushHeight(); }
+  if (event.key === 'Escape') { event.preventDefault(); stopPush(); }
+});
+window.addEventListener('keydown', (event) => {
+  if ($('architectureMode').hidden || state.modelTool !== 'push' ||
+      event.ctrlKey || event.altKey || event.metaKey || event.isComposing ||
+      event.target !== modelCanvas) return;
+  if (event.key === 'Escape') { event.preventDefault(); stopPush(); return; }
+  if (event.key === 'Enter') { event.preventDefault(); applyPushHeight(); return; }
+  const input = $('pushHeightInput');
+  if (/^[0-9,.mc]$/i.test(event.key)) {
+    if (!state.pushTyping) { input.value = ''; state.pushTyping = true; }
+    input.value += event.key.toLowerCase();
+  } else if (event.key === 'Backspace') {
+    if (!state.pushTyping) { input.value = ''; state.pushTyping = true; }
+    else input.value = input.value.slice(0, -1);
+  } else return;
+  event.preventDefault(); requestRender();
+});
+
 modelCanvas.addEventListener('pointerdown', (event) => {
+  if (state.modelTool === 'push') {
+    modelCanvas.focus({ preventScroll: true });
+    modelCanvas.setPointerCapture(event.pointerId);
+    state.pushDrag = { pointerId: event.pointerId, y: event.clientY,
+      base: effectiveWallHeight(), moved: false };
+    return;
+  }
   modelCanvas.setPointerCapture(event.pointerId);
   state.draggingModel = [event.clientX, event.clientY];
 });
 modelCanvas.addEventListener('pointermove', (event) => {
+  if (state.pushDrag?.pointerId === event.pointerId) {
+    const distance = state.pushDrag.y - event.clientY;
+    if (Math.abs(distance) >= 2) state.pushDrag.moved = true;
+    if (!state.pushTyping) {
+      state.pushDraftHeight = Math.max(.2, Math.min(10, state.pushDrag.base + distance * .015));
+      $('pushHeightInput').value = `${state.pushDraftHeight.toFixed(2).replace('.', ',')} m`;
+      requestRender();
+    }
+    return;
+  }
   if (!state.draggingModel) return;
   state.yaw += (event.clientX - state.draggingModel[0]) * .008;
   state.pitch = Math.max(.03, Math.min(1.54, state.pitch + (event.clientY - state.draggingModel[1]) * .006));
@@ -1167,20 +1366,28 @@ modelCanvas.addEventListener('pointermove', (event) => {
   }
   requestRender();
 });
-modelCanvas.addEventListener('pointerup', () => { state.draggingModel = null; });
-modelCanvas.addEventListener('pointercancel', () => { state.draggingModel = null; });
+modelCanvas.addEventListener('pointerup', (event) => {
+  if (state.pushDrag?.pointerId === event.pointerId) {
+    const moved = state.pushDrag.moved; state.pushDrag = null;
+    if (moved) applyPushHeight(); return;
+  }
+  state.draggingModel = null;
+});
+modelCanvas.addEventListener('pointercancel', () => {
+  state.draggingModel = null; state.pushDrag = null;
+});
 modelCanvas.addEventListener('wheel', (event) => {
   event.preventDefault();
   state.zoom = Math.max(.55, Math.min(2.8, state.zoom * (event.deltaY > 0 ? .92 : 1.08)));
   requestRender();
 }, { passive: false });
 $('resetView').addEventListener('click', () => {
-  setView('perspective');
+  setView('foundation');
 });
 
 function setView(view) {
   const preset = {
-    perspective: { yaw: -.73, pitch: .62, label: 'PERSPECTIVA 3D' },
+    perspective: { yaw: -.73, pitch: .92, label: 'PERSPECTIVA 3D' },
     foundation: { yaw: 0, pitch: 1.54, label: 'ALICERCE · VISTA SUPERIOR' },
     front: { yaw: 0, pitch: .03, label: 'VISTA FRONTAL' },
   }[view];
@@ -1200,6 +1407,7 @@ $('viewFoundation').addEventListener('click', () => setView('foundation'));
 $('viewFront').addEventListener('click', () => setView('front'));
 
 $('exampleButton').addEventListener('click', () => {
+  if (state.modelTool === 'push') stopPush();
   cancelLine();
   const example = [
     [[190, 145], [555, 145]], [[555, 145], [555, 415]],
@@ -1207,7 +1415,8 @@ $('exampleButton').addEventListener('click', () => {
     [[370, 145], [370, 300]], [[370, 300], [555, 300]],
   ];
   commit(example);
-  notify('Exemplo carregado. Agora experimente girar o modelo.');
+  state.wallsRaised = false; saveProject(); refreshControls(); setView('foundation');
+  notify('Alicerce de exemplo carregado. Use Empurrar/Puxar para subir as paredes.');
 });
 
 $('openButton').addEventListener('click', () => $('projectFile').click());
@@ -1218,6 +1427,7 @@ $('projectFile').addEventListener('change', async (event) => {
   if (file.size > 6_000_000) { notify('O arquivo é grande demais para um projeto.'); return; }
   try {
     const project = parseProject(await file.text());
+    if (state.modelTool === 'push') stopPush();
     cancelLine();
     state.height = project.height;
     state.thickness = project.thickness;
@@ -1225,6 +1435,8 @@ $('projectFile').addEventListener('change', async (event) => {
     state.pixelsPerMeter = project.pixelsPerMeter;
     state.stlMesh = project.stlMesh;
     commit(project.strokes, project.openings);
+    state.wallsRaised = project.wallsRaised;
+    stopPush(); saveProject(); refreshControls(); setView('foundation');
     notify('Projeto aberto.');
   } catch { notify('Não foi possível abrir esse projeto JSON.'); }
 });
@@ -1361,7 +1573,7 @@ $('exportButton').addEventListener('click', () => {
 
 readSavedProject();
 refreshControls();
-requestRender();
+setView('foundation');
 new ResizeObserver(requestRender).observe(sketchCanvas);
 new ResizeObserver(requestRender).observe(modelCanvas);
 window.addEventListener('pagehide', saveProject);

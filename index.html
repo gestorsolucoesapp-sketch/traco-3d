@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f6f4ef" />
+    <meta name="theme-color" content="#e3e6e7" />
     <title>Traço — do rascunho ao espaço</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -52,6 +52,8 @@
               <button id="drawTool" class="tool" type="button" aria-pressed="false" title="Desenhar livremente">
                 <span class="tool-icon">✎</span> Livre
               </button>
+              <button id="rectangleArchTool" class="tool" type="button" aria-pressed="false" title="Arrastar um retângulo para formar o alicerce">▭ Retângulo</button>
+              <button id="offsetTool" class="tool" type="button" title="Definir espessura por equidistância">⇔ Equidistância</button>
               <button id="doorTool" class="tool" type="button" aria-pressed="false" title="Colocar porta em uma parede">Porta</button>
               <button id="windowTool" class="tool" type="button" aria-pressed="false" title="Colocar janela em uma parede">Janela</button>
               <button id="eraseTool" class="tool" type="button" aria-pressed="false" title="Apagar um traço">
@@ -62,10 +64,11 @@
               <button id="redoButton" class="icon-button" type="button" title="Refazer" aria-label="Refazer" disabled>↷</button>
               <button id="clearButton" class="icon-button" type="button" title="Limpar desenho" aria-label="Limpar desenho">×</button>
             </div>
+            <div id="offsetBox" class="architecture-measure-box" hidden><label for="offsetInput">Espessura do alicerce</label><input id="offsetInput" type="text" inputmode="decimal" value="0,15 m" aria-label="Espessura do alicerce em metros" /><button id="applyOffset" type="button">✓ OK</button><span>10 a 30 cm</span></div>
             <div class="canvas-wrap sketch-wrap">
               <canvas id="sketchCanvas" tabindex="0" aria-label="Quadro para desenhar a planta à mão"></canvas>
-              <div id="sketchHint" class="canvas-hint"><span class="hint-symbol">✳</span><strong>Comece com uma linha.</strong><span>Clique no início, aponte a direção, digite a medida e pressione Enter.</span></div>
-              <div class="measure-box" aria-label="Medida da linha">
+              <div id="sketchHint" class="canvas-hint"><span class="hint-symbol">✳</span><strong>Desenhe o alicerce.</strong><span>Use Linha com medida ou arraste um Retângulo. Depois aplique Equidistância.</span></div>
+              <div id="measureBox" class="measure-box" aria-label="Medida da linha">
                 <span id="liveMeasure">Toque para iniciar</span>
                 <div class="measure-entry"><input id="measureInput" type="text" inputmode="decimal" placeholder="Ex.: 2,50 m" aria-label="Comprimento exato da linha" disabled /><button id="applyMeasure" type="button" aria-label="Aplicar medida" disabled>↵</button></div>
               </div>
@@ -83,16 +86,17 @@
               <span class="panel-index">02 / 02</span>
             </div>
             <div class="canvas-wrap model-wrap">
-              <canvas id="modelCanvas" aria-label="Modelo tridimensional giratório das paredes desenhadas"></canvas>
-              <div id="modelHint" class="model-hint"><span class="model-hint-icon">◇</span><span>Seu espaço aparece aqui<br />enquanto você desenha.</span></div>
-              <div id="viewBadge" class="view-badge">PERSPECTIVA 3D</div>
+              <canvas id="modelCanvas" tabindex="0" aria-label="Modelo tridimensional das paredes desenhadas"></canvas>
+              <div id="modelHint" class="model-hint"><span class="model-hint-icon">◇</span><span>O alicerce aparece aqui<br />enquanto você desenha.</span></div>
+              <div id="viewBadge" class="view-badge">ALICERCE · VISTA SUPERIOR</div>
               <div class="orbit-tip">↻ Arraste para girar · Role para ampliar</div>
             </div>
             <div class="view-switcher" role="group" aria-label="Vista do modelo">
-              <button id="viewPerspective" class="view-option active" type="button" aria-pressed="true">Perspectiva</button>
-              <button id="viewFoundation" class="view-option" type="button" aria-pressed="false">Alicerce</button>
+              <button id="viewPerspective" class="view-option" type="button" aria-pressed="false">Perspectiva</button>
+              <button id="viewFoundation" class="view-option active" type="button" aria-pressed="true">Alicerce</button>
               <button id="viewFront" class="view-option" type="button" aria-pressed="false">Frontal</button>
             </div>
+            <div class="push-controls"><button id="pushWallsTool" class="secondary-button" type="button" aria-pressed="false">↑ Empurrar / puxar paredes</button><label id="pushHeightLabel" hidden>Altura <input id="pushHeightInput" type="text" inputmode="decimal" value="2,7 m" aria-label="Altura das paredes em metros" /></label><button id="applyPushHeight" type="button" hidden>✓ OK</button></div>
             <div class="panel-foot">
               <span id="modelStatus">Aguardando desenho</span>
               <button id="resetView" class="text-button" type="button">Redefinir vista ↗</button>
@@ -102,8 +106,8 @@
 
         <section class="control-bar" aria-label="Ajustes e ações do projeto">
           <div class="control-group">
-            <label for="heightRange"><span>ALTURA DAS PAREDES</span><strong id="heightValue">2,7 m</strong></label>
-            <input id="heightRange" type="range" min="1.8" max="4" step="0.1" value="2.7" />
+            <label for="heightRange"><span>ALTURA PARA EMPURRAR</span><strong id="heightValue">2,7 m</strong></label>
+            <input id="heightRange" type="range" min="0.2" max="10" step="0.1" value="2.7" />
           </div>
           <div class="control-group">
             <label for="scaleRange"><span>ESCALA ANTES DE DESENHAR</span><strong id="scaleValue">80 px / m</strong></label>
@@ -130,7 +134,7 @@
           <button id="removeStl" type="button">Remover STL</button>
         </section>
 
-        <div class="bottom-note"><span>✳</span> Portas e janelas recortam a parede no 3D. O piso aparece quando existe um contorno fechado. Confira medidas e normas com um profissional antes de construir.</div>
+        <div class="bottom-note"><span>✳</span> Desenhe o alicerce, defina a espessura com Equidistância e eleve as paredes com Empurrar/Puxar. Confira medidas e normas antes de construir.</div>
         </div>
 
         <div id="partsMode" role="tabpanel" aria-labelledby="partsTab" hidden>
