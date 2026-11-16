@@ -185,8 +185,8 @@ function snapToExisting(point, toleranceCss = 16) {
   let best = null;
   let distance = toleranceCss;
   const bounds = sketchCanvas.getBoundingClientRect();
-  const scaleX = bounds.width / DESIGN_WIDTH;
-  const scaleY = bounds.height / DESIGN_HEIGHT;
+  const scaleX = bounds.width / DESIGN_WIDTH * vk();
+  const scaleY = bounds.height / DESIGN_HEIGHT * vk();
   for (const stroke of state.strokes) {
     for (const candidate of [stroke[0], stroke.at(-1)]) {
       const current = Math.hypot((point[0] - candidate[0]) * scaleX,
@@ -238,7 +238,7 @@ function snapPoint(point, origin = null, bypass = false, pointerType = 'mouse') 
 // Inferência de ponto estilo SketchUp: ponta (verde) > ponto médio (ciano) > na aresta (vermelho).
 function inferPoint(point, origin, toleranceCss) {
   const bounds = sketchCanvas.getBoundingClientRect();
-  const sx = bounds.width / DESIGN_WIDTH || 1, sy = bounds.height / DESIGN_HEIGHT || 1;
+  const sx = (bounds.width / DESIGN_WIDTH || 1) * vk(), sy = (bounds.height / DESIGN_HEIGHT || 1) * vk();
   const dist = (a) => Math.hypot((point[0] - a[0]) * sx, (point[1] - a[1]) * sy);
   const isOrigin = (a) => origin && Math.abs(a[0] - origin[0]) < .5 && Math.abs(a[1] - origin[1]) < .5;
   let best = null, bestD = toleranceCss;
@@ -273,8 +273,8 @@ function inferPoint(point, origin, toleranceCss) {
 // e devolve as guias tracejadas que ligam o ponto de referência à ponta.
 function inferAlign(point, origin, toleranceCss, lockedAxis) {
   const bounds = sketchCanvas.getBoundingClientRect();
-  const scaleX = bounds.width / DESIGN_WIDTH || 1;
-  const scaleY = bounds.height / DESIGN_HEIGHT || 1;
+  const scaleX = (bounds.width / DESIGN_WIDTH || 1) * vk();
+  const scaleY = (bounds.height / DESIGN_HEIGHT || 1) * vk();
   let bestX = null, dX = toleranceCss, bestY = null, dY = toleranceCss;
   const seen = new Set();
   for (const stroke of state.strokes) {
@@ -532,7 +532,7 @@ function floorOutline() {
 function nearestWall(point, toleranceCss = 18) {
   let best = null;
   const bounds = sketchCanvas.getBoundingClientRect();
-  const xScale = bounds.width / DESIGN_WIDTH, yScale = bounds.height / DESIGN_HEIGHT;
+  const xScale = bounds.width / DESIGN_WIDTH * vk(), yScale = bounds.height / DESIGN_HEIGHT * vk();
   for (const [start, end] of segments()) {
     const dx = end[0] - start[0], dy = end[1] - start[1];
     const squared = dx * dx + dy * dy;
@@ -744,11 +744,28 @@ function commit(next, openings = state.openings) {
   requestRender();
 }
 
+// Zoom/arrasto da área de desenho: o quadro mostra a janela [ox, ox + W/k] × [oy, oy + H/k].
+const sketchView = { k: 1, ox: 0, oy: 0 };
+function vk() { return sketchView.k; }
+function clampView() {
+  sketchView.k = Math.max(1, Math.min(8, sketchView.k));
+  sketchView.ox = Math.max(0, Math.min(DESIGN_WIDTH - DESIGN_WIDTH / sketchView.k, sketchView.ox));
+  sketchView.oy = Math.max(0, Math.min(DESIGN_HEIGHT - DESIGN_HEIGHT / sketchView.k, sketchView.oy));
+}
+function zoomSketch(factor, at = [DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2]) {
+  const k0 = sketchView.k, k1 = Math.max(1, Math.min(8, k0 * factor));
+  sketchView.ox = at[0] - (at[0] - sketchView.ox) * k0 / k1;
+  sketchView.oy = at[1] - (at[1] - sketchView.oy) * k0 / k1;
+  sketchView.k = k1; clampView();
+  const z = $('archZoomLevel'); if (z) z.textContent = `${Math.round(k1 * 100)}%`;
+  requestRender();
+}
 function sketchPoint(event) {
   const bounds = sketchCanvas.getBoundingClientRect();
+  const { k, ox, oy } = sketchView;
   return [
-    Math.max(0, Math.min(DESIGN_WIDTH, (event.clientX - bounds.left) * DESIGN_WIDTH / bounds.width)),
-    Math.max(0, Math.min(DESIGN_HEIGHT, (event.clientY - bounds.top) * DESIGN_HEIGHT / bounds.height)),
+    Math.max(0, Math.min(DESIGN_WIDTH, ox + (event.clientX - bounds.left) * DESIGN_WIDTH / bounds.width / k)),
+    Math.max(0, Math.min(DESIGN_HEIGHT, oy + (event.clientY - bounds.top) * DESIGN_HEIGHT / bounds.height / k)),
   ];
 }
 
@@ -1013,10 +1030,12 @@ function resizeCanvas(canvas) {
 function drawSketch() {
   const { ratio } = resizeCanvas(sketchCanvas);
   const context = sketchContext;
-  context.setTransform(sketchCanvas.width / DESIGN_WIDTH, 0, 0, sketchCanvas.height / DESIGN_HEIGHT, 0, 0);
-  context.clearRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, sketchCanvas.width, sketchCanvas.height);
+  { const sx = sketchCanvas.width / DESIGN_WIDTH * sketchView.k, sy = sketchCanvas.height / DESIGN_HEIGHT * sketchView.k;
+    context.setTransform(sx, 0, 0, sy, -sketchView.ox * sx, -sketchView.oy * sy); }
   const gridStep = state.pixelsPerMeter / 2;
-  context.lineWidth = 1;
+  context.lineWidth = 1 / vk();
   for (let x = DESIGN_WIDTH / 2 % gridStep; x <= DESIGN_WIDTH; x += gridStep) {
     context.beginPath(); context.moveTo(x, 0); context.lineTo(x, DESIGN_HEIGHT);
     context.strokeStyle = Math.abs((x - DESIGN_WIDTH / 2) / gridStep % 4) < .001 ? '#d1d8cf' : '#e9eae4';
@@ -1059,12 +1078,12 @@ function drawSketch() {
     context.strokeStyle = '#faf9f6'; context.lineWidth = Math.max(10, state.thickness * state.pixelsPerMeter + 5); context.stroke();
     context.beginPath(); context.moveTo(...a); context.lineTo(...b);
     context.strokeStyle = opening.kind === 'window' ? '#5b9caa' : '#6c947d';
-    context.lineWidth = opening.kind === 'window' ? 5 : 2; context.stroke();
+    context.lineWidth = (opening.kind === 'window' ? 5 : 2) / vk(); context.stroke();
     const center = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     context.fillStyle = opening.kind === 'window' ? '#286f83' : '#315f47';
-    context.font = '700 11px DM Sans, Arial, sans-serif';
+    context.font = `700 ${11 / vk()}px DM Sans, Arial, sans-serif`;
     context.textAlign = 'center'; context.textBaseline = 'middle';
-    context.fillText(opening.kind === 'window' ? 'J' : 'P', center[0], center[1] - 13);
+    context.fillText(opening.kind === 'window' ? 'J' : 'P', center[0], center[1] - 13 / vk());
   }
   if (state.draft) {
     drawStroke(context, state.draft, '#db9876', 6);
@@ -1085,36 +1104,36 @@ function drawSketch() {
     }
     if (state.lineSnapKind === 'x' || state.lineSnapKind === 'y') {
       context.beginPath();
-      context.setLineDash([5, 5]);
+      context.setLineDash([5 / vk(), 5 / vk()]);
       if (state.lineSnapKind === 'x') { context.moveTo(0, state.lineStart[1]); context.lineTo(DESIGN_WIDTH, state.lineStart[1]); }
       else { context.moveTo(state.lineStart[0], 0); context.lineTo(state.lineStart[0], DESIGN_HEIGHT); }
       context.strokeStyle = state.lineSnapKind === 'x' ? 'rgba(208,52,44,.75)' : 'rgba(46,158,79,.75)';
-      context.lineWidth = state.lineLock ? 2.5 : 1.5; context.stroke();
+      context.lineWidth = (state.lineLock ? 2.5 : 1.5) / vk(); context.stroke();
       context.setLineDash([]);
     }
     if (measured == null && (state.lineGuides || []).length) {
       context.save();
-      context.setLineDash([2, 4]);
-      context.lineWidth = 1.5;
+      context.setLineDash([2 / vk(), 4 / vk()]);
+      context.lineWidth = 1.5 / vk();
       for (const g of state.lineGuides) {
         context.beginPath(); context.moveTo(...g.from);
         context.lineTo(g.axis === 'h' ? end[0] : g.from[0], g.axis === 'h' ? g.from[1] : end[1]);
         context.strokeStyle = g.axis === 'h' ? '#d0342c' : '#2e9e4f'; context.stroke();
         context.setLineDash([]);
-        context.beginPath(); context.arc(g.from[0], g.from[1], 4, 0, Math.PI * 2);
+        context.beginPath(); context.arc(g.from[0], g.from[1], 4 / vk(), 0, Math.PI * 2);
         context.fillStyle = g.axis === 'h' ? '#d0342c' : '#2e9e4f'; context.fill();
-        context.setLineDash([2, 4]);
+        context.setLineDash([2 / vk(), 4 / vk()]);
       }
       context.restore();
     }
     if (pointDistance(state.lineStart, end) >= 2) {
       context.beginPath(); context.moveTo(...state.lineStart); context.lineTo(...end);
-      context.strokeStyle = '#426f61'; context.lineWidth = 3; context.stroke();
+      context.strokeStyle = '#426f61'; context.lineWidth = 3 / vk(); context.stroke();
       drawDimension(context, state.lineStart, end, true);
     }
     for (const point of [state.lineStart, end]) {
-      context.beginPath(); context.arc(point[0], point[1], 5, 0, Math.PI * 2);
-      context.fillStyle = '#fff'; context.fill(); context.strokeStyle = '#426f61'; context.lineWidth = 2; context.stroke();
+      context.beginPath(); context.arc(point[0], point[1], 5 / vk(), 0, Math.PI * 2);
+      context.fillStyle = '#fff'; context.fill(); context.strokeStyle = '#426f61'; context.lineWidth = 2 / vk(); context.stroke();
     }
     if (measured == null) drawInference(context, end, state.lineSnapKind, state.lineGuides, Boolean(state.lineLock));
   } else if (state.tool === 'line' && state.lineHover) {
@@ -1134,17 +1153,17 @@ function drawInference(context, at, kind, guides, locked) {
   if (!text) return;
   context.save();
   if (kind === 'point') {
-    context.beginPath(); context.arc(at[0], at[1], 7, 0, Math.PI * 2);
-    context.fillStyle = '#2e9e4f'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2; context.stroke();
+    context.beginPath(); context.arc(at[0], at[1], 7 / vk(), 0, Math.PI * 2);
+    context.fillStyle = '#2e9e4f'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2 / vk(); context.stroke();
   } else if (kind === 'mid') {
-    context.beginPath(); context.arc(at[0], at[1], 7, 0, Math.PI * 2);
-    context.fillStyle = '#17b3c9'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2; context.stroke();
+    context.beginPath(); context.arc(at[0], at[1], 7 / vk(), 0, Math.PI * 2);
+    context.fillStyle = '#17b3c9'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2 / vk(); context.stroke();
   } else if (kind === 'edge') {
-    context.fillStyle = '#d0342c'; context.fillRect(at[0] - 5, at[1] - 5, 10, 10);
-    context.strokeStyle = '#fff'; context.lineWidth = 1.5; context.strokeRect(at[0] - 5, at[1] - 5, 10, 10);
+    { const e = 5 / vk(); context.fillStyle = '#d0342c'; context.fillRect(at[0] - e, at[1] - e, 2 * e, 2 * e);
+    context.strokeStyle = '#fff'; context.lineWidth = 1.5 / vk(); context.strokeRect(at[0] - e, at[1] - e, 2 * e, 2 * e); }
   }
   if (!state.lineStart && guides && guides.length) {
-    context.setLineDash([2, 4]); context.lineWidth = 1.5;
+    context.setLineDash([2 / vk(), 4 / vk()]); context.lineWidth = 1.5 / vk();
     for (const g of guides) {
       context.beginPath(); context.moveTo(...g.from);
       context.lineTo(g.axis === 'h' ? at[0] : g.from[0], g.axis === 'h' ? g.from[1] : at[1]);
@@ -1152,29 +1171,29 @@ function drawInference(context, at, kind, guides, locked) {
     }
     context.setLineDash([]);
   }
-  context.font = '600 11px DM Sans, Arial, sans-serif';
-  const w = context.measureText(text).width + 12;
-  let x = at[0] + 14, y = at[1] + 14;
-  if (x + w > DESIGN_WIDTH) x = at[0] - 14 - w;
-  if (y + 20 > DESIGN_HEIGHT) y = at[1] - 34;
-  context.fillStyle = 'rgba(255,255,240,.95)'; context.strokeStyle = 'rgba(0,0,0,.35)'; context.lineWidth = 1;
-  context.beginPath(); context.rect(x, y, w, 20); context.fill(); context.stroke();
+  context.font = `600 ${11 / vk()}px DM Sans, Arial, sans-serif`;
+  const q = 1 / vk(), w = context.measureText(text).width + 12 * q;
+  let x = at[0] + 14 * q, y = at[1] + 14 * q;
+  if (x + w > sketchView.ox + DESIGN_WIDTH / vk()) x = at[0] - 14 * q - w;
+  if (y + 20 * q > sketchView.oy + DESIGN_HEIGHT / vk()) y = at[1] - 34 * q;
+  context.fillStyle = 'rgba(255,255,240,.95)'; context.strokeStyle = 'rgba(0,0,0,.35)'; context.lineWidth = 1 / vk();
+  context.beginPath(); context.rect(x, y, w, 20 * q); context.fill(); context.stroke();
   context.fillStyle = '#222'; context.textAlign = 'left'; context.textBaseline = 'middle';
-  context.fillText(text, x + 6, y + 10);
+  context.fillText(text, x + 6 * q, y + 10 * q);
   context.restore();
 }
 
 function drawDimension(context, start, end, preview = false) {
   const text = formatMeters(pointDistance(start, end));
   const midX = (start[0] + end[0]) / 2;
-  const midY = (start[1] + end[1]) / 2 - 12;
-  context.font = '700 13px DM Sans, Arial, sans-serif';
-  const width = context.measureText(text).width + 14;
+  const q = 1 / vk(), midY = (start[1] + end[1]) / 2 - 12 * q;
+  context.font = `700 ${13 / vk()}px DM Sans, Arial, sans-serif`;
+  const width = context.measureText(text).width + 14 * q;
   context.fillStyle = preview ? '#31594b' : '#fffefa';
-  context.beginPath(); context.roundRect(midX - width / 2, midY - 10, width, 20, 5); context.fill();
+  context.beginPath(); context.roundRect(midX - width / 2, midY - 10 * q, width, 20 * q, 5 * q); context.fill();
   context.fillStyle = preview ? '#fff' : '#6d5548';
   context.textAlign = 'center'; context.textBaseline = 'middle';
-  context.fillText(text, midX, midY + 1);
+  context.fillText(text, midX, midY + q);
 }
 
 function drawWallPlanEdges(context, stroke) {
@@ -1191,7 +1210,7 @@ function drawWallPlanEdges(context, stroke) {
       context.lineTo(b[0] + nx * sign, b[1] + ny * sign);
     }
   }
-  context.strokeStyle = '#aa5f46'; context.lineWidth = 1.5; context.stroke();
+  context.strokeStyle = '#aa5f46'; context.lineWidth = 1.5 / vk(); context.stroke();
 }
 
 function drawStroke(context, stroke, color, width) {
@@ -1206,9 +1225,9 @@ function drawStroke(context, stroke, color, width) {
   context.stroke();
   context.fillStyle = '#fff';
   context.strokeStyle = color;
-  context.lineWidth = 2;
+  context.lineWidth = 2 / vk();
   for (const point of [stroke[0], stroke.at(-1)]) {
-    context.beginPath(); context.arc(point[0], point[1], 4, 0, Math.PI * 2); context.fill(); context.stroke();
+    context.beginPath(); context.arc(point[0], point[1], 4 / vk(), 0, Math.PI * 2); context.fill(); context.stroke();
   }
 }
 
@@ -1818,6 +1837,32 @@ $('exportButton').addEventListener('click', () => {
 readSavedProject();
 refreshControls();
 setView('foundation');
+sketchCanvas.addEventListener('wheel', (event) => {
+  event.preventDefault();
+  zoomSketch(Math.exp(-event.deltaY * (event.ctrlKey ? .01 : .0015)), sketchPoint(event));
+}, { passive: false });
+let archPan = null, archSpace = false;
+window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !$('architectureMode').hidden && document.activeElement === sketchCanvas) { archSpace = true; e.preventDefault(); } });
+window.addEventListener('keyup', (e) => { if (e.code === 'Space') archSpace = false; });
+sketchCanvas.addEventListener('pointerdown', (event) => {
+  if (!(event.button === 1 || event.button === 2 || archSpace)) return;
+  event.preventDefault(); event.stopImmediatePropagation();
+  archPan = { id: event.pointerId, x: event.clientX, y: event.clientY, ox: sketchView.ox, oy: sketchView.oy };
+  sketchCanvas.setPointerCapture(event.pointerId);
+}, { capture: true });
+sketchCanvas.addEventListener('pointermove', (event) => {
+  if (!archPan || archPan.id !== event.pointerId) return;
+  event.stopImmediatePropagation();
+  const b = sketchCanvas.getBoundingClientRect();
+  sketchView.ox = archPan.ox - (event.clientX - archPan.x) * DESIGN_WIDTH / b.width / sketchView.k;
+  sketchView.oy = archPan.oy - (event.clientY - archPan.y) * DESIGN_HEIGHT / b.height / sketchView.k;
+  clampView(); requestRender();
+}, { capture: true });
+for (const type of ['pointerup', 'pointercancel']) sketchCanvas.addEventListener(type, (event) => {
+  if (!archPan || archPan.id !== event.pointerId) return;
+  event.stopImmediatePropagation(); archPan = null;
+}, { capture: true });
+sketchCanvas.addEventListener('contextmenu', (event) => event.preventDefault());
 new ResizeObserver(requestRender).observe(sketchCanvas);
 new ResizeObserver(requestRender).observe(modelCanvas);
 window.addEventListener('pagehide', saveProject);

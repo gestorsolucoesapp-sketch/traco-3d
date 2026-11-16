@@ -45,6 +45,10 @@ Publicação: `.github/workflows/deploy-ler-desenho.yml` publica a função e gr
 
 Tipos: cilindro e bloco (com até 2 furos centrais, topo/base, liso ou roscado, cego ou passante), parafuso (sextavado, allen ou barra roscada) e porca, M3 a M24, com rosca helicoidal real e campo de folga para impressão 3D. Malhas fechadas; **Exportar STL** gera um arquivo por peça.
 
+## Zoom e tela cheia
+
+Nos quadros de desenho (Arquitetura e Peças): **roda do mouse / pinça do trackpad** aproxima no ponto do cursor; **arrastar com o botão do meio, o direito ou segurando Espaço** move a vista; botões **− / Ver tudo / +** no canto. **⛶ Tela cheia** (computador) abre o desenho na janela inteira com o **3D numa janelinha no canto**, atualizando ao vivo; **Esc** ou o botão saem. Textos, cotas e marcadores mantêm o tamanho na tela com qualquer zoom.
+
 ## Arquivos
 
 - **Importar STL** carrega um STL binário ou ASCII como referência visível na cena 3D. Escolha se as coordenadas do arquivo estão em mm, cm ou m; STL não registra essa unidade. A prévia é centralizada no plano e limitada a 4.000 triângulos para manter o navegador responsivo. Arquivos de até 20 MB e 400.000 faces são aceitos.

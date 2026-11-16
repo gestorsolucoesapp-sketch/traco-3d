@@ -154,10 +154,10 @@
     const left = 42, right = width - 24, top = 26, bottom = height - 35;
     return {
       extent,
-      screen: ([r, z]) => [left + r / extent.r * (right - left),
-        bottom - z / extent.z * (bottom - top)],
-      world: ([x, y]) => [Math.max(0, Math.min(extent.r, (x - left) / (right - left) * extent.r)),
-        Math.max(0, Math.min(extent.z, (bottom - y) / (bottom - top) * extent.z))],
+      screen: ([r, z]) => [left + (r - (extent.r0 || 0)) / extent.r * (right - left),
+        bottom - (z - (extent.z0 || 0)) / extent.z * (bottom - top)],
+      world: ([x, y]) => [Math.max(0, Math.min((extent.r0 || 0) + extent.r, (extent.r0 || 0) + (x - left) / (right - left) * extent.r)),
+        Math.max(0, Math.min((extent.z0 || 0) + extent.z, (extent.z0 || 0) + (bottom - y) / (bottom - top) * extent.z))],
       left, right, top, bottom,
     };
   }
@@ -198,6 +198,7 @@
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
     const t = sketchTransform(width, height);
+    ctx.save();
     ctx.font = '11px DM Sans, Arial, sans-serif';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 5; i++) {
@@ -207,9 +208,10 @@
       ctx.beginPath(); ctx.moveTo(x, t.top); ctx.lineTo(x, t.bottom); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(t.left, y); ctx.lineTo(t.right, y); ctx.stroke();
       ctx.fillStyle = '#87968a';
-      ctx.textAlign = 'center'; ctx.fillText(display(t.extent.r * i / 5), x, t.bottom + 17);
-      ctx.textAlign = 'right'; ctx.fillText(display(t.extent.z * i / 5), t.left - 6, y + 4);
+      ctx.textAlign = 'center'; ctx.fillText(display((t.extent.r0 || 0) + t.extent.r * i / 5), x, t.bottom + 17);
+      ctx.textAlign = 'right'; ctx.fillText(display((t.extent.z0 || 0) + t.extent.z * i / 5), t.left - 6, y + 4);
     }
+    ctx.beginPath(); ctx.rect(t.left - 8, t.top - 8, t.right - t.left + 16, t.bottom - t.top + 16); ctx.clip();
     ctx.fillStyle = '#7d9484';
     ctx.textAlign = 'left'; ctx.fillText(part.operation === 'extrude' && part.mode === 'custom' ?
       'PLANO' : 'EIXO', t.left + 5, t.top + 12);
@@ -332,6 +334,7 @@
     ctx.fillStyle = '#315d4b'; ctx.textAlign = 'right';
     ctx.fillText(generated ? 'projeção · mm' :
       `${part.mode === 'custom' && part.operation === 'extrude' ? 'x' : 'r'} ${display(part.selected[0])} · ${part.mode === 'custom' && part.operation === 'extrude' ? 'y' : 'z'} ${display(part.selected[1])} mm`, width - 10, 20);
+    ctx.restore();
   }
 
   function normal(a, b, c) {
@@ -1334,6 +1337,43 @@
     part.drawLine = false; part.freehand = false; part.shapeTool = null; part.pending = false;
     fitSketchView(); save(); refresh();
   };
+  // Zoom (roda/pinça do trackpad) no ponto do cursor e arrasto com botão do meio, direito ou espaço.
+  window.tracoZoomPeca = (fator, ev) => {
+    const rect = sketch.getBoundingClientRect();
+    const t = sketchTransform(rect.width, rect.height);
+    const at = ev ? t.world([ev.clientX - rect.left, ev.clientY - rect.top]) :
+      [(part.view.r0 || 0) + part.view.r / 2, (part.view.z0 || 0) + part.view.z / 2];
+    const v = part.view, f = 1 / fator;
+    const nr = Math.max(.5, Math.min(MAX_MM, v.r * f)), nz = nr * (v.z / v.r);
+    v.r0 = Math.max(0, at[0] - (at[0] - (v.r0 || 0)) * nr / v.r);
+    v.z0 = Math.max(0, at[1] - (at[1] - (v.z0 || 0)) * nz / v.z);
+    v.r = nr; v.z = nz; render();
+  };
+  sketch.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    window.tracoZoomPeca(Math.exp(-event.deltaY * (event.ctrlKey ? .01 : .0015)), event);
+  }, { passive: false });
+  let pan = null, espaco = false;
+  window.addEventListener('keydown', (e) => { if (e.code === 'Space' && document.activeElement === sketch) { espaco = true; e.preventDefault(); } });
+  window.addEventListener('keyup', (e) => { if (e.code === 'Space') espaco = false; });
+  sketch.addEventListener('pointerdown', (event) => {
+    if (!(event.button === 1 || event.button === 2 || espaco)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    pan = { id: event.pointerId, x: event.clientX, y: event.clientY, r0: part.view.r0 || 0, z0: part.view.z0 || 0 };
+    sketch.setPointerCapture(event.pointerId);
+  }, { capture: true });
+  sketch.addEventListener('pointermove', (event) => {
+    if (!pan || pan.id !== event.pointerId) return;
+    event.stopImmediatePropagation();
+    const rect = sketch.getBoundingClientRect(), t = sketchTransform(rect.width, rect.height);
+    part.view.r0 = Math.max(0, pan.r0 - (event.clientX - pan.x) / (t.right - t.left) * part.view.r);
+    part.view.z0 = Math.max(0, pan.z0 + (event.clientY - pan.y) / (t.bottom - t.top) * part.view.z);
+    render();
+  }, { capture: true });
+  for (const type of ['pointerup', 'pointercancel']) sketch.addEventListener(type, (event) => {
+    if (!pan || pan.id !== event.pointerId) return;
+    event.stopImmediatePropagation(); pan = null;
+  }, { capture: true });
   new ResizeObserver(render).observe(sketch);
   new ResizeObserver(render).observe(model);
   refresh();

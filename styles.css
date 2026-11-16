@@ -60,3 +60,31 @@
 .narrar-peca small, .narrar-folga small { opacity: .6; font-size: .8em; }
 .narrar-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; font-size: .9em; }
 .narrar-folga { margin-top: 8px; }
+
+/* Zoom e tela cheia */
+.zoom-bar { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 3; }
+.zoom-bar button { border: 1px solid #dbe2d8; background: #ffffffe6; color: #3d5246; border-radius: 8px; min-width: 32px; height: 32px; padding: 0 9px; font-size: 13px; font-weight: 800; }
+.zoom-bar button:hover { background: #fff; }
+.zoom-bar .zoom-full { background: #2e4b3f; color: #fff; border-color: #2e4b3f; }
+body.tela-cheia { overflow: hidden; }
+body.tela-cheia[data-tela-cheia=arq] #architectureMode .sketch-panel,
+body.tela-cheia[data-tela-cheia=peca] .parts-workspace > .panel:first-child {
+  position: fixed; inset: 0; z-index: 40; border-radius: 0; overflow: auto; display: flex; flex-direction: column; }
+body.tela-cheia[data-tela-cheia=arq] #architectureMode .sketch-wrap { flex: 1 1 auto; height: auto; min-height: 0; }
+body.tela-cheia[data-tela-cheia=peca] .parts-workspace > .panel:first-child .part-editor-layout { flex: 1 1 auto; min-height: 0; }
+body.tela-cheia[data-tela-cheia=peca] .parts-workspace > .panel:first-child .parts-canvas-wrap { height: 100%; min-height: 0; }
+body.tela-cheia[data-tela-cheia=arq] #architectureMode .model-panel,
+body.tela-cheia[data-tela-cheia=peca] .parts-workspace > .panel:last-child {
+  position: fixed; right: 18px; bottom: 18px; width: min(380px, 38vw); z-index: 41; border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(30, 40, 34, .28); }
+body.tela-cheia[data-tela-cheia=arq] #architectureMode .model-panel > :not(.model-wrap),
+body.tela-cheia[data-tela-cheia=peca] .parts-workspace > .panel:last-child > :not(.part-model-wrap) { display: none; }
+body.tela-cheia[data-tela-cheia=arq] #architectureMode .model-wrap,
+body.tela-cheia[data-tela-cheia=peca] .parts-workspace > .panel:last-child .part-model-wrap { height: 270px; min-height: 0; margin: 0; border-radius: 14px; }
+body.tela-cheia .orbit-tip { display: none; }
+@media (max-width: 760px) {
+  .zoom-bar .zoom-full { display: none; }
+  body.tela-cheia[data-tela-cheia] #architectureMode .model-panel,
+  body.tela-cheia[data-tela-cheia] .parts-workspace > .panel:last-child { width: 46vw; }
+  body.tela-cheia[data-tela-cheia] .model-wrap, body.tela-cheia[data-tela-cheia] .part-model-wrap { height: 170px !important; }
+}
