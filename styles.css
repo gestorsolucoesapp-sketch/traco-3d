@@ -23,3 +23,24 @@
 .architecture-measure-box,.push-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:8px 20px 12px;color:#526454;font-size:12px;font-weight:700}.architecture-measure-box[hidden],.push-controls [hidden]{display:none}.architecture-measure-box input,.push-controls input{width:90px;border:1px solid #dbe2d9;border-radius:7px;padding:9px;background:#fafbf8;color:#2e4538}.architecture-measure-box button,.push-controls #applyPushHeight{border:0;border-radius:7px;background:#2e4b3f;color:#fff;font-weight:800;padding:10px 13px;min-height:38px}.architecture-measure-box>span{color:#89958a;font-size:11px}.push-controls{padding:11px 20px 3px}.push-controls label{display:flex;align-items:center;gap:7px}.push-controls #pushWallsTool[aria-pressed=true]{background:#eaf3ec;border-color:#8db49b;color:#28543f}#modelCanvas[data-tool=push]{cursor:ns-resize}@media(max-width:760px){.architecture-measure-box,.push-controls{padding-left:12px;padding-right:12px}.architecture-measure-box input,.push-controls input{font-size:16px}}
 @media(max-width:760px){#architectureMode .tools-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:0 12px 10px}#architectureMode .tools-row .tool{min-width:0;min-height:38px;padding:5px 2px;font-size:10px;line-height:1.15;white-space:normal}#architectureMode .tools-row .icon-button{width:100%;height:38px}#architectureMode .tools-row .tool-divider{display:none}}
 @media(max-width:760px){#architectureMode .tools-row #undoButton,#architectureMode .tools-row #redoButton,#architectureMode .tools-row #clearButton{grid-column:auto;justify-self:stretch}}
+
+/* Foto do desenho → 3D */
+.foto-dialog { width: min(640px, 94vw); max-height: 88vh; overflow: auto; border: 0; border-radius: 18px;
+  padding: 20px 22px; box-shadow: 0 24px 60px rgba(0,0,0,.25); font: inherit; color: inherit; }
+.foto-dialog::backdrop { background: rgba(20,24,22,.45); }
+.foto-dialog h3 { margin: 0 0 6px; } .foto-dialog h4 { margin: 14px 0 6px; }
+.foto-sub { margin: 0 0 10px; opacity: .75; font-size: .92em; }
+.foto-previa { display: block; max-width: 100%; max-height: 46vh; margin: 8px auto; border-radius: 10px; }
+.foto-previa.mini { max-height: 22vh; }
+.foto-avisos { margin: 8px 0; padding: 8px 12px 8px 26px; background: #fff6df; border-radius: 10px; font-size: .9em; }
+.foto-tab { width: 100%; border-collapse: collapse; font-size: .92em; }
+.foto-tab th, .foto-tab td { padding: 5px 6px; border-bottom: 1px solid rgba(0,0,0,.08); text-align: left; }
+.foto-tab input { width: 7em; font-size: 16px; padding: 4px 6px; border: 1px solid #c9d3cf; border-radius: 7px; }
+.foto-tab select, .foto-peca select { font-size: 15px; padding: 3px 4px; border-radius: 7px; }
+.foto-tab tr.falta input, .foto-peca .falta input { border-color: #d0342c; background: #fff0ef; }
+.foto-lido { opacity: .7; font-style: italic; }
+.foto-peca { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+.foto-peca input { width: 6em; font-size: 16px; padding: 4px 6px; border: 1px solid #c9d3cf; border-radius: 7px; }
+.foto-fecho { color: #b3261e; font-weight: 600; min-height: 1.2em; margin: 10px 0 0; }
+.foto-acoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.foto-acoes button:disabled { opacity: .45; cursor: not-allowed; }

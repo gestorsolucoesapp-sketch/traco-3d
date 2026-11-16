@@ -1143,6 +1143,12 @@
     try { openProject(await file.text()); save(); }
     catch { $('profileStatus').textContent = 'Não foi possível abrir esse projeto de peça.'; }
   });
+  // Usado pela leitura de foto (foto.js): abre um perfil já em mm como peça personalizada.
+  window.tracoAbrirPeca = (dados) => {
+    openProject(JSON.stringify({ version: 1, kind: 'rotational-part', cup: { ...example }, ...dados }));
+    part.drawLine = false; part.freehand = false; part.shapeTool = null; part.pending = false;
+    fitSketchView(); save(); refresh();
+  };
   new ResizeObserver(render).observe(sketch);
   new ResizeObserver(render).observe(model);
   refresh();

@@ -32,6 +32,12 @@ Depois de desenhar, use **Equidistância** para informar a espessura entre 10 e 
 Use **Perspectiva**, **Alicerce** ou **Frontal** para mudar a câmera. Fora da ferramenta Empurrar/Puxar, arraste o painel 3D para girar e use a roda do mouse para ampliar. Ajuste a altura preparada para a elevação e a escala do plano. **Ver exemplo** carrega um alicerce de demonstração.
 Defina a escala antes de desenhar. Depois da primeira parede, ela fica travada para preservar as medidas já confirmadas.
 
+## Foto do desenho → 3D
+
+**📷 Foto do desenho** (nos dois modos) envia a foto para a função `ler-desenho` (Supabase + API Claude), que devolve os traços com as medidas **escritas no papel**. Uma folha de conferência mostra cada traço (direção, medida, o que estava escrito); medida que não estava escrita fica em vermelho e precisa ser digitada — nada é estimado. **Gerar 3D** cria as paredes (planta, em metros) ou o perfil da peça (mm, extrusão ou revolução). O app avisa quando as medidas não fecham o contorno.
+
+Publicação: `.github/workflows/deploy-ler-desenho.yml` publica a função e grava o endereço em `config.js`. Precisa dos segredos `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF` e `ANTHROPIC_API_KEY` no repositório.
+
 ## Arquivos
 
 - **Importar STL** carrega um STL binário ou ASCII como referência visível na cena 3D. Escolha se as coordenadas do arquivo estão em mm, cm ou m; STL não registra essa unidade. A prévia é centralizada no plano e limitada a 4.000 triângulos para manter o navegador responsivo. Arquivos de até 20 MB e 400.000 faces são aceitos.
