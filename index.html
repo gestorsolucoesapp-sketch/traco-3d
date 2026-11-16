@@ -135,9 +135,26 @@
 
         <div id="partsMode" role="tabpanel" aria-labelledby="partsTab" hidden>
           <div class="parts-intro">
-            <div><p class="panel-kicker">PROJETO DE PEÇAS</p><h2>Do esboço 2D para o 3D</h2><p>Extrusão mantém o contorno que você desenhou e acrescenta profundidade. Revolução gira um perfil em torno do eixo para peças redondas.</p></div>
+            <div><p class="panel-kicker">PROJETO DE PEÇAS</p><h2>Do esboço 2D para o 3D</h2><p>Abra Desenho 2D para traçar formas e Modelagem 3D para criar volumes, furos, roscas e molas em milímetros.</p></div>
             <button id="cupExample" class="secondary-button" type="button">Copo cônico de exemplo</button>
           </div>
+          <nav class="part-menus" aria-label="Ferramentas de peças">
+            <details id="sketchMenu"><summary>✏️ Desenho 2D</summary><div class="part-menu-content">
+              <button id="drawProfileTool" type="button" aria-pressed="false">Linha mm</button>
+              <button id="freehandProfileTool" type="button" aria-pressed="false">Mão livre</button>
+              <button id="rectangleTool" type="button" aria-pressed="false">Retângulo</button>
+              <button id="circleTool" type="button" aria-pressed="false">Círculo</button>
+              <button id="addProfilePoint" type="button">Ponto por mm</button>
+            </div></details>
+            <details id="modelMenu"><summary>🧊 Modelagem 3D</summary><div class="part-menu-content">
+              <button id="extrudeTool" type="button">Extrusão</button>
+              <button id="revolveTool" type="button">Revolução 360°</button>
+              <button id="pushPullTool" type="button">Empurrar / puxar</button>
+              <button id="holeTool" type="button">Furo passante</button>
+              <button id="threadTool" type="button">Criar rosca</button>
+              <button id="springTool" type="button">Criar mola</button>
+            </div></details>
+            <details id="cupSettingsMenu"><summary>⚙️ Medidas do copo</summary>
           <div class="parts-settings" aria-label="Medidas do copo cônico">
             <label>Diâmetro superior <span>mm</span><input id="cupTop" type="text" inputmode="decimal" value="90" aria-label="Diâmetro superior em milímetros" /></label>
             <label>Diâmetro inferior <span>mm</span><input id="cupBottom" type="text" inputmode="decimal" value="65" aria-label="Diâmetro inferior em milímetros" /></label>
@@ -145,27 +162,28 @@
             <label>Parede <span>mm</span><input id="cupWall" type="text" inputmode="decimal" value="2,5" aria-label="Espessura do copo em milímetros" /></label>
             <label>Fundo <span>mm</span><input id="cupBase" type="text" inputmode="decimal" value="4" aria-label="Espessura do fundo em milímetros" /></label>
           </div>
-          <div class="shape-method"><label>Como transformar o desenho<select id="partOperation" aria-label="Operação 3D da peça"><option value="extrude">Extrusão · mantém o contorno</option><option value="revolve">Revolução · gira 360°</option></select></label><div id="extrudeDepthLabel" class="depth-control"><label for="extrudeDepth">Profundidade</label><input id="extrudeDepth" type="text" inputmode="decimal" value="20" aria-label="Profundidade da extrusão em milímetros" /><span>mm</span><button id="confirmExtrudeDepth" type="button" hidden>✓ OK</button></div><span id="operationHint">Feche o contorno para criar um sólido.</span></div>
+            </details>
+          </nav>
+          <div id="shapeMethod" class="shape-method"><label>Como transformar o desenho<select id="partOperation" aria-label="Operação 3D da peça"><option value="extrude">Extrusão · mantém o contorno</option><option value="revolve">Revolução · gira 360°</option></select></label><div id="extrudeDepthLabel" class="depth-control"><label for="extrudeDepth">Profundidade</label><input id="extrudeDepth" type="text" inputmode="decimal" value="20" aria-label="Profundidade da extrusão em milímetros" /><span>mm</span><button id="confirmExtrudeDepth" type="button" hidden>✓ OK</button></div><span id="operationHint">Feche o contorno para criar um sólido.</span></div>
+          <div id="holeControls" class="operation-controls" hidden><label>Diâmetro do furo <input id="holeDiameter" type="text" inputmode="decimal" value="5" /> mm</label><button id="confirmHole" type="button">✓ Criar furo</button><button id="removeHole" type="button">Remover furo</button></div>
+          <div id="helixControls" class="operation-controls" hidden><label>Diâmetro <input id="helixDiameter" type="text" inputmode="decimal" value="20" /> mm</label><label>Passo <input id="helixPitch" type="text" inputmode="decimal" value="5" /> mm</label><label>Voltas <input id="helixTurns" type="text" inputmode="numeric" value="5" /></label><label id="helixThicknessLabel">Espessura <input id="helixThickness" type="text" inputmode="decimal" value="2" /> mm</label><button id="confirmHelix" type="button">✓ Criar peça</button></div>
           <div class="workspace parts-workspace">
             <div class="panel">
-              <div class="panel-head"><div><p class="panel-kicker" id="partSketchKicker">CONTORNO · 2D</p><h2>Perfil da peça</h2></div><span class="panel-index">01 / 02</span></div>
+              <div class="panel-head"><div><p class="panel-kicker" id="partSketchKicker">CONTORNO · 2D</p><h2 id="partSketchTitle">Perfil da peça</h2></div><span class="panel-index">01 / 02</span></div>
               <div class="part-editor-layout">
                 <div class="parts-tools" role="toolbar" aria-label="Ferramentas do perfil mecânico">
                   <button id="newProfile" class="secondary-button" type="button">Novo perfil</button>
-                  <button id="drawProfileTool" class="secondary-button" type="button" aria-pressed="false">Linha mm</button>
-                  <button id="freehandProfileTool" class="secondary-button" type="button" aria-pressed="false">Mão livre</button>
-                  <button id="addProfilePoint" class="secondary-button" type="button">Ponto por mm</button>
                   <button id="undoProfilePoint" class="secondary-button" type="button">Desfazer</button>
                   <button id="closeProfile" class="primary-button" type="button">Fechar perfil</button>
                   <button id="fitProfileView" class="secondary-button" type="button">Enquadrar</button>
                 </div>
                 <div class="canvas-wrap parts-canvas-wrap"><canvas id="partSketchCanvas" aria-label="Esboço da peça em milímetros"></canvas><span class="canvas-corner-label">PLANO 2D · mm</span></div>
               </div>
-              <div class="coordinate-entry">
+              <div id="partCoordinateEntry" class="coordinate-entry">
                 <label><span id="firstAxisLabel">Raio</span> <input id="profileRadius" type="text" inputmode="decimal" value="0" aria-label="Primeira coordenada do ponto em milímetros" /> mm</label>
                 <label>Altura <input id="profileZ" type="text" inputmode="decimal" value="0" aria-label="Altura do ponto em milímetros" /> mm</label>
               </div>
-              <div class="segment-entry"><label>Comprimento <input id="profileLength" type="text" inputmode="decimal" placeholder="25 mm" aria-label="Comprimento da linha da peça em milímetros" /> mm</label><label>Ângulo <input id="profileAngle" type="text" inputmode="decimal" placeholder="livre" aria-label="Ângulo da linha da peça em graus" /> °</label><button id="applyProfileLength" class="primary-button" type="button">Concluir linha ↵</button></div>
+              <div id="partSegmentEntry" class="segment-entry"><label>Comprimento <input id="profileLength" type="text" inputmode="decimal" placeholder="25 mm" aria-label="Comprimento da linha da peça em milímetros" /> mm</label><label>Ângulo <input id="profileAngle" type="text" inputmode="decimal" placeholder="livre" aria-label="Ângulo da linha da peça em graus" /> °</label><button id="applyProfileLength" class="primary-button" type="button">Concluir linha ↵</button></div>
               <div class="panel-foot"><span id="profileStatus">Perfil do copo pronto</span><span id="profileHint">Novo perfil → Linha mm ou Mão livre</span></div>
             </div>
             <div class="panel">
@@ -180,7 +198,7 @@
             <button id="openPart" class="secondary-button" type="button">Abrir peça</button>
             <button id="exportPartStl" class="primary-button" type="button">Exportar STL <span>↗</span></button>
           </div>
-          <div class="bottom-note"><span>✳</span> Extrusão mantém o contorno 2D; revolução cria peças redondas. Um traço aberto mostra uma prévia, mas só um contorno fechado gera STL. Confira medidas antes de fabricar.</div>
+          <div class="bottom-note"><span>✳</span> Furo passante central em retângulos e círculos. Rosca e mola são modelos geométricos simplificados. Confira medidas e tolerâncias antes de fabricar.</div>
         </div>
       </main>
     </div>
