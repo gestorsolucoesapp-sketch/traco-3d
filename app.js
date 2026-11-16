@@ -317,8 +317,14 @@ function refreshMeasure() {
     state.lineSnapKind === 'edge' ? ' · na aresta' : state.lineSnapKind === 'lock' ? ' · travado' : '';
   const alinh = (state.lineGuides || []).length ? ' · alinhado' : '';
   const typed = $('measureInput').value.trim();
+  if (active && state.angleTyping != null) {
+    $('liveMeasure').textContent = `Ângulo: ${state.angleTyping || '_'}° · Enter trava · Esc cancela`;
+    return;
+  }
+  const ang = state.lineLockKey === 'ang' ? ` · ângulo ${String(state.lineAngle).replace('.', ',')}°` : '';
   $('liveMeasure').textContent = active ? typed ?
-    `Medida: ${typed} · Enter conclui${axis}${alinh}` :
+    `Medida: ${typed} · Enter conclui${ang || axis + alinh}` : ang ?
+    `Prévia: ${formatMeters(distance)}${ang} · clique ou digite medida` :
     `Prévia: ${formatMeters(distance)}${axis}${alinh} · ${alinh || ['point', 'mid', 'edge'].includes(state.lineSnapKind) ? 'Enter conclui' : 'clique ou digite medida'}` : 'Toque para iniciar';
 }
 
@@ -337,7 +343,7 @@ function cancelLine() {
   state.lineConfirmOnRelease = false;
   state.lineRequestMeasureOnRelease = false;
   state.selectedWallKey = null;
-  state.lineLock = null; state.lineLockKey = null;
+  state.lineLock = null; state.lineLockKey = null; state.angleTyping = null;
   $('measureInput').value = '';
   if (state.tool === 'line') $('toolHint').textContent = 'Arraste uma parede para mover · toque para editar';
   refreshMeasure();
@@ -415,7 +421,8 @@ function applyExactLength() {
   if (meters == null) { notify('Digite uma medida entre 15 cm e 100 m. Ex.: 2,50 m.'); return; }
   if (!state.lineStart) { editSelectedWallLength(meters); return; }
   const start = state.lineStart;
-  const preview = state.linePreview ?? [start[0] + 1, start[1]];
+  let preview = state.linePreview ?? [start[0] + 1, start[1]];
+  if (state.lineLock && pointDistance(start, preview) < 1) preview = [start[0] + state.lineLock[0], start[1] + state.lineLock[1]];
   let end = measuredLineEnd(meters, start, preview);
   if (state.lineSnapKind === 'point' && pointDistance(start, preview) >= 5) {
     const connectedMeters = pointDistance(start, preview) / state.pixelsPerMeter;
@@ -941,6 +948,27 @@ window.addEventListener('keydown', (event) => {
   if (target !== sketchCanvas && target !== document.body) return;
   if (target instanceof HTMLElement &&
       (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+  if (state.angleTyping != null) { // digitando o ângulo (tecla A)
+    event.preventDefault();
+    if (event.key === 'Escape') state.angleTyping = null;
+    else if (event.key === 'Enter') {
+      const deg = Number(state.angleTyping.replace(',', '.'));
+      state.angleTyping = null;
+      if (Number.isFinite(deg) && String(deg) !== '') {
+        const rad = deg * Math.PI / 180;
+        state.lineLock = [Math.cos(rad), -Math.sin(rad)]; state.lineLockKey = 'ang'; state.lineAngle = deg;
+        if (state.lineLastPointer) {
+          const sn = snapPoint(state.lineLastPointer, state.lineStart, false, 'mouse');
+          state.linePreview = sn.point; state.lineSnapKind = sn.kind; state.lineGuides = sn.guides || [];
+        }
+      }
+    } else if (/^[0-9,.\-]$/.test(event.key)) state.angleTyping += event.key;
+    else if (event.key === 'Backspace') state.angleTyping = state.angleTyping.slice(0, -1);
+    refreshMeasure(); requestRender(); return;
+  }
+  if (event.key === 'a' || event.key === 'A') {
+    event.preventDefault(); state.angleTyping = ''; refreshMeasure(); return;
+  }
   if (event.key === 'Escape') { event.preventDefault(); cancelLine(); return; }
   if (event.key === 'Enter') {
     event.preventDefault(); applyExactLength(); return;
@@ -1100,6 +1128,7 @@ function drawInference(context, at, kind, guides, locked) {
   const labels = { point: 'Ponto final', mid: 'Ponto médio', edge: 'Na aresta', x: 'No eixo vermelho',
     y: 'No eixo verde', align: 'A partir do ponto', lock: 'Direção travada' };
   let text = labels[kind];
+  if (kind === 'lock' && state.lineLockKey === 'ang') text = `Ângulo ${String(state.lineAngle).replace('.', ',')}°`;
   if ((kind === 'x' || kind === 'y') && (guides || []).length) text += ' · a partir do ponto';
   if (locked && kind !== 'lock') text += ' · travado';
   if (!text) return;

@@ -308,7 +308,7 @@
         ctx.beginPath(); ctx.arc(at[0], at[1], 7, 0, Math.PI * 2);
         ctx.fillStyle = '#2e9e4f'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
       }
-      const nomes = { point: 'Ponto final', fechar: 'Fechar perfil', x: 'No eixo vermelho', y: 'No eixo verde', align: 'A partir do ponto' };
+      const nomes = { ang: `Ângulo ${$('profileAngle').value}°`, point: 'Ponto final', fechar: 'Fechar perfil', x: 'No eixo vermelho', y: 'No eixo verde', align: 'A partir do ponto' };
       let txt = nomes[k];
       if ((k === 'x' || k === 'y') && part.infer.guides.length) txt += ' · a partir do ponto';
       if (txt) {
@@ -940,14 +940,30 @@
     fitSketchView(); render();
     $('profileHint').textContent = 'Enquadramento ajustado. O plano fica fixo durante o traço.';
   });
+  // Tecla A: ângulo digitado trava a direção; o cursor só puxa o comprimento ao longo dela.
+  function anguloTravado() {
+    if (part.angleTyping) return null;
+    const txt = $('profileAngle').value.trim();
+    const a = Number(txt.replace(',', '.'));
+    return txt && Number.isFinite(a) ? a : null;
+  }
+  function projetarAngulo([r, z], graus, passo) {
+    const [r0, z0] = part.profile.at(-1), rad = graus * Math.PI / 180;
+    const ux = Math.cos(rad), uz = Math.sin(rad);
+    const L = Math.max(0, Math.round(((r - r0) * ux + (z - z0) * uz) / passo) * passo);
+    part.infer = { kind: 'ang', guides: [] };
+    return [Math.max(0, Math.round((r0 + ux * L) * 100) / 100), Math.max(0, Math.round((z0 + uz * L) * 100) / 100)];
+  }
   // Inferência igual à Arquitetura/SketchUp: ponto existente > eixo > alinhamento > grade de mm.
   function sketchPoint(event) {
     const rect = sketch.getBoundingClientRect();
     const t = sketchTransform(rect.width, rect.height);
     let [r, z] = t.world([event.clientX - rect.left, event.clientY - rect.top]);
-    part.infer = null;
+    part.infer = null; part.lastRaw = [r, z];
     if (!part.drawLine || event.altKey) return [Math.round(r * 100) / 100, Math.round(z * 100) / 100];
     const mmPorPx = t.extent.r / (t.right - t.left);
+    const travado = anguloTravado();
+    if (travado != null && part.profile.length) return projetarAngulo([r, z], travado, t.extent.r > 120 ? 1 : t.extent.r > 30 ? .5 : .1);
     const tol = (event.pointerType === 'touch' ? 16 : 10) * mmPorPx;
     const passo = t.extent.r > 120 ? 1 : t.extent.r > 30 ? .5 : .1;
     const grade = (v) => Math.round(v / passo) * passo;
@@ -1045,18 +1061,38 @@
     if ($('partsMode').hidden || !part.drawLine || part.closed || !part.profile.length ||
         event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
     if (event.target !== sketch && event.target !== document.body) return;
+    if (part.angleTyping) {
+      event.preventDefault();
+      const ang = $('profileAngle');
+      if (event.key === 'Escape') { part.angleTyping = false; ang.value = ''; }
+      else if (event.key === 'Enter') {
+        part.angleTyping = false;
+        if (!Number.isFinite(Number(ang.value.replace(',', '.'))) || !ang.value.trim()) ang.value = '';
+        else if (part.lastRaw) part.selected = projetarAngulo(part.lastRaw, Number(ang.value.replace(',', '.')),
+          part.view.r > 120 ? 1 : part.view.r > 30 ? .5 : .1);
+      } else if (/^[0-9,.\-]$/.test(event.key)) ang.value += event.key;
+      else if (event.key === 'Backspace') ang.value = ang.value.slice(0, -1);
+      $('profileHint').textContent = part.angleTyping ? `Ângulo: ${ang.value || '_'}° · Enter trava · Esc cancela` :
+        ang.value ? `Ângulo ${ang.value}° travado · puxe ou digite os mm e Enter` : 'Ângulo cancelado.';
+      render(); return;
+    }
+    if (event.key === 'a' || event.key === 'A') {
+      event.preventDefault(); part.angleTyping = true; $('profileAngle').value = '';
+      $('profileHint').textContent = 'Ângulo: _° · digite e Enter (0° = direita, 90° = cima)';
+      render(); return;
+    }
     if (event.key === 'Enter') {
       event.preventDefault();
       const last = part.profile.at(-1);
       if (!$('profileLength').value.trim() && Math.hypot(part.selected[0] - last[0], part.selected[1] - last[1]) >= .01) {
         if (part.infer?.kind === 'fechar') { $('closeProfile').click(); return; }
-        part.profile.push([...part.selected]); part.pending = false; save(); refresh(); return;
+        part.profile.push([...part.selected]); part.pending = false; $('profileAngle').value = ''; save(); refresh(); return;
       }
       applySegmentLength(); return;
     }
     if (event.key === 'Escape') {
       event.preventDefault(); part.pending = false;
-      $('profileLength').value = ''; part.selected = [...part.profile.at(-1)];
+      $('profileLength').value = ''; $('profileAngle').value = ''; part.selected = [...part.profile.at(-1)];
       $('profileHint').textContent = 'Medida cancelada. Aponte uma nova direção.';
       render(); return;
     }
@@ -1153,7 +1189,7 @@
       const last = part.profile.at(-1);
       if (Math.hypot(point[0] - last[0], point[1] - last[1]) < .01) return;
       if (part.profile.length >= MAX_POINTS) { $('profileStatus').textContent = 'Limite de 128 pontos.'; return; }
-      part.profile.push(point); selectPoint(point); part.pending = false;
+      part.profile.push(point); selectPoint(point); part.pending = false; $('profileAngle').value = '';
       $('profileHint').textContent = 'Linha criada. Siga para a próxima, digite os mm, ou clique no 1º ponto para fechar.';
       save(); refresh(); return;
     }

@@ -19,6 +19,7 @@ Depois de desenhar, use **Equidistância** para informar a espessura entre 10 e 
 - **Clique conclui a linha** no ponto inferido (no PC). A próxima linha já sai da ponta da anterior; **Esc** encerra. Fechar num ponto já desenhado encerra a sequência.
 - Marcadores com etiqueta junto ao cursor: **Ponto final** (verde), **Ponto médio** (ciano), **Na aresta** (vermelho), **No eixo vermelho** (horizontal), **No eixo verde** (vertical) e **A partir do ponto** (guia tracejada até um ponto já desenhado, na mesma altura ou coluna).
 - **Enter** sem medida conclui quando há inferência (ponto, médio, aresta ou alinhamento). Digitando a medida, ela manda.
+- **Tecla A**: digite um ângulo (0° = direita, 90° = cima) e Enter — a direção trava nesse ângulo; puxe com o mouse ou digite a medida. Vale na Arquitetura e na Linha mm das peças.
 - **Shift** (segurar) trava a direção atual. **Seta →** trava no eixo vermelho, **Seta ←** no eixo verde; aperte de novo para soltar.
 
 ## Elementos arquitetônicos
