@@ -12,7 +12,8 @@
   const part = {
     mode: 'cup', cup: { ...example }, profile: [], closed: true,
     selected: [0, 0], yaw: -.65, pitch: .45, zoom: 1, drag: null,
-    drawLine: false, pending: false, sketchPointer: null,
+    drawLine: false, freehand: false, freehandDrag: null,
+    pending: false, sketchPointer: null, view: { r: 60, z: 140 },
   };
   let scheduled = false;
 
@@ -79,8 +80,10 @@
     part.profile = part.mode === 'cup' ? cupProfile(part.cup) : data.profile.map((p) => [...p]);
     part.closed = data.closed;
     part.drawLine = false;
+    part.freehand = false;
     part.pending = false;
     part.selected = [...(part.profile.at(-1) ?? [0, 0])];
+    fitSketchView();
     refresh();
   }
 
@@ -89,6 +92,7 @@
     if (raw) openProject(raw);
     else part.profile = cupProfile(part.cup);
   } catch { part.profile = cupProfile(part.cup); }
+  fitSketchView();
 
   function resize(canvas) {
     const rect = canvas.getBoundingClientRect();
@@ -101,26 +105,39 @@
     return { width: rect.width, height: rect.height, ratio };
   }
 
-  function bounds() {
-    const points = [...part.profile, part.selected];
-    return {
-      r: Math.max(10, part.cup.top / 2, part.cup.bottom / 2,
-        ...points.map((point) => point[0])) * 1.2,
-      z: Math.max(10, part.cup.height, ...points.map((point) => point[1])) * 1.2,
+  function fitSketchView() {
+    const points = part.profile.length ? part.profile : [[0, 0]];
+    part.view = {
+      r: Math.max(10, ...points.map((point) => point[0])) * 1.2,
+      z: Math.max(10, ...points.map((point) => point[1])) * 1.2,
     };
+    if (part.mode === 'custom' && part.profile.length < 2)
+      part.view = { r: 60, z: 140 };
   }
 
   function sketchTransform(width, height) {
-    const extent = bounds();
+    const extent = part.view;
     const left = 42, right = width - 24, top = 26, bottom = height - 35;
     return {
       extent,
       screen: ([r, z]) => [left + r / extent.r * (right - left),
         bottom - z / extent.z * (bottom - top)],
-      world: ([x, y]) => [Math.max(0, (x - left) / (right - left) * extent.r),
-        Math.max(0, (bottom - y) / (bottom - top) * extent.z)],
+      world: ([x, y]) => [Math.max(0, Math.min(extent.r, (x - left) / (right - left) * extent.r)),
+        Math.max(0, Math.min(extent.z, (bottom - y) / (bottom - top) * extent.z))],
       left, right, top, bottom,
     };
+  }
+
+  function previewEndpoint() {
+    if (!part.profile.length) return part.selected;
+    const length = number($('profileLength').value);
+    const rawAngle = $('profileAngle').value.trim();
+    const angle = Number(rawAngle.replace(',', '.'));
+    if (!rawAngle || length == null || length < .01 || !Number.isFinite(angle))
+      return part.selected;
+    const [r, z] = part.profile.at(-1);
+    return [r + Math.cos(angle * Math.PI / 180) * length,
+      z + Math.sin(angle * Math.PI / 180) * length];
   }
 
   function drawSketch() {
@@ -158,14 +175,23 @@
         ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#ad6749'; ctx.lineWidth = 2; ctx.stroke();
       }
     }
+    if (part.freehandDrag?.points.length > 1) {
+      ctx.beginPath();
+      const first = t.screen(part.freehandDrag.points[0]);
+      ctx.moveTo(...first);
+      for (const point of part.freehandDrag.points.slice(1)) ctx.lineTo(...t.screen(point));
+      ctx.strokeStyle = '#286855'; ctx.lineWidth = 2.5; ctx.stroke();
+    }
     if (part.mode === 'custom' && part.drawLine && !part.closed && part.profile.length) {
-      const start = t.screen(part.profile.at(-1)), end = t.screen(part.selected);
+      const preview = previewEndpoint();
+      const start = t.screen(part.profile.at(-1)), end = t.screen(preview);
+      const dr = preview[0] - part.profile.at(-1)[0];
+      const dz = preview[1] - part.profile.at(-1)[1];
       ctx.beginPath(); ctx.moveTo(...start); ctx.lineTo(...end);
       ctx.setLineDash([6, 4]); ctx.strokeStyle = '#286855'; ctx.lineWidth = 2.5;
       ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = '#286855'; ctx.textAlign = 'center';
-      ctx.fillText(`${display(Math.hypot(part.selected[0] - part.profile.at(-1)[0],
-        part.selected[1] - part.profile.at(-1)[1]))} mm`,
+      ctx.fillText(`${display(Math.hypot(dr, dz))} mm · ${display(Math.atan2(dz, dr) * 180 / Math.PI)}°`,
       (start[0] + end[0]) / 2, (start[1] + end[1]) / 2 - 9);
     }
     const [sx, sy] = t.screen(part.selected);
@@ -222,8 +248,10 @@
     ctx.clearRect(0, 0, width, height);
     const triangles = mesh();
     if (!triangles.length) {
-      if (part.mode === 'custom' && part.profile.length >= 2) {
-        const points = [...part.profile, ...(part.drawLine ? [part.selected] : [])];
+      const points = [...part.profile,
+        ...(part.freehandDrag ? part.freehandDrag.points.slice(part.profile.length ? 1 : 0) :
+          part.drawLine && part.profile.length ? [previewEndpoint()] : [])];
+      if (part.mode === 'custom' && points.length >= 2) {
         const maxR = Math.max(1, ...points.map((p) => p[0]));
         const minZ = Math.min(...points.map((p) => p[1]));
         const maxZ = Math.max(...points.map((p) => p[1]));
@@ -294,8 +322,11 @@
     $('addProfilePoint').disabled = !custom || part.closed;
     $('drawProfileTool').disabled = !custom || part.closed;
     $('drawProfileTool').setAttribute('aria-pressed', String(part.drawLine));
-    $('applyProfileLength').disabled = !custom || part.closed || !part.profile.length;
-    $('profileLength').disabled = !custom || part.closed || !part.profile.length;
+    $('freehandProfileTool').disabled = !custom || part.closed;
+    $('freehandProfileTool').setAttribute('aria-pressed', String(part.freehand));
+    $('applyProfileLength').disabled = !custom || part.closed || !part.drawLine || !part.profile.length;
+    $('profileLength').disabled = !custom || part.closed || !part.drawLine || !part.profile.length;
+    $('profileAngle').disabled = !custom || part.closed || !part.drawLine || !part.profile.length;
     $('undoProfilePoint').disabled = !custom || !part.profile.length;
     $('closeProfile').disabled = !custom || part.closed || part.profile.length < 3;
     $('profileStatus').textContent = custom ?
@@ -360,30 +391,44 @@
         return;
       }
       part.cup = next; part.mode = 'cup'; part.profile = cupProfile(next);
-      part.closed = true; part.selected = [...part.profile.at(-1)];
+      part.closed = true; part.drawLine = false; part.freehand = false;
+      part.selected = [...part.profile.at(-1)]; fitSketchView();
       save(); refresh();
     });
   }
 
   $('cupExample').addEventListener('click', () => {
     part.cup = { ...example }; part.mode = 'cup'; part.profile = cupProfile(part.cup);
-    part.closed = true; part.drawLine = false; part.pending = false;
-    part.selected = [0, 0]; save(); refresh();
+    part.closed = true; part.drawLine = false; part.freehand = false; part.pending = false;
+    part.selected = [0, 0]; fitSketchView(); save(); refresh();
   });
   $('newProfile').addEventListener('click', () => {
     part.mode = 'custom'; part.profile = []; part.closed = false;
-    part.drawLine = false; part.pending = false;
-    part.selected = [0, 0]; $('profileLength').value = '';
+    part.drawLine = false; part.freehand = false; part.pending = false;
+    part.selected = [0, 0]; $('profileLength').value = ''; $('profileAngle').value = '';
     $('profileHint').textContent = 'Ative Linha medida para desenhar no corte';
-    save(); refresh();
+    fitSketchView(); save(); refresh();
   });
   $('drawProfileTool').addEventListener('click', () => {
     if (part.mode !== 'custom' || part.closed) return;
-    part.drawLine = !part.drawLine; part.pending = false;
+    part.drawLine = !part.drawLine; part.freehand = false; part.pending = false;
     $('profileHint').textContent = part.drawLine ?
       'Clique no início e no fim; digite o comprimento em mm e Enter' :
       'Toque no corte para escolher coordenadas; Adicionar ponto confirma';
     refresh();
+  });
+  $('freehandProfileTool').addEventListener('click', () => {
+    if (part.mode !== 'custom' || part.closed) return;
+    part.freehand = !part.freehand; part.drawLine = false; part.pending = false;
+    $('profileLength').value = ''; $('profileAngle').value = '';
+    $('profileHint').textContent = part.freehand ?
+      'Arraste no corte. Continue do último ponto para manter o perfil ligado.' :
+      'Escolha Linha mm ou toque no corte para definir coordenadas.';
+    refresh();
+  });
+  $('fitProfileView').addEventListener('click', () => {
+    fitSketchView(); render();
+    $('profileHint').textContent = 'Enquadramento ajustado. O plano fica fixo durante o traço.';
   });
   function sketchPoint(event) {
     const rect = sketch.getBoundingClientRect();
@@ -412,6 +457,16 @@
     }
     const start = part.profile.at(-1);
     let dx = part.selected[0] - start[0], dz = part.selected[1] - start[1];
+    const angleText = $('profileAngle').value.trim();
+    const angle = angleText ? Number(angleText.replace(',', '.')) : null;
+    if (angleText && (!Number.isFinite(angle) || angle < -360 || angle > 360)) {
+      $('profileStatus').textContent = 'Digite um ângulo entre -360° e 360°.';
+      return;
+    }
+    if (angle !== null) {
+      dx = Math.cos(angle * Math.PI / 180);
+      dz = Math.sin(angle * Math.PI / 180);
+    }
     const preview = Math.hypot(dx, dz);
     if (preview < .01) {
       $('profileStatus').textContent = 'Aponte a direção da linha no corte antes de confirmar.';
@@ -426,6 +481,7 @@
     if (Math.hypot(end[0] - start[0], end[1] - start[1]) < .01) return;
     part.profile.push(end); part.selected = end; part.pending = false;
     $('profileLength').value = '';
+    $('profileAngle').value = '';
     $('profileHint').textContent = 'Linha criada. Aponte a próxima ou feche o perfil.';
     $('profileLength').blur(); save(); refresh();
   }
@@ -438,8 +494,70 @@
       render();
     }
   });
+  $('profileAngle').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); applySegmentLength(); }
+  });
+  $('profileLength').addEventListener('input', render);
+  $('profileAngle').addEventListener('input', render);
+  function simplifyFreehand(points, tolerance = .5) {
+    if (points.length <= 2) return points;
+    const keep = new Set([0, points.length - 1]);
+    const visit = (first, last) => {
+      const [ax, ay] = points[first], [bx, by] = points[last];
+      const dx = bx - ax, dy = by - ay, length2 = dx * dx + dy * dy;
+      let index = -1, farthest = tolerance;
+      for (let i = first + 1; i < last; i++) {
+        const [x, y] = points[i];
+        const t = length2 ? Math.max(0, Math.min(1,
+          ((x - ax) * dx + (y - ay) * dy) / length2)) : 0;
+        const distance = Math.hypot(x - ax - t * dx, y - ay - t * dy);
+        if (distance > farthest) { farthest = distance; index = i; }
+      }
+      if (index >= 0) { keep.add(index); visit(first, index); visit(index, last); }
+    };
+    visit(0, points.length - 1);
+    return [...keep].sort((a, b) => a - b).map((index) => points[index]);
+  }
+  function finishFreehand(event, cancel = false) {
+    const drag = part.freehandDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return false;
+    if (!cancel) {
+      const point = sketchPoint(event);
+      if (Math.hypot(point[0] - drag.points.at(-1)[0], point[1] - drag.points.at(-1)[1]) >= .2)
+        drag.points.push(point);
+    }
+    part.freehandDrag = null;
+    if (cancel) { render(); return true; }
+    const simplified = simplifyFreehand(drag.points);
+    const added = simplified.slice(part.profile.length ? 1 : 0);
+    const remaining = MAX_POINTS - part.profile.length;
+    if (added.length > remaining) {
+      $('profileStatus').textContent = 'Limite de 128 pontos. Desfaça ou feche o perfil.';
+      render(); return true;
+    }
+    if (added.length) {
+      part.profile.push(...added); selectPoint([...part.profile.at(-1)]);
+      $('profileHint').textContent = 'Traço livre adicionado ao plano. Continue da ponta ou feche o perfil.';
+      save(); refresh();
+    } else render();
+    return true;
+  }
   sketch.addEventListener('pointerdown', (event) => {
     const point = sketchPoint(event);
+    if (part.freehand && part.mode === 'custom' && !part.closed) {
+      const last = part.profile.at(-1);
+      if (last) {
+        const rect = sketch.getBoundingClientRect();
+        const t = sketchTransform(rect.width, rect.height);
+        const [x, y] = t.screen(last);
+        if (Math.hypot(event.clientX - rect.left - x, event.clientY - rect.top - y) > 26) {
+          $('profileStatus').textContent = 'Comece o traço livre na ponta do perfil existente.';
+          return;
+        }
+      }
+      part.freehandDrag = { pointerId: event.pointerId, points: [last ? [...last] : point] };
+      sketch.setPointerCapture(event.pointerId); render(); return;
+    }
     if (!part.drawLine || part.mode !== 'custom' || part.closed) {
       selectPoint(point); return;
     }
@@ -461,11 +579,21 @@
     sketch.setPointerCapture(event.pointerId);
   });
   sketch.addEventListener('pointermove', (event) => {
+    if (part.freehandDrag && event.pointerId === part.freehandDrag.pointerId) {
+      const point = sketchPoint(event);
+      const points = part.freehandDrag.points;
+      if (points.length < MAX_POINTS * 4 &&
+        Math.hypot(point[0] - points.at(-1)[0], point[1] - points.at(-1)[1]) >= .3) {
+        points.push(point); part.selected = point; render();
+      }
+      return;
+    }
     if (!part.drawLine || part.mode !== 'custom' || part.closed || !part.profile.length ||
       (part.pending && !part.sketchPointer)) return;
     selectPoint(sketchPoint(event));
   });
   sketch.addEventListener('pointerup', (event) => {
+    if (finishFreehand(event)) return;
     const pointer = part.sketchPointer;
     if (!pointer || pointer.pointerId !== event.pointerId) return;
     const point = sketchPoint(event);
@@ -477,7 +605,10 @@
     if (pointer.type === 'mouse' && !moved) $('profileLength').focus();
     render();
   });
-  sketch.addEventListener('pointercancel', () => { part.sketchPointer = null; render(); });
+  sketch.addEventListener('pointercancel', (event) => {
+    if (finishFreehand(event, true)) return;
+    part.sketchPointer = null; render();
+  });
   $('addProfilePoint').addEventListener('click', () => {
     const r = number($('profileRadius').value), z = number($('profileZ').value);
     if (r == null || z == null || part.profile.length >= MAX_POINTS) {
@@ -499,7 +630,8 @@
         !simpleProfile(part.profile)) {
       $('profileStatus').textContent = 'Feche um contorno simples com ao menos 3 pontos.'; return;
     }
-    part.closed = true; part.pending = false; part.drawLine = false; save(); refresh();
+    part.closed = true; part.pending = false; part.drawLine = false; part.freehand = false;
+    save(); refresh();
   });
   model.addEventListener('pointerdown', (event) => {
     model.setPointerCapture(event.pointerId); part.drag = [event.clientX, event.clientY];

@@ -148,19 +148,23 @@
           <div class="workspace parts-workspace">
             <div class="panel">
               <div class="panel-head"><div><p class="panel-kicker">CORTE AXIAL · 2D</p><h2>Perfil da peça</h2></div><span class="panel-index">01 / 02</span></div>
-              <div class="parts-tools">
-                <button id="newProfile" class="secondary-button" type="button">Novo perfil livre</button>
-                <button id="drawProfileTool" class="secondary-button" type="button" aria-pressed="false">Linha medida</button>
-                <button id="addProfilePoint" class="secondary-button" type="button">Adicionar ponto</button>
-                <button id="undoProfilePoint" class="secondary-button" type="button">Desfazer ponto</button>
-                <button id="closeProfile" class="primary-button" type="button">Fechar perfil</button>
+              <div class="part-editor-layout">
+                <div class="parts-tools" role="toolbar" aria-label="Ferramentas do perfil mecânico">
+                  <button id="newProfile" class="secondary-button" type="button">Novo perfil</button>
+                  <button id="drawProfileTool" class="secondary-button" type="button" aria-pressed="false">Linha mm</button>
+                  <button id="freehandProfileTool" class="secondary-button" type="button" aria-pressed="false">Mão livre</button>
+                  <button id="addProfilePoint" class="secondary-button" type="button">Ponto por mm</button>
+                  <button id="undoProfilePoint" class="secondary-button" type="button">Desfazer</button>
+                  <button id="closeProfile" class="primary-button" type="button">Fechar perfil</button>
+                  <button id="fitProfileView" class="secondary-button" type="button">Enquadrar</button>
+                </div>
+                <div class="canvas-wrap parts-canvas-wrap"><canvas id="partSketchCanvas" aria-label="Esboço da seção da peça em milímetros"></canvas><span class="canvas-corner-label">RAIO × ALTURA · mm</span></div>
               </div>
-              <div class="canvas-wrap parts-canvas-wrap"><canvas id="partSketchCanvas" aria-label="Esboço da seção da peça em milímetros"></canvas><span class="canvas-corner-label">RAIO × ALTURA · mm</span></div>
               <div class="coordinate-entry">
                 <label>Raio <input id="profileRadius" type="text" inputmode="decimal" value="0" aria-label="Raio do ponto em milímetros" /> mm</label>
                 <label>Altura <input id="profileZ" type="text" inputmode="decimal" value="0" aria-label="Altura do ponto em milímetros" /> mm</label>
               </div>
-              <div class="segment-entry"><label>Comprimento da linha <input id="profileLength" type="text" inputmode="decimal" placeholder="Ex.: 25 mm" aria-label="Comprimento da linha da peça em milímetros" /> mm</label><button id="applyProfileLength" class="primary-button" type="button">Concluir linha ↵</button></div>
+              <div class="segment-entry"><label>Comprimento <input id="profileLength" type="text" inputmode="decimal" placeholder="25 mm" aria-label="Comprimento da linha da peça em milímetros" /> mm</label><label>Ângulo <input id="profileAngle" type="text" inputmode="decimal" placeholder="livre" aria-label="Ângulo da linha da peça em graus" /> °</label><button id="applyProfileLength" class="primary-button" type="button">Concluir linha ↵</button></div>
               <div class="panel-foot"><span id="profileStatus">Perfil do copo pronto</span><span id="profileHint">Novo perfil livre → Linha medida → clique no ponto e digite mm</span></div>
             </div>
             <div class="panel">
