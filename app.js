@@ -265,7 +265,7 @@ function refreshMeasure() {
   const typed = $('measureInput').value.trim();
   $('liveMeasure').textContent = active ? typed ?
     `Medida: ${typed} · Enter conclui${axis}${alinh}` :
-    `Prévia: ${formatMeters(distance)}${axis}${alinh} · digite medida` : 'Toque para iniciar';
+    `Prévia: ${formatMeters(distance)}${axis}${alinh} · ${alinh || state.lineSnapKind === 'point' ? 'Enter conclui' : 'digite medida'}` : 'Toque para iniciar';
 }
 
 function cancelLine() {
@@ -333,6 +333,12 @@ function measuredLineEnd(meters, start, preview) {
 
 function applyExactLength() {
   if (!state.lineStart && !selectedWall()) return;
+  // Sem medida digitada: se a ponta está alinhada (guia) ou grudada num ponto, Enter conclui ali mesmo.
+  if (state.lineStart && !$('measureInput').value.trim() && state.linePreview &&
+      ((state.lineGuides || []).length || state.lineSnapKind === 'point') &&
+      pointDistance(state.lineStart, state.linePreview) >= 5) {
+    commitLine(state.linePreview); return;
+  }
   const meters = parseLength($('measureInput').value);
   if (meters == null) { notify('Digite uma medida entre 15 cm e 100 m. Ex.: 2,50 m.'); return; }
   if (!state.lineStart) { editSelectedWallLength(meters); return; }
