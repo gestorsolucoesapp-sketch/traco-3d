@@ -26,6 +26,7 @@ const state = {
   linePreview: null,
   linePending: false,
   lineSnapKind: null,
+  lineGuides: [],
   lineDragOrigin: null,
   lineConfirmOnRelease: false,
   lineRequestMeasureOnRelease: false,
@@ -198,14 +199,50 @@ function snapPoint(point, origin = null, bypass = false, pointerType = 'mouse') 
   const existing = snapToExisting(point, pointerType === 'touch' ? 22 : 16);
   if (existing) return { point: existing, kind: 'point' };
   const step = state.pixelsPerMeter / 10;
+  const tol = pointerType === 'touch' ? 16 : 10;
   if (origin) {
     const dx = point[0] - origin[0], dy = point[1] - origin[1];
-    if (Math.abs(dx) > 10 && Math.abs(dy) <= Math.abs(dx) * .22)
-      return { point: [Math.round(point[0] / step) * step, origin[1]], kind: 'x' };
-    if (Math.abs(dy) > 10 && Math.abs(dx) <= Math.abs(dy) * .22)
-      return { point: [origin[0], Math.round(point[1] / step) * step], kind: 'y' };
+    if (Math.abs(dx) > 10 && Math.abs(dy) <= Math.abs(dx) * .22) {
+      const inf = inferAlign(point, origin, tol, 'x');
+      return { point: [inf.x ?? Math.round(point[0] / step) * step, origin[1]], kind: 'x', guides: inf.guides };
+    }
+    if (Math.abs(dy) > 10 && Math.abs(dx) <= Math.abs(dy) * .22) {
+      const inf = inferAlign(point, origin, tol, 'y');
+      return { point: [origin[0], inf.y ?? Math.round(point[1] / step) * step], kind: 'y', guides: inf.guides };
+    }
   }
-  return { point: [Math.round(point[0] / step) * step, Math.round(point[1] / step) * step], kind: 'grid' };
+  const inf = inferAlign(point, origin, tol, null);
+  return { point: [inf.x ?? Math.round(point[0] / step) * step, inf.y ?? Math.round(point[1] / step) * step],
+    kind: inf.guides.length ? 'align' : 'grid', guides: inf.guides };
+}
+
+// Inferência estilo SketchUp: alinha a ponta com pontos já desenhados (mesma altura ou mesma coluna)
+// e devolve as guias tracejadas que ligam o ponto de referência à ponta.
+function inferAlign(point, origin, toleranceCss, lockedAxis) {
+  const bounds = sketchCanvas.getBoundingClientRect();
+  const scaleX = bounds.width / DESIGN_WIDTH || 1;
+  const scaleY = bounds.height / DESIGN_HEIGHT || 1;
+  let bestX = null, dX = toleranceCss, bestY = null, dY = toleranceCss;
+  const seen = new Set();
+  for (const stroke of state.strokes) {
+    for (const c of stroke) {
+      const key = c[0].toFixed(2) + ',' + c[1].toFixed(2);
+      if (seen.has(key)) continue; seen.add(key);
+      if (origin && Math.abs(c[0] - origin[0]) < .5 && Math.abs(c[1] - origin[1]) < .5) continue;
+      if (lockedAxis !== 'y') { // pode ajustar X: procura ponto na mesma coluna
+        const d = Math.abs(point[0] - c[0]) * scaleX;
+        if (d < dX && Math.abs(point[1] - c[1]) * scaleY > 4) { dX = d; bestX = c; }
+      }
+      if (lockedAxis !== 'x') { // pode ajustar Y: procura ponto na mesma altura
+        const d = Math.abs(point[1] - c[1]) * scaleY;
+        if (d < dY && Math.abs(point[0] - c[0]) * scaleX > 4) { dY = d; bestY = c; }
+      }
+    }
+  }
+  const guides = [];
+  if (bestX) guides.push({ from: [...bestX], axis: 'v' });
+  if (bestY) guides.push({ from: [...bestY], axis: 'h' });
+  return { x: bestX ? bestX[0] : null, y: bestY ? bestY[1] : null, guides };
 }
 
 function formatMeters(pixels) {
@@ -224,10 +261,11 @@ function refreshMeasure() {
   const distance = active && state.linePreview ? pointDistance(state.lineStart, state.linePreview) : 0;
   const axis = state.lineSnapKind === 'x' ? ' · eixo X' : state.lineSnapKind === 'y' ? ' · eixo Y' :
     state.lineSnapKind === 'point' ? ' · ponto' : '';
+  const alinh = (state.lineGuides || []).length ? ' · alinhado' : '';
   const typed = $('measureInput').value.trim();
   $('liveMeasure').textContent = active ? typed ?
-    `Medida: ${typed} · Enter conclui${axis}` :
-    `Prévia: ${formatMeters(distance)}${axis} · digite medida` : 'Toque para iniciar';
+    `Medida: ${typed} · Enter conclui${axis}${alinh}` :
+    `Prévia: ${formatMeters(distance)}${axis}${alinh} · digite medida` : 'Toque para iniciar';
 }
 
 function cancelLine() {
@@ -240,6 +278,7 @@ function cancelLine() {
   state.linePreview = null;
   state.linePending = false;
   state.lineSnapKind = null;
+  state.lineGuides = [];
   state.lineDragOrigin = null;
   state.lineConfirmOnRelease = false;
   state.lineRequestMeasureOnRelease = false;
@@ -266,6 +305,7 @@ function commitLine(end) {
   state.linePreview = null;
   state.linePending = false;
   state.lineSnapKind = null;
+  state.lineGuides = [];
   state.lineDragOrigin = null;
   state.lineConfirmOnRelease = false;
   state.lineRequestMeasureOnRelease = false;
@@ -697,7 +737,7 @@ sketchCanvas.addEventListener('pointerdown', (event) => {
       state.lineRequestMeasureOnRelease = event.pointerType === 'mouse' && !hasMeasure && !wasPending;
       sketchCanvas.setPointerCapture(event.pointerId);
     }
-    state.lineSnapKind = snapped.kind;
+    state.lineSnapKind = snapped.kind; state.lineGuides = snapped.guides || [];
     refreshMeasure(); refreshControls(); requestRender();
     return;
   }
@@ -723,7 +763,7 @@ sketchCanvas.addEventListener('pointermove', (event) => {
   if (state.tool === 'line' && state.lineStart && (!state.linePending || state.lineDragOrigin)) {
     const snapped = snapPoint(sketchPoint(event), state.lineStart, event.altKey, event.pointerType);
     state.linePreview = snapped.point;
-    state.lineSnapKind = snapped.kind;
+    state.lineSnapKind = snapped.kind; state.lineGuides = snapped.guides || [];
     refreshMeasure(); requestRender();
     return;
   }
@@ -763,7 +803,7 @@ function finishStroke(event) {
     if (didDrag && state.lineStart) {
       const snapped = snapPoint(sketchPoint(event), state.lineStart, event.altKey, event.pointerType);
       state.linePreview = snapped.point;
-      state.lineSnapKind = snapped.kind;
+      state.lineSnapKind = snapped.kind; state.lineGuides = snapped.guides || [];
       state.linePending = pointDistance(state.lineStart, snapped.point) >= 5;
     }
     state.lineDragOrigin = null;
@@ -907,6 +947,21 @@ function drawSketch() {
       else { context.moveTo(state.lineStart[0], 0); context.lineTo(state.lineStart[0], DESIGN_HEIGHT); }
       context.strokeStyle = '#76a392'; context.lineWidth = 1.5; context.stroke();
       context.setLineDash([]);
+    }
+    if (measured == null && (state.lineGuides || []).length) {
+      context.save();
+      context.setLineDash([2, 4]);
+      context.lineWidth = 1.5;
+      for (const g of state.lineGuides) {
+        context.beginPath(); context.moveTo(...g.from);
+        context.lineTo(g.axis === 'h' ? end[0] : g.from[0], g.axis === 'h' ? g.from[1] : end[1]);
+        context.strokeStyle = g.axis === 'h' ? '#c0392b' : '#2e8b57'; context.stroke();
+        context.setLineDash([]);
+        context.beginPath(); context.arc(g.from[0], g.from[1], 4, 0, Math.PI * 2);
+        context.fillStyle = g.axis === 'h' ? '#c0392b' : '#2e8b57'; context.fill();
+        context.setLineDash([2, 4]);
+      }
+      context.restore();
     }
     if (pointDistance(state.lineStart, end) >= 2) {
       context.beginPath(); context.moveTo(...state.lineStart); context.lineTo(...end);
