@@ -216,7 +216,10 @@ function refreshMeasure() {
   const distance = active && state.linePreview ? pointDistance(state.lineStart, state.linePreview) : 0;
   const axis = state.lineSnapKind === 'x' ? ' · eixo X' : state.lineSnapKind === 'y' ? ' · eixo Y' :
     state.lineSnapKind === 'point' ? ' · ponto' : '';
-  $('liveMeasure').textContent = active ? `Prévia: ${formatMeters(distance)}${axis} · digite medida` : 'Toque para iniciar';
+  const typed = $('measureInput').value.trim();
+  $('liveMeasure').textContent = active ? typed ?
+    `Medida: ${typed} · Enter conclui${axis}` :
+    `Prévia: ${formatMeters(distance)}${axis} · digite medida` : 'Toque para iniciar';
 }
 
 function cancelLine() {
@@ -272,6 +275,14 @@ function parseLength(text) {
   return Number.isFinite(meters) && meters >= .15 && meters <= 100 ? meters : null;
 }
 
+function measuredLineEnd(meters, start, preview) {
+  let dx = preview[0] - start[0];
+  let dy = preview[1] - start[1];
+  if (Math.hypot(dx, dy) < 1) { dx = 1; dy = 0; }
+  const factor = meters * state.pixelsPerMeter / Math.hypot(dx, dy);
+  return [start[0] + dx * factor, start[1] + dy * factor];
+}
+
 function applyExactLength() {
   if (!state.lineStart && !selectedWall()) return;
   const meters = parseLength($('measureInput').value);
@@ -279,11 +290,7 @@ function applyExactLength() {
   if (!state.lineStart) { editSelectedWallLength(meters); return; }
   const start = state.lineStart;
   const preview = state.linePreview ?? [start[0] + 1, start[1]];
-  let dx = preview[0] - start[0];
-  let dy = preview[1] - start[1];
-  if (Math.hypot(dx, dy) < 1) { dx = 1; dy = 0; }
-  const factor = meters * state.pixelsPerMeter / Math.hypot(dx, dy);
-  let end = [start[0] + dx * factor, start[1] + dy * factor];
+  let end = measuredLineEnd(meters, start, preview);
   if (state.lineSnapKind === 'point' && pointDistance(start, preview) >= 5) {
     const connectedMeters = pointDistance(start, preview) / state.pixelsPerMeter;
     if (Math.abs(connectedMeters - meters) > .0005) {
@@ -610,6 +617,7 @@ function sketchPoint(event) {
 sketchCanvas.addEventListener('pointerdown', (event) => {
   if (event.button !== 0 && event.pointerType === 'mouse') return;
   event.preventDefault();
+  if (state.tool === 'line') sketchCanvas.focus({ preventScroll: true });
   const point = sketchPoint(event);
   if (state.tool === 'door' || state.tool === 'window') {
     placeOpening(point);
@@ -641,7 +649,7 @@ sketchCanvas.addEventListener('pointerdown', (event) => {
       }
       state.selectedWallKey = null;
       $('measureInput').value = '';
-      $('toolHint').textContent = 'Clique no fim · digite a medida · Enter conclui';
+      $('toolHint').textContent = 'Aponte a direção · digite a medida direto no teclado · Enter conclui';
       state.lineStart = snapped.point;
       state.linePreview = snapped.point;
       state.lineDragOrigin = point;
@@ -741,7 +749,21 @@ $('measureInput').addEventListener('keydown', (event) => {
 });
 $('applyMeasure').addEventListener('click', applyExactLength);
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && state.tool === 'line' && document.activeElement !== $('measureInput')) cancelLine();
+  if ($('architectureMode').hidden || state.tool !== 'line' || !state.lineStart ||
+      event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
+  const target = event.target;
+  if (target !== sketchCanvas && target !== document.body) return;
+  if (target instanceof HTMLElement &&
+      (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+  if (event.key === 'Escape') { event.preventDefault(); cancelLine(); return; }
+  if (event.key === 'Enter') {
+    event.preventDefault(); applyExactLength(); return;
+  }
+  const input = $('measureInput');
+  if (/^[0-9,.mc]$/i.test(event.key)) input.value += event.key.toLowerCase();
+  else if (event.key === 'Backspace') input.value = input.value.slice(0, -1);
+  else return;
+  event.preventDefault(); refreshMeasure(); requestRender();
 });
 
 function resizeCanvas(canvas) {
@@ -813,7 +835,13 @@ function drawSketch() {
   }
   if (state.draft) drawStroke(context, state.draft, '#db9876', 6);
   if (state.lineStart) {
-    const end = state.linePreview ?? state.lineStart;
+    let end = state.linePreview ?? state.lineStart;
+    const measured = parseLength($('measureInput').value);
+    if (measured != null && state.lineSnapKind !== 'point') {
+      const exact = measuredLineEnd(measured, state.lineStart, end);
+      if (exact[0] >= 0 && exact[0] <= DESIGN_WIDTH && exact[1] >= 0 && exact[1] <= DESIGN_HEIGHT)
+        end = exact;
+    }
     if (state.lineSnapKind === 'x' || state.lineSnapKind === 'y') {
       context.beginPath();
       context.setLineDash([5, 5]);

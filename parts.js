@@ -164,11 +164,15 @@
     const length = number($('profileLength').value);
     const rawAngle = $('profileAngle').value.trim();
     const angle = Number(rawAngle.replace(',', '.'));
-    if (!rawAngle || length == null || length < .01 || !Number.isFinite(angle))
+    if (length == null || length < .01 || (rawAngle && !Number.isFinite(angle)))
       return part.selected;
     const [r, z] = part.profile.at(-1);
-    return [r + Math.cos(angle * Math.PI / 180) * length,
+    if (rawAngle) return [r + Math.cos(angle * Math.PI / 180) * length,
       z + Math.sin(angle * Math.PI / 180) * length];
+    const dx = part.selected[0] - r, dz = part.selected[1] - z;
+    const direction = Math.hypot(dx, dz);
+    return direction < .01 ? part.selected :
+      [r + dx / direction * length, z + dz / direction * length];
   }
 
   function shapePoints(type, start, end) {
@@ -832,7 +836,7 @@
     if (part.mode !== 'custom' || part.closed) return;
     part.drawLine = !part.drawLine; part.freehand = false; part.pending = false;
     $('profileHint').textContent = part.drawLine ?
-      'Clique no início e no fim; digite o comprimento em mm e Enter' :
+      'Clique no início, aponte a direção, digite os mm e pressione Enter' :
       'Toque no corte para escolher coordenadas; Adicionar ponto confirma';
     refresh();
   });
@@ -916,6 +920,23 @@
   $('profileAngle').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') { event.preventDefault(); applySegmentLength(); }
   });
+  window.addEventListener('keydown', (event) => {
+    if ($('partsMode').hidden || !part.drawLine || part.closed || !part.profile.length ||
+        event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
+    if (event.target !== sketch && event.target !== document.body) return;
+    if (event.key === 'Enter') { event.preventDefault(); applySegmentLength(); return; }
+    if (event.key === 'Escape') {
+      event.preventDefault(); part.pending = false;
+      $('profileLength').value = ''; part.selected = [...part.profile.at(-1)];
+      $('profileHint').textContent = 'Medida cancelada. Aponte uma nova direção.';
+      render(); return;
+    }
+    const input = $('profileLength');
+    if (/^[0-9,.]$/.test(event.key)) input.value += event.key;
+    else if (event.key === 'Backspace') input.value = input.value.slice(0, -1);
+    else return;
+    event.preventDefault(); render();
+  });
   $('profileLength').addEventListener('input', render);
   $('profileAngle').addEventListener('input', render);
   function simplifyFreehand(points, tolerance = .5) {
@@ -962,6 +983,8 @@
     return true;
   }
   sketch.addEventListener('pointerdown', (event) => {
+    if (part.drawLine && part.mode === 'custom' && !part.closed)
+      sketch.focus({ preventScroll: true });
     if (part.shapeTool) {
       event.preventDefault();
       const point = sketchPoint(event);
@@ -991,7 +1014,7 @@
     }
     if (!part.profile.length) {
       part.profile.push(point); selectPoint(point); save(); refresh();
-      $('profileHint').textContent = 'Ponto inicial criado. Clique no fim e digite os mm.';
+      $('profileHint').textContent = 'Aponte a direção, digite os mm direto no teclado e pressione Enter.';
       return;
     }
     const validLength = number($('profileLength').value);
