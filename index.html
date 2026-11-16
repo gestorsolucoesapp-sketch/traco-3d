@@ -135,7 +135,7 @@
 
         <div id="partsMode" role="tabpanel" aria-labelledby="partsTab" hidden>
           <div class="parts-intro">
-            <div><p class="panel-kicker">PROJETO DE PEÇAS</p><h2>Esboço 2D que gira em 3D</h2><p>Desenhe uma seção em milímetros. O perfil fechado gira 360° em torno do eixo vertical para formar uma peça de revolução.</p></div>
+            <div><p class="panel-kicker">PROJETO DE PEÇAS</p><h2>Do esboço 2D para o 3D</h2><p>Extrusão mantém o contorno que você desenhou e acrescenta profundidade. Revolução gira um perfil em torno do eixo para peças redondas.</p></div>
             <button id="cupExample" class="secondary-button" type="button">Copo cônico de exemplo</button>
           </div>
           <div class="parts-settings" aria-label="Medidas do copo cônico">
@@ -145,9 +145,10 @@
             <label>Parede <span>mm</span><input id="cupWall" type="text" inputmode="decimal" value="2,5" aria-label="Espessura do copo em milímetros" /></label>
             <label>Fundo <span>mm</span><input id="cupBase" type="text" inputmode="decimal" value="4" aria-label="Espessura do fundo em milímetros" /></label>
           </div>
+          <div class="shape-method"><label>Como transformar o desenho<select id="partOperation" aria-label="Operação 3D da peça"><option value="extrude">Extrusão · mantém o contorno</option><option value="revolve">Revolução · gira 360°</option></select></label><label id="extrudeDepthLabel">Profundidade <input id="extrudeDepth" type="text" inputmode="decimal" value="20" aria-label="Profundidade da extrusão em milímetros" /> mm</label><span id="operationHint">Feche o contorno para criar um sólido.</span></div>
           <div class="workspace parts-workspace">
             <div class="panel">
-              <div class="panel-head"><div><p class="panel-kicker">CORTE AXIAL · 2D</p><h2>Perfil da peça</h2></div><span class="panel-index">01 / 02</span></div>
+              <div class="panel-head"><div><p class="panel-kicker" id="partSketchKicker">CONTORNO · 2D</p><h2>Perfil da peça</h2></div><span class="panel-index">01 / 02</span></div>
               <div class="part-editor-layout">
                 <div class="parts-tools" role="toolbar" aria-label="Ferramentas do perfil mecânico">
                   <button id="newProfile" class="secondary-button" type="button">Novo perfil</button>
@@ -158,18 +159,18 @@
                   <button id="closeProfile" class="primary-button" type="button">Fechar perfil</button>
                   <button id="fitProfileView" class="secondary-button" type="button">Enquadrar</button>
                 </div>
-                <div class="canvas-wrap parts-canvas-wrap"><canvas id="partSketchCanvas" aria-label="Esboço da seção da peça em milímetros"></canvas><span class="canvas-corner-label">RAIO × ALTURA · mm</span></div>
+                <div class="canvas-wrap parts-canvas-wrap"><canvas id="partSketchCanvas" aria-label="Esboço da peça em milímetros"></canvas><span class="canvas-corner-label">PLANO 2D · mm</span></div>
               </div>
               <div class="coordinate-entry">
-                <label>Raio <input id="profileRadius" type="text" inputmode="decimal" value="0" aria-label="Raio do ponto em milímetros" /> mm</label>
+                <label><span id="firstAxisLabel">Raio</span> <input id="profileRadius" type="text" inputmode="decimal" value="0" aria-label="Primeira coordenada do ponto em milímetros" /> mm</label>
                 <label>Altura <input id="profileZ" type="text" inputmode="decimal" value="0" aria-label="Altura do ponto em milímetros" /> mm</label>
               </div>
               <div class="segment-entry"><label>Comprimento <input id="profileLength" type="text" inputmode="decimal" placeholder="25 mm" aria-label="Comprimento da linha da peça em milímetros" /> mm</label><label>Ângulo <input id="profileAngle" type="text" inputmode="decimal" placeholder="livre" aria-label="Ângulo da linha da peça em graus" /> °</label><button id="applyProfileLength" class="primary-button" type="button">Concluir linha ↵</button></div>
               <div class="panel-foot"><span id="profileStatus">Perfil do copo pronto</span><span id="profileHint">Novo perfil → Linha mm ou Mão livre</span></div>
             </div>
             <div class="panel">
-              <div class="panel-head"><div><p class="panel-kicker">REVOLUÇÃO INSTANTÂNEA</p><h2>Peça em 3D <span class="live-dot"></span></h2></div><span class="panel-index">02 / 02</span></div>
-              <div class="canvas-wrap parts-canvas-wrap part-model-wrap"><canvas id="partModelCanvas" aria-label="Modelo 3D da peça de revolução"></canvas><div class="view-badge">REVOLUÇÃO 360°</div><div class="orbit-tip">↻ Arraste para girar · Role para ampliar</div></div>
+              <div class="panel-head"><div><p class="panel-kicker">VOLUME INSTANTÂNEO</p><h2>Peça em 3D <span class="live-dot"></span></h2></div><span class="panel-index">02 / 02</span></div>
+              <div class="canvas-wrap parts-canvas-wrap part-model-wrap"><canvas id="partModelCanvas" aria-label="Modelo 3D da peça"></canvas><div class="view-badge" id="partViewBadge">REVOLUÇÃO 360°</div><div class="orbit-tip">↻ Arraste para girar · Role para ampliar</div></div>
               <div class="panel-foot"><span id="partStatus">Copo cônico · 0 triângulos</span><button id="resetPartView" class="text-button" type="button">Redefinir vista ↗</button></div>
             </div>
           </div>
@@ -179,7 +180,7 @@
             <button id="openPart" class="secondary-button" type="button">Abrir peça</button>
             <button id="exportPartStl" class="primary-button" type="button">Exportar STL <span>↗</span></button>
           </div>
-          <div class="bottom-note"><span>✳</span> O modo Peças cria sólidos de revolução, como copos, cones, buchas e vasos. Medidas em mm até 10.000.000; STL perde precisão em dimensões extremas. Peças não simétricas exigem ferramentas adicionais.</div>
+          <div class="bottom-note"><span>✳</span> Extrusão mantém o contorno 2D; revolução cria peças redondas. Um traço aberto mostra uma prévia, mas só um contorno fechado gera STL. Confira medidas antes de fabricar.</div>
         </div>
       </main>
     </div>

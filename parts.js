@@ -11,6 +11,7 @@
   const example = { top: 90, bottom: 65, height: 110, wall: 2.5, base: 4 };
   const part = {
     mode: 'cup', cup: { ...example }, profile: [], closed: true,
+    operation: 'revolve', extrudeDepth: 20,
     selected: [0, 0], yaw: -.65, pitch: .45, zoom: 1, drag: null,
     drawLine: false, freehand: false, freehandDrag: null,
     pending: false, sketchPointer: null, view: { r: 60, z: 140 },
@@ -61,7 +62,8 @@
   function save() {
     try {
       localStorage.setItem(STORAGE, JSON.stringify({ version: 1, kind: 'rotational-part',
-        mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed }));
+        mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
+        operation: part.operation, extrudeDepth: part.extrudeDepth }));
     } catch { $('profileStatus').textContent = 'Armazenamento indisponível; use Salvar peça.'; }
   }
 
@@ -70,12 +72,18 @@
     if (data?.version !== 1 || data.kind !== 'rotational-part' ||
         !['cup', 'custom'].includes(data.mode) || !validCup(data.cup) ||
         !validProfile(data.profile) || typeof data.closed !== 'boolean' ||
+        (data.operation !== undefined && !['extrude', 'revolve'].includes(data.operation)) ||
+        (data.extrudeDepth !== undefined &&
+          (!Number.isFinite(data.extrudeDepth) || data.extrudeDepth <= 0 || data.extrudeDepth > MAX_MM)) ||
         (data.mode === 'cup' && !data.closed) ||
         (data.mode === 'custom' && data.closed &&
           (data.profile.length < 3 || Math.abs(signedArea(data.profile)) < .001 ||
             !simpleProfile(data.profile))))
       throw new Error('Projeto de peça inválido');
     part.mode = data.mode;
+    part.operation = data.mode === 'cup' ? 'revolve' : data.operation ??
+      (data.closed ? 'revolve' : 'extrude');
+    part.extrudeDepth = data.extrudeDepth ?? 20;
     part.cup = { ...data.cup };
     part.profile = part.mode === 'cup' ? cupProfile(part.cup) : data.profile.map((p) => [...p]);
     part.closed = data.closed;
@@ -163,7 +171,8 @@
       ctx.textAlign = 'right'; ctx.fillText(display(t.extent.z * i / 5), t.left - 6, y + 4);
     }
     ctx.fillStyle = '#7d9484';
-    ctx.textAlign = 'left'; ctx.fillText('EIXO', t.left + 5, t.top + 12);
+    ctx.textAlign = 'left'; ctx.fillText(part.operation === 'extrude' && part.mode === 'custom' ?
+      'PLANO' : 'EIXO', t.left + 5, t.top + 12);
     if (part.profile.length) {
       ctx.beginPath();
       const first = t.screen(part.profile[0]);
@@ -201,7 +210,7 @@
     ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2);
     ctx.strokeStyle = '#286855'; ctx.lineWidth = 2; ctx.stroke();
     ctx.fillStyle = '#315d4b'; ctx.textAlign = 'right';
-    ctx.fillText(`r ${display(part.selected[0])} · z ${display(part.selected[1])} mm`, width - 10, 20);
+    ctx.fillText(`${part.mode === 'custom' && part.operation === 'extrude' ? 'x' : 'r'} ${display(part.selected[0])} · ${part.mode === 'custom' && part.operation === 'extrude' ? 'y' : 'z'} ${display(part.selected[1])} mm`, width - 10, 20);
   }
 
   function normal(a, b, c) {
@@ -213,8 +222,64 @@
     return length > 1e-9 ? n.map((value) => value / length) : null;
   }
 
+  function extrusionMesh() {
+    const original = part.profile;
+    const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - b[1]) -
+      (b[1] - a[1]) * (c[0] - b[0]);
+    const points = original.filter((point, i) =>
+      Math.abs(cross(original[(i - 1 + original.length) % original.length], point,
+        original[(i + 1) % original.length])) > 1e-7);
+    if (points.length < 3 || !simpleProfile(points)) return [];
+    const orientation = Math.sign(signedArea(points));
+    if (!orientation) return [];
+    const remaining = points.map((_, i) => i), caps = [];
+    const contains = (p, a, b, c) => {
+      const side = (u, v, w) => (v[0] - u[0]) * (w[1] - u[1]) -
+        (v[1] - u[1]) * (w[0] - u[0]);
+      return side(a, b, p) * orientation >= -1e-7 &&
+        side(b, c, p) * orientation >= -1e-7 &&
+        side(c, a, p) * orientation >= -1e-7;
+    };
+    while (remaining.length > 3) {
+      let found = false;
+      for (let i = 0; i < remaining.length; i++) {
+        const a = remaining[(i - 1 + remaining.length) % remaining.length];
+        const b = remaining[i], c = remaining[(i + 1) % remaining.length];
+        if (cross(points[a], points[b], points[c]) * orientation <= 1e-7) continue;
+        if (remaining.some((index) => index !== a && index !== b && index !== c &&
+          contains(points[index], points[a], points[b], points[c]))) continue;
+        caps.push([a, b, c]); remaining.splice(i, 1); found = true; break;
+      }
+      if (!found) return [];
+    }
+    caps.push(remaining);
+    const triangles = [], depth = part.extrudeDepth;
+    const vertex = (index, y) => [points[index][0], y, points[index][1]];
+    const add = (a, b, c) => {
+      const n = normal(a, b, c);
+      if (n) triangles.push({ points: [a, b, c], normal: n });
+    };
+    for (const [a, b, c] of caps) {
+      const front = orientation > 0 ? [a, b, c] : [c, b, a];
+      add(...front.map((i) => vertex(i, 0)));
+      add(...[...front].reverse().map((i) => vertex(i, depth)));
+    }
+    for (let i = 0; i < points.length; i++) {
+      const j = (i + 1) % points.length;
+      if (orientation > 0) {
+        add(vertex(i, 0), vertex(j, depth), vertex(j, 0));
+        add(vertex(i, 0), vertex(i, depth), vertex(j, depth));
+      } else {
+        add(vertex(i, 0), vertex(j, 0), vertex(j, depth));
+        add(vertex(i, 0), vertex(j, depth), vertex(i, depth));
+      }
+    }
+    return triangles;
+  }
+
   function mesh() {
     if (!part.closed || part.profile.length < 3) return [];
+    if (part.mode === 'custom' && part.operation === 'extrude') return extrusionMesh();
     const triangles = [];
     const flip = signedArea(part.profile) > 0;
     const vertex = ([r, z], angle) => [r * Math.cos(angle), r * Math.sin(angle), z];
@@ -255,6 +320,32 @@
         ...(part.freehandDrag ? part.freehandDrag.points.slice(part.profile.length ? 1 : 0) :
           part.drawLine && part.profile.length ? [previewEndpoint()] : [])];
       if (part.mode === 'custom' && points.length >= 2) {
+        if (part.operation === 'extrude') {
+          const xs = points.map((p) => p[0]), zs = points.map((p) => p[1]);
+          const minX = Math.min(...xs), maxX = Math.max(...xs);
+          const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+          const depth = part.extrudeDepth;
+          const unit = Math.min(width, height) /
+            (Math.max(maxX - minX, maxZ - minZ, depth, 1) * 1.65) * part.zoom;
+          const centerX = (minX + maxX) / 2, centerZ = (minZ + maxZ) / 2;
+          const projected = (p, y) => project([p[0] - centerX, y - depth / 2, p[1]],
+            width, height, unit, centerZ);
+          for (const y of [0, depth]) {
+            ctx.beginPath();
+            points.forEach((point, i) => {
+              const p = projected(point, y);
+              if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+            });
+            ctx.strokeStyle = y ? '#5b977e' : '#c57650';
+            ctx.lineWidth = y ? 1.7 : 2.7; ctx.stroke();
+          }
+          ctx.strokeStyle = '#86a58d'; ctx.lineWidth = 1;
+          for (const point of points) {
+            const a = projected(point, 0), b = projected(point, depth);
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          }
+          return;
+        }
         const maxR = Math.max(1, ...points.map((p) => p[0]));
         const minZ = Math.min(...points.map((p) => p[1]));
         const maxZ = Math.max(...points.map((p) => p[1]));
@@ -287,14 +378,19 @@
       ctx.textAlign = 'center'; ctx.fillText('Feche o perfil 2D para gerar o 3D', width / 2, height / 2);
       return;
     }
-    const maxR = Math.max(...part.profile.map((point) => point[0]));
+    const extruded = part.mode === 'custom' && part.operation === 'extrude';
+    const minX = extruded ? Math.min(...part.profile.map((point) => point[0])) : 0;
+    const maxX = Math.max(...part.profile.map((point) => point[0]));
     const maxZ = Math.max(...part.profile.map((point) => point[1]));
     const minZ = Math.min(...part.profile.map((point) => point[1]));
-    const span = Math.max(maxR * 2, maxZ - minZ, 1);
+    const span = Math.max(extruded ? maxX - minX : maxX * 2,
+      maxZ - minZ, extruded ? part.extrudeDepth : 1, 1);
     const unit = Math.min(width, height) / (span * 1.65) * part.zoom;
     const centerZ = (minZ + maxZ) / 2;
     const faces = triangles.map((triangle) => {
-      const corners = triangle.points.map((point) => project(point, width, height, unit, centerZ));
+      const corners = triangle.points.map((point) => project(extruded ?
+        [point[0] - (minX + maxX) / 2, point[1] - part.extrudeDepth / 2, point[2]] : point,
+      width, height, unit, centerZ));
       const [nx, ny, nz] = triangle.normal;
       const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
       const shade = Math.round(135 + 73 * light);
@@ -322,6 +418,18 @@
       ['cupHeight', 'height'], ['cupWall', 'wall'], ['cupBase', 'base']])
       $(id).value = display(part.cup[key]);
     const custom = part.mode === 'custom';
+    const extruded = custom && part.operation === 'extrude';
+    $('partOperation').value = part.operation;
+    $('partOperation').disabled = !custom;
+    $('extrudeDepthLabel').hidden = !extruded;
+    $('extrudeDepth').value = display(part.extrudeDepth);
+    $('partSketchKicker').textContent = extruded ? 'CONTORNO · 2D' : 'CORTE AXIAL · 2D';
+    $('firstAxisLabel').textContent = extruded ? 'X' : 'Raio';
+    $('partViewBadge').textContent = extruded ?
+      `EXTRUSÃO ${display(part.extrudeDepth)} mm` : 'REVOLUÇÃO 360°';
+    $('operationHint').textContent = extruded ?
+      'O contorno mantém a forma desenhada. Feche para criar um sólido.' :
+      'O perfil gira ao redor do eixo para criar uma peça redonda.';
     $('addProfilePoint').disabled = !custom || part.closed;
     $('drawProfileTool').disabled = !custom || part.closed;
     $('drawProfileTool').setAttribute('aria-pressed', String(part.drawLine));
@@ -336,12 +444,16 @@
       `${part.profile.length} pontos · ${part.closed ? 'perfil fechado' : 'perfil aberto'}` :
       'Copo cônico · seção oca';
     const triangles = mesh().length;
-    $('partStatus').textContent = triangles ? `${custom ? 'Peça livre' : 'Copo cônico'} · ${triangles.toLocaleString('pt-BR')} triângulos` :
-      custom && part.profile.length >= 2 ? 'Prévia 3D do perfil aberto · feche para gerar sólido' :
+    $('partStatus').textContent = triangles ? `${custom ? 'Peça livre' : 'Copo cônico'} · ${extruded ? 'extrusão' : 'revolução'} · ${triangles.toLocaleString('pt-BR')} triângulos` :
+      custom && part.profile.length >= 2 ? `Prévia 3D do contorno aberto · ${extruded ? 'extrusão' : 'revolução'} · feche para gerar sólido` :
         'Aguardando perfil fechado';
     const maxR = part.profile.length ? Math.max(...part.profile.map((point) => point[0])) : 0;
+    const minR = part.profile.length ? Math.min(...part.profile.map((point) => point[0])) : 0;
     const maxZ = part.profile.length ? Math.max(...part.profile.map((point) => point[1])) : 0;
-    $('partDimensions').textContent = `Raio máximo ${display(maxR)} mm · altura ${display(maxZ)} mm`;
+    const minZ = part.profile.length ? Math.min(...part.profile.map((point) => point[1])) : 0;
+    $('partDimensions').textContent = extruded ?
+      `Largura ${display(maxR - minR)} mm · altura ${display(maxZ - minZ)} mm · profundidade ${display(part.extrudeDepth)} mm` :
+      `Raio máximo ${display(maxR)} mm · altura ${display(maxZ)} mm`;
     $('exportPartStl').disabled = !triangles;
     render();
   }
@@ -358,7 +470,7 @@
     if (!triangles.length) return;
     const buffer = new ArrayBuffer(84 + triangles.length * 50);
     const view = new DataView(buffer);
-    const header = new TextEncoder().encode('Traco rotational part, units millimeters');
+    const header = new TextEncoder().encode('Traco 3D part, units millimeters');
     new Uint8Array(buffer).set(header.slice(0, 80));
     view.setUint32(80, triangles.length, true);
     let offset = 84;
@@ -393,7 +505,7 @@
         $(id).value = display(part.cup[key]);
         return;
       }
-      part.cup = next; part.mode = 'cup'; part.profile = cupProfile(next);
+      part.cup = next; part.mode = 'cup'; part.operation = 'revolve'; part.profile = cupProfile(next);
       part.closed = true; part.drawLine = false; part.freehand = false;
       part.selected = [...part.profile.at(-1)]; fitSketchView();
       save(); refresh();
@@ -401,16 +513,30 @@
   }
 
   $('cupExample').addEventListener('click', () => {
-    part.cup = { ...example }; part.mode = 'cup'; part.profile = cupProfile(part.cup);
+    part.cup = { ...example }; part.mode = 'cup'; part.operation = 'revolve'; part.profile = cupProfile(part.cup);
     part.closed = true; part.drawLine = false; part.freehand = false; part.pending = false;
     part.selected = [0, 0]; fitSketchView(); save(); refresh();
   });
   $('newProfile').addEventListener('click', () => {
-    part.mode = 'custom'; part.profile = []; part.closed = false;
+    part.mode = 'custom'; part.operation = 'extrude'; part.profile = []; part.closed = false;
     part.drawLine = false; part.freehand = true; part.pending = false;
     part.selected = [0, 0]; $('profileLength').value = ''; $('profileAngle').value = '';
     $('profileHint').textContent = 'Mão livre ativa. Arraste no corte para começar.';
     fitSketchView(); save(); refresh();
+  });
+  $('partOperation').addEventListener('change', () => {
+    if (part.mode !== 'custom') return;
+    part.operation = $('partOperation').value;
+    save(); refresh();
+  });
+  $('extrudeDepth').addEventListener('change', () => {
+    const depth = number($('extrudeDepth').value);
+    if (depth == null || depth <= 0) {
+      $('profileStatus').textContent = 'Digite uma profundidade maior que 0 mm.';
+      $('extrudeDepth').value = display(part.extrudeDepth);
+      return;
+    }
+    part.extrudeDepth = depth; save(); refresh();
   });
   $('drawProfileTool').addEventListener('click', () => {
     if (part.mode !== 'custom' || part.closed) return;
@@ -634,7 +760,8 @@
   });
   $('closeProfile').addEventListener('click', () => {
     if (part.profile.length < 3 || Math.abs(signedArea(part.profile)) < .001 ||
-        !simpleProfile(part.profile)) {
+        !simpleProfile(part.profile) ||
+        (part.operation === 'extrude' && !extrusionMesh().length)) {
       $('profileStatus').textContent = 'Feche um contorno simples com ao menos 3 pontos.'; return;
     }
     part.closed = true; part.pending = false; part.drawLine = false; part.freehand = false;
@@ -662,7 +789,8 @@
   $('savePart').addEventListener('click', () => {
     save();
     download('traco-peca.json', JSON.stringify({ version: 1, kind: 'rotational-part',
-      mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed }), 'application/json');
+      mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
+      operation: part.operation, extrudeDepth: part.extrudeDepth }), 'application/json');
   });
   $('openPart').addEventListener('click', () => $('partFile').click());
   $('partFile').addEventListener('change', async (event) => {

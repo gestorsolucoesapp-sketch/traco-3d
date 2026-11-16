@@ -1,6 +1,6 @@
 # Traço — planta para 3D
 
-Editor web híbrido. **Arquitetura** desenha paredes em planta e vê o resultado em 3D, com portas, janelas e piso. **Mecânica · peças** usa uma seção 2D em milímetros e gera um sólido de revolução 3D. Abra `index.html` em um navegador moderno. Funciona com mouse, dedo ou caneta, sem conta.
+Editor web híbrido. **Arquitetura** desenha paredes em planta e vê o resultado em 3D, com portas, janelas e piso. **Mecânica · peças** transforma um contorno 2D em sólido por extrusão ou revolução, em milímetros. Abra `index.html` em um navegador moderno. Funciona com mouse, dedo ou caneta, sem conta.
 
 ## Desenho preciso
 
@@ -33,9 +33,9 @@ Este é um estudo geométrico, não um projeto executivo. Ele não interpreta fo
 
 1. Abra **Mecânica · peças**. O exemplo inicial é um copo cônico oco: topo de 90 mm, base de 65 mm, altura de 110 mm, parede de 2,5 mm e fundo de 4 mm.
 2. Altere os cinco campos para atualizar imediatamente o corte 2D e o sólido 3D. Arraste o modelo para girar.
-3. Para outra peça de revolução, clique em **Novo perfil**. **Mão livre** já fica ativa: arraste no corte axial para desenhar. Comece na ponta do perfil existente para continuar o mesmo contorno. A escala do plano fica fixa durante o traço; **Enquadrar** a ajusta manualmente ao perfil. A mão livre segue o ângulo do gesto e não exige comprimento digitado.
-4. Para linhas exatas, selecione **Linha mm** na barra lateral. Clique no ponto inicial e no fim da primeira linha, digite o comprimento em mm e pressione **Enter**. Também pode digitar antes do clique final para concluir nesse clique. O campo **Ângulo** trava a direção em graus; vazio, a direção segue o cursor. Para inserir vértices por coordenadas, desligue as ferramentas de desenho, informe **Raio** e **Altura** e use **Ponto por mm**.
+3. Clique em **Novo perfil** para desenhar outra peça. **Extrusão** é a operação padrão: ela mantém o contorno desenhado e acrescenta a **Profundidade** informada em mm. Para copos, cones e outras peças redondas, selecione **Revolução** para girar o perfil 360° em torno do eixo. **Mão livre** já fica ativa: arraste no plano para desenhar. Comece na ponta do perfil existente para continuar o mesmo contorno. A escala do plano fica fixa durante o traço; **Enquadrar** a ajusta manualmente ao perfil.
+4. Para linhas exatas, selecione **Linha mm** na barra lateral. Clique no ponto inicial e no fim da primeira linha, digite o comprimento em mm e pressione **Enter**. Também pode digitar antes do clique final para concluir nesse clique. O campo **Ângulo** trava a direção em graus; vazio, a direção segue o cursor. Para inserir vértices por coordenadas, desligue as ferramentas de desenho, informe **X** (ou **Raio** na revolução) e **Altura** e use **Ponto por mm**.
 5. Clique em **Fechar perfil** para gerar o sólido. Um contorno aberto ou que cruza a si mesmo não gera STL.
 6. **Exportar STL** baixa um STL binário em milímetros. **Salvar peça** e **Abrir peça** usam um JSON próprio; o modo de arquitetura conserva seu projeto separado.
 
-Peças simétricas ao redor de um eixo, como copos, cones, anéis e buchas, podem ser modeladas. O modo ainda não oferece extrusão de contornos arbitrários, furos fora do eixo, roscas, tolerâncias, montagem ou verificação estrutural. As coordenadas aceitam até 10.000.000 mm por segurança numérica, mas STL usa ponto flutuante de 32 bits e perde precisão em medidas extremas. Confira malha, espessura e processo de fabricação em uma ferramenta de engenharia antes de produzir.
+Contornos simples fechados podem ser extrudados; perfis simétricos ao redor de um eixo podem ser revolucionados. Um traço aberto mostra uma prévia de superfície, mas ainda não é um sólido exportável. O modo ainda não oferece furos internos, roscas, tolerâncias, montagem ou verificação estrutural. As coordenadas aceitam até 10.000.000 mm por segurança numérica, mas STL usa ponto flutuante de 32 bits e perde precisão em medidas extremas. Confira malha, espessura e processo de fabricação em uma ferramenta de engenharia antes de produzir.
