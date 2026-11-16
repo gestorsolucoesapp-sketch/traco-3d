@@ -1,0 +1,540 @@
+(() => {
+  const MAX_MM = 10_000_000;
+  const MAX_POINTS = 128;
+  const SIDES = 64;
+  const STORAGE = 'traco-part-v1';
+  const $ = (id) => document.getElementById(id);
+  const sketch = $('partSketchCanvas');
+  const model = $('partModelCanvas');
+  const sketchCtx = sketch.getContext('2d');
+  const modelCtx = model.getContext('2d');
+  const example = { top: 90, bottom: 65, height: 110, wall: 2.5, base: 4 };
+  const part = {
+    mode: 'cup', cup: { ...example }, profile: [], closed: true,
+    selected: [0, 0], yaw: -.65, pitch: .45, zoom: 1, drag: null,
+    drawLine: false, pending: false, sketchPointer: null,
+  };
+  let scheduled = false;
+
+  const display = (value) => Number(value.toFixed(2)).toString().replace('.', ',');
+  const number = (raw) => {
+    const value = Number(String(raw).trim().replace(',', '.'));
+    return Number.isFinite(value) && value >= 0 && value <= MAX_MM ? value : null;
+  };
+  const validCup = (cup) => cup && Object.values(cup).every((value) =>
+    Number.isFinite(value) && value > 0 && value <= MAX_MM) &&
+    cup.wall < Math.min(cup.top, cup.bottom) / 2 && cup.base < cup.height;
+  const cupProfile = (cup) => [
+    [0, 0], [cup.bottom / 2, 0], [cup.top / 2, cup.height],
+    [cup.top / 2 - cup.wall, cup.height],
+    [cup.bottom / 2 - cup.wall, cup.base], [0, cup.base],
+  ];
+  const signedArea = (points) => points.reduce((sum, [x, y], i) => {
+    const [nx, ny] = points[(i + 1) % points.length];
+    return sum + x * ny - nx * y;
+  }, 0) / 2;
+  const validProfile = (points) => Array.isArray(points) && points.length <= MAX_POINTS &&
+    points.every((point) => Array.isArray(point) && point.length === 2 &&
+      point.every((value) => Number.isFinite(value) && value >= 0 && value <= MAX_MM));
+  function simpleProfile(points) {
+    if (new Set(points.map(([r, z]) => `${r},${z}`)).size !== points.length) return false;
+    const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) -
+      (b[1] - a[1]) * (c[0] - a[0]);
+    const on = (a, b, c) => Math.min(a[0], b[0]) <= c[0] && c[0] <= Math.max(a[0], b[0]) &&
+      Math.min(a[1], b[1]) <= c[1] && c[1] <= Math.max(a[1], b[1]);
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      for (let j = i + 1; j < points.length; j++) {
+        if (j === i + 1 || (i === 0 && j === points.length - 1)) continue;
+        const c = points[j], d = points[(j + 1) % points.length];
+        const abC = cross(a, b, c), abD = cross(a, b, d);
+        const cdA = cross(c, d, a), cdB = cross(c, d, b);
+        if ((abC * abD < 0 && cdA * cdB < 0) ||
+            (abC === 0 && on(a, b, c)) || (abD === 0 && on(a, b, d)) ||
+            (cdA === 0 && on(c, d, a)) || (cdB === 0 && on(c, d, b))) return false;
+      }
+    }
+    return true;
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE, JSON.stringify({ version: 1, kind: 'rotational-part',
+        mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed }));
+    } catch { $('profileStatus').textContent = 'Armazenamento indisponível; use Salvar peça.'; }
+  }
+
+  function openProject(raw) {
+    const data = JSON.parse(raw);
+    if (data?.version !== 1 || data.kind !== 'rotational-part' ||
+        !['cup', 'custom'].includes(data.mode) || !validCup(data.cup) ||
+        !validProfile(data.profile) || typeof data.closed !== 'boolean' ||
+        (data.mode === 'cup' && !data.closed) ||
+        (data.mode === 'custom' && data.closed &&
+          (data.profile.length < 3 || Math.abs(signedArea(data.profile)) < .001 ||
+            !simpleProfile(data.profile))))
+      throw new Error('Projeto de peça inválido');
+    part.mode = data.mode;
+    part.cup = { ...data.cup };
+    part.profile = part.mode === 'cup' ? cupProfile(part.cup) : data.profile.map((p) => [...p]);
+    part.closed = data.closed;
+    part.drawLine = false;
+    part.pending = false;
+    part.selected = [...(part.profile.at(-1) ?? [0, 0])];
+    refresh();
+  }
+
+  try {
+    const raw = localStorage.getItem(STORAGE);
+    if (raw) openProject(raw);
+    else part.profile = cupProfile(part.cup);
+  } catch { part.profile = cupProfile(part.cup); }
+
+  function resize(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, Math.round(rect.width * ratio));
+    const height = Math.max(1, Math.round(rect.height * ratio));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width; canvas.height = height;
+    }
+    return { width: rect.width, height: rect.height, ratio };
+  }
+
+  function bounds() {
+    const points = [...part.profile, part.selected];
+    return {
+      r: Math.max(10, part.cup.top / 2, part.cup.bottom / 2,
+        ...points.map((point) => point[0])) * 1.2,
+      z: Math.max(10, part.cup.height, ...points.map((point) => point[1])) * 1.2,
+    };
+  }
+
+  function sketchTransform(width, height) {
+    const extent = bounds();
+    const left = 42, right = width - 24, top = 26, bottom = height - 35;
+    return {
+      extent,
+      screen: ([r, z]) => [left + r / extent.r * (right - left),
+        bottom - z / extent.z * (bottom - top)],
+      world: ([x, y]) => [Math.max(0, (x - left) / (right - left) * extent.r),
+        Math.max(0, (bottom - y) / (bottom - top) * extent.z)],
+      left, right, top, bottom,
+    };
+  }
+
+  function drawSketch() {
+    const { width, height, ratio } = resize(sketch);
+    if (width < 2) return;
+    const ctx = sketchCtx;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    const t = sketchTransform(width, height);
+    ctx.font = '11px DM Sans, Arial, sans-serif';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+      const x = t.left + (t.right - t.left) * i / 5;
+      const y = t.bottom - (t.bottom - t.top) * i / 5;
+      ctx.strokeStyle = i === 0 ? '#96b39f' : '#e1e8df';
+      ctx.beginPath(); ctx.moveTo(x, t.top); ctx.lineTo(x, t.bottom); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(t.left, y); ctx.lineTo(t.right, y); ctx.stroke();
+      ctx.fillStyle = '#87968a';
+      ctx.textAlign = 'center'; ctx.fillText(display(t.extent.r * i / 5), x, t.bottom + 17);
+      ctx.textAlign = 'right'; ctx.fillText(display(t.extent.z * i / 5), t.left - 6, y + 4);
+    }
+    ctx.fillStyle = '#7d9484';
+    ctx.textAlign = 'left'; ctx.fillText('EIXO', t.left + 5, t.top + 12);
+    if (part.profile.length) {
+      ctx.beginPath();
+      const first = t.screen(part.profile[0]);
+      ctx.moveTo(...first);
+      for (const point of part.profile.slice(1)) ctx.lineTo(...t.screen(point));
+      if (part.closed) ctx.closePath();
+      if (part.closed) { ctx.fillStyle = '#c8795555'; ctx.fill(); }
+      ctx.strokeStyle = '#c57650'; ctx.lineWidth = 3; ctx.stroke();
+      for (const point of part.profile) {
+        const [x, y] = t.screen(point);
+        ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#ad6749'; ctx.lineWidth = 2; ctx.stroke();
+      }
+    }
+    if (part.mode === 'custom' && part.drawLine && !part.closed && part.profile.length) {
+      const start = t.screen(part.profile.at(-1)), end = t.screen(part.selected);
+      ctx.beginPath(); ctx.moveTo(...start); ctx.lineTo(...end);
+      ctx.setLineDash([6, 4]); ctx.strokeStyle = '#286855'; ctx.lineWidth = 2.5;
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#286855'; ctx.textAlign = 'center';
+      ctx.fillText(`${display(Math.hypot(part.selected[0] - part.profile.at(-1)[0],
+        part.selected[1] - part.profile.at(-1)[1]))} mm`,
+      (start[0] + end[0]) / 2, (start[1] + end[1]) / 2 - 9);
+    }
+    const [sx, sy] = t.screen(part.selected);
+    ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+    ctx.strokeStyle = '#286855'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#315d4b'; ctx.textAlign = 'right';
+    ctx.fillText(`r ${display(part.selected[0])} · z ${display(part.selected[1])} mm`, width - 10, 20);
+  }
+
+  function normal(a, b, c) {
+    const u = b.map((value, i) => value - a[i]);
+    const v = c.map((value, i) => value - a[i]);
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2],
+      u[0] * v[1] - u[1] * v[0]];
+    const length = Math.hypot(...n);
+    return length > 1e-9 ? n.map((value) => value / length) : null;
+  }
+
+  function mesh() {
+    if (!part.closed || part.profile.length < 3) return [];
+    const triangles = [];
+    const flip = signedArea(part.profile) > 0;
+    const vertex = ([r, z], angle) => [r * Math.cos(angle), r * Math.sin(angle), z];
+    for (let j = 0; j < part.profile.length; j++) {
+      const from = part.profile[j], to = part.profile[(j + 1) % part.profile.length];
+      for (let i = 0; i < SIDES; i++) {
+        const a = vertex(from, i * 2 * Math.PI / SIDES);
+        const b = vertex(to, i * 2 * Math.PI / SIDES);
+        const c = vertex(to, (i + 1) * 2 * Math.PI / SIDES);
+        const d = vertex(from, (i + 1) * 2 * Math.PI / SIDES);
+        for (const points of flip ? [[a, c, b], [a, d, c]] : [[a, b, c], [a, c, d]]) {
+          const n = normal(...points);
+          if (n) triangles.push({ points, normal: n });
+        }
+      }
+    }
+    return triangles;
+  }
+
+  function project([x, y, z], width, height, unit, centerZ) {
+    const cy = Math.cos(part.yaw), sy = Math.sin(part.yaw);
+    const right = x * cy - y * sy;
+    const depth = x * sy + y * cy;
+    return { x: width / 2 + right * unit,
+      y: height * .55 + (depth * Math.sin(part.pitch) - (z - centerZ) * Math.cos(part.pitch)) * unit,
+      depth: depth * Math.cos(part.pitch) + (z - centerZ) * Math.sin(part.pitch) };
+  }
+
+  function drawModel() {
+    const { width, height, ratio } = resize(model);
+    if (width < 2) return;
+    const ctx = modelCtx;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    const triangles = mesh();
+    if (!triangles.length) {
+      if (part.mode === 'custom' && part.profile.length >= 2) {
+        const points = [...part.profile, ...(part.drawLine ? [part.selected] : [])];
+        const maxR = Math.max(1, ...points.map((p) => p[0]));
+        const minZ = Math.min(...points.map((p) => p[1]));
+        const maxZ = Math.max(...points.map((p) => p[1]));
+        const unit = Math.min(width, height) / (Math.max(maxR * 2, maxZ - minZ, 1) * 1.65) * part.zoom;
+        const centerZ = (minZ + maxZ) / 2;
+        ctx.strokeStyle = '#6a9479'; ctx.lineWidth = 1.2;
+        for (let angleIndex = 0; angleIndex < 12; angleIndex++) {
+          const angle = angleIndex * Math.PI / 6;
+          ctx.beginPath();
+          points.forEach(([r, z], index) => {
+            const p = project([r * Math.cos(angle), r * Math.sin(angle), z],
+              width, height, unit, centerZ);
+            if (index) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+          });
+          ctx.stroke();
+        }
+        for (const [r, z] of points) {
+          ctx.beginPath();
+          for (let i = 0; i <= 24; i++) {
+            const angle = i * Math.PI / 12;
+            const p = project([r * Math.cos(angle), r * Math.sin(angle), z],
+              width, height, unit, centerZ);
+            if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+          }
+          ctx.stroke();
+        }
+        return;
+      }
+      ctx.fillStyle = '#728578'; ctx.font = '13px DM Sans, Arial, sans-serif';
+      ctx.textAlign = 'center'; ctx.fillText('Feche o perfil 2D para gerar o 3D', width / 2, height / 2);
+      return;
+    }
+    const maxR = Math.max(...part.profile.map((point) => point[0]));
+    const maxZ = Math.max(...part.profile.map((point) => point[1]));
+    const minZ = Math.min(...part.profile.map((point) => point[1]));
+    const span = Math.max(maxR * 2, maxZ - minZ, 1);
+    const unit = Math.min(width, height) / (span * 1.65) * part.zoom;
+    const centerZ = (minZ + maxZ) / 2;
+    const faces = triangles.map((triangle) => {
+      const corners = triangle.points.map((point) => project(point, width, height, unit, centerZ));
+      const [nx, ny, nz] = triangle.normal;
+      const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
+      const shade = Math.round(135 + 73 * light);
+      return { corners, depth: corners.reduce((sum, corner) => sum + corner.depth, 0) / 3,
+        color: `rgb(${Math.min(255, shade + 33)},${Math.round(shade * .80)},${Math.round(shade * .66)})` };
+    });
+    faces.sort((a, b) => a.depth - b.depth);
+    for (const face of faces) {
+      ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
+      ctx.lineTo(face.corners[1].x, face.corners[1].y);
+      ctx.lineTo(face.corners[2].x, face.corners[2].y);
+      ctx.closePath(); ctx.fillStyle = face.color; ctx.fill();
+      ctx.strokeStyle = '#8d604522'; ctx.lineWidth = .5; ctx.stroke();
+    }
+  }
+
+  function render() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => { scheduled = false; drawSketch(); drawModel(); });
+  }
+
+  function refresh() {
+    for (const [id, key] of [['cupTop', 'top'], ['cupBottom', 'bottom'],
+      ['cupHeight', 'height'], ['cupWall', 'wall'], ['cupBase', 'base']])
+      $(id).value = display(part.cup[key]);
+    const custom = part.mode === 'custom';
+    $('addProfilePoint').disabled = !custom || part.closed;
+    $('drawProfileTool').disabled = !custom || part.closed;
+    $('drawProfileTool').setAttribute('aria-pressed', String(part.drawLine));
+    $('applyProfileLength').disabled = !custom || part.closed || !part.profile.length;
+    $('profileLength').disabled = !custom || part.closed || !part.profile.length;
+    $('undoProfilePoint').disabled = !custom || !part.profile.length;
+    $('closeProfile').disabled = !custom || part.closed || part.profile.length < 3;
+    $('profileStatus').textContent = custom ?
+      `${part.profile.length} pontos · ${part.closed ? 'perfil fechado' : 'perfil aberto'}` :
+      'Copo cônico · seção oca';
+    const triangles = mesh().length;
+    $('partStatus').textContent = triangles ? `${custom ? 'Peça livre' : 'Copo cônico'} · ${triangles.toLocaleString('pt-BR')} triângulos` :
+      custom && part.profile.length >= 2 ? 'Prévia 3D do perfil aberto · feche para gerar sólido' :
+        'Aguardando perfil fechado';
+    const maxR = part.profile.length ? Math.max(...part.profile.map((point) => point[0])) : 0;
+    const maxZ = part.profile.length ? Math.max(...part.profile.map((point) => point[1])) : 0;
+    $('partDimensions').textContent = `Raio máximo ${display(maxR)} mm · altura ${display(maxZ)} mm`;
+    $('exportPartStl').disabled = !triangles;
+    render();
+  }
+
+  function download(name, content, type) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = name; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  function exportStl() {
+    const triangles = mesh();
+    if (!triangles.length) return;
+    const buffer = new ArrayBuffer(84 + triangles.length * 50);
+    const view = new DataView(buffer);
+    const header = new TextEncoder().encode('Traco rotational part, units millimeters');
+    new Uint8Array(buffer).set(header.slice(0, 80));
+    view.setUint32(80, triangles.length, true);
+    let offset = 84;
+    for (const triangle of triangles) {
+      for (const value of triangle.normal) { view.setFloat32(offset, value, true); offset += 4; }
+      for (const point of triangle.points)
+        for (const value of point) { view.setFloat32(offset, value, true); offset += 4; }
+      view.setUint16(offset, 0, true); offset += 2;
+    }
+    download('traco-peca-mm.stl', buffer, 'model/stl');
+  }
+
+  $('architectureTab').addEventListener('click', () => switchMode('architecture'));
+  $('partsTab').addEventListener('click', () => switchMode('parts'));
+  function switchMode(mode) {
+    $('architectureMode').hidden = mode !== 'architecture';
+    $('partsMode').hidden = mode !== 'parts';
+    $('architectureTab').setAttribute('aria-selected', String(mode === 'architecture'));
+    $('partsTab').setAttribute('aria-selected', String(mode === 'parts'));
+    try { localStorage.setItem('traco-active-mode', mode); } catch { /* Optional preference. */ }
+    if (mode === 'parts') render();
+  }
+
+  for (const id of ['cupTop', 'cupBottom', 'cupHeight', 'cupWall', 'cupBase']) {
+    $(id).addEventListener('change', () => {
+      const key = { cupTop: 'top', cupBottom: 'bottom', cupHeight: 'height',
+        cupWall: 'wall', cupBase: 'base' }[id];
+      const value = number($(id).value);
+      const next = { ...part.cup, [key]: value };
+      if (value == null || !validCup(next)) {
+        $('profileStatus').textContent = 'Medidas inválidas: confira diâmetros, parede e fundo.';
+        $(id).value = display(part.cup[key]);
+        return;
+      }
+      part.cup = next; part.mode = 'cup'; part.profile = cupProfile(next);
+      part.closed = true; part.selected = [...part.profile.at(-1)];
+      save(); refresh();
+    });
+  }
+
+  $('cupExample').addEventListener('click', () => {
+    part.cup = { ...example }; part.mode = 'cup'; part.profile = cupProfile(part.cup);
+    part.closed = true; part.drawLine = false; part.pending = false;
+    part.selected = [0, 0]; save(); refresh();
+  });
+  $('newProfile').addEventListener('click', () => {
+    part.mode = 'custom'; part.profile = []; part.closed = false;
+    part.drawLine = false; part.pending = false;
+    part.selected = [0, 0]; $('profileLength').value = '';
+    $('profileHint').textContent = 'Ative Linha medida para desenhar no corte';
+    save(); refresh();
+  });
+  $('drawProfileTool').addEventListener('click', () => {
+    if (part.mode !== 'custom' || part.closed) return;
+    part.drawLine = !part.drawLine; part.pending = false;
+    $('profileHint').textContent = part.drawLine ?
+      'Clique no início e no fim; digite o comprimento em mm e Enter' :
+      'Toque no corte para escolher coordenadas; Adicionar ponto confirma';
+    refresh();
+  });
+  function sketchPoint(event) {
+    const rect = sketch.getBoundingClientRect();
+    const t = sketchTransform(rect.width, rect.height);
+    let [r, z] = t.world([event.clientX - rect.left, event.clientY - rect.top]);
+    if (part.drawLine && part.profile.length) {
+      const [startR, startZ] = part.profile.at(-1);
+      const dr = r - startR, dz = z - startZ;
+      if (Math.abs(dr) < Math.abs(dz) * .18) r = startR;
+      else if (Math.abs(dz) < Math.abs(dr) * .18) z = startZ;
+    }
+    return [Math.round(r * 100) / 100, Math.round(z * 100) / 100];
+  }
+  function selectPoint(point) {
+    part.selected = point;
+    $('profileRadius').value = display(point[0]);
+    $('profileZ').value = display(point[1]);
+    render();
+  }
+  function applySegmentLength() {
+    if (part.mode !== 'custom' || part.closed || !part.profile.length) return;
+    const length = number($('profileLength').value);
+    if (length == null || length < .01) {
+      $('profileStatus').textContent = 'Digite um comprimento maior que 0 em mm para criar a linha.';
+      return;
+    }
+    const start = part.profile.at(-1);
+    let dx = part.selected[0] - start[0], dz = part.selected[1] - start[1];
+    const preview = Math.hypot(dx, dz);
+    if (preview < .01) {
+      $('profileStatus').textContent = 'Aponte a direção da linha no corte antes de confirmar.';
+      return;
+    }
+    const end = [start[0] + dx / preview * length, start[1] + dz / preview * length]
+      .map((value) => Math.round(value * 100) / 100);
+    if (end.some((value) => value < 0 || value > MAX_MM) || part.profile.length >= MAX_POINTS) {
+      $('profileStatus').textContent = 'A linha ultrapassa o eixo/quadro ou o limite de 128 pontos.';
+      return;
+    }
+    if (Math.hypot(end[0] - start[0], end[1] - start[1]) < .01) return;
+    part.profile.push(end); part.selected = end; part.pending = false;
+    $('profileLength').value = '';
+    $('profileHint').textContent = 'Linha criada. Aponte a próxima ou feche o perfil.';
+    $('profileLength').blur(); save(); refresh();
+  }
+  $('applyProfileLength').addEventListener('click', applySegmentLength);
+  $('profileLength').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); applySegmentLength(); }
+    if (event.key === 'Escape') {
+      event.preventDefault(); part.pending = false; $('profileLength').blur();
+      $('profileHint').textContent = 'Prévia cancelada. Aponte uma nova direção.';
+      render();
+    }
+  });
+  sketch.addEventListener('pointerdown', (event) => {
+    const point = sketchPoint(event);
+    if (!part.drawLine || part.mode !== 'custom' || part.closed) {
+      selectPoint(point); return;
+    }
+    if (!part.profile.length) {
+      part.profile.push(point); selectPoint(point); save(); refresh();
+      $('profileHint').textContent = 'Ponto inicial criado. Clique no fim e digite os mm.';
+      return;
+    }
+    const validLength = number($('profileLength').value);
+    if (part.pending && (validLength == null || validLength < .01) &&
+      Math.hypot(point[0] - part.selected[0], point[1] - part.selected[1]) > 8) {
+      $('profileStatus').textContent = 'Esta linha ainda é prévia. Digite mm e pressione Enter.';
+      if (event.pointerType === 'mouse') $('profileLength').focus();
+      return;
+    }
+    $('profileLength').blur(); selectPoint(point); part.pending = true;
+    part.sketchPointer = { origin: point, pointerId: event.pointerId,
+      confirm: validLength != null && validLength >= .01, type: event.pointerType };
+    sketch.setPointerCapture(event.pointerId);
+  });
+  sketch.addEventListener('pointermove', (event) => {
+    if (!part.drawLine || part.mode !== 'custom' || part.closed || !part.profile.length ||
+      (part.pending && !part.sketchPointer)) return;
+    selectPoint(sketchPoint(event));
+  });
+  sketch.addEventListener('pointerup', (event) => {
+    const pointer = part.sketchPointer;
+    if (!pointer || pointer.pointerId !== event.pointerId) return;
+    const point = sketchPoint(event);
+    const moved = Math.hypot(point[0] - pointer.origin[0], point[1] - pointer.origin[1]) >= 1;
+    if (moved) selectPoint(point);
+    part.sketchPointer = null;
+    if (pointer.confirm) { applySegmentLength(); return; }
+    $('profileHint').textContent = 'Prévia pronta: digite o comprimento em mm e Enter';
+    if (pointer.type === 'mouse' && !moved) $('profileLength').focus();
+    render();
+  });
+  sketch.addEventListener('pointercancel', () => { part.sketchPointer = null; render(); });
+  $('addProfilePoint').addEventListener('click', () => {
+    const r = number($('profileRadius').value), z = number($('profileZ').value);
+    if (r == null || z == null || part.profile.length >= MAX_POINTS) {
+      $('profileStatus').textContent = 'Use coordenadas válidas em mm; até 128 pontos.'; return;
+    }
+    if (part.profile.length && Math.hypot(r - part.profile.at(-1)[0], z - part.profile.at(-1)[1]) < .001) {
+      $('profileStatus').textContent = 'Esse ponto coincide com o anterior.'; return;
+    }
+    part.selected = [r, z]; part.profile.push([r, z]);
+    part.pending = false;
+    save(); refresh();
+  });
+  $('undoProfilePoint').addEventListener('click', () => {
+    part.profile.pop(); part.closed = false; part.pending = false;
+    part.selected = [...(part.profile.at(-1) ?? [0, 0])]; save(); refresh();
+  });
+  $('closeProfile').addEventListener('click', () => {
+    if (part.profile.length < 3 || Math.abs(signedArea(part.profile)) < .001 ||
+        !simpleProfile(part.profile)) {
+      $('profileStatus').textContent = 'Feche um contorno simples com ao menos 3 pontos.'; return;
+    }
+    part.closed = true; part.pending = false; part.drawLine = false; save(); refresh();
+  });
+  model.addEventListener('pointerdown', (event) => {
+    model.setPointerCapture(event.pointerId); part.drag = [event.clientX, event.clientY];
+  });
+  model.addEventListener('pointermove', (event) => {
+    if (!part.drag) return;
+    part.yaw += (event.clientX - part.drag[0]) * .008;
+    part.pitch = Math.max(.02, Math.min(1.5, part.pitch + (event.clientY - part.drag[1]) * .006));
+    part.drag = [event.clientX, event.clientY]; render();
+  });
+  model.addEventListener('pointerup', () => { part.drag = null; });
+  model.addEventListener('pointercancel', () => { part.drag = null; });
+  model.addEventListener('wheel', (event) => {
+    event.preventDefault(); part.zoom = Math.max(.5, Math.min(3, part.zoom * (event.deltaY > 0 ? .92 : 1.08)));
+    render();
+  }, { passive: false });
+  $('resetPartView').addEventListener('click', () => {
+    part.yaw = -.65; part.pitch = .45; part.zoom = 1; render();
+  });
+  $('exportPartStl').addEventListener('click', exportStl);
+  $('savePart').addEventListener('click', () => {
+    save();
+    download('traco-peca.json', JSON.stringify({ version: 1, kind: 'rotational-part',
+      mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed }), 'application/json');
+  });
+  $('openPart').addEventListener('click', () => $('partFile').click());
+  $('partFile').addEventListener('change', async (event) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    if (file.size > 200_000) { $('profileStatus').textContent = 'Projeto de peça grande demais.'; return; }
+    try { openProject(await file.text()); save(); }
+    catch { $('profileStatus').textContent = 'Não foi possível abrir esse projeto de peça.'; }
+  });
+  new ResizeObserver(render).observe(sketch);
+  new ResizeObserver(render).observe(model);
+  refresh();
+  try { if (localStorage.getItem('traco-active-mode') === 'parts') switchMode('parts'); } catch { /* Optional preference. */ }
+})();

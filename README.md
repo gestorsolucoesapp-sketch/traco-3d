@@ -1,0 +1,40 @@
+# Traço — planta para 3D
+
+Editor web híbrido. **Arquitetura** desenha paredes em planta e vê o resultado em 3D, com portas, janelas e piso. **Mecânica · peças** usa uma seção 2D em milímetros e gera um sólido de revolução 3D. Abra `index.html` em um navegador moderno. Funciona com mouse, dedo ou caneta, sem conta.
+
+## Desenho preciso
+
+1. Selecione **Linha**, clique ou toque no ponto inicial e aponte a direção. No PC, clique no ponto final. A linha só vira parede quando você informar a medida.
+2. Pontos existentes, eixos horizontal/vertical e a grade de 10 cm atraem a linha. O toque tem uma área de encaixe maior no celular. Segure **Alt** para ignorar o encaixe com mouse.
+3. Digite uma medida como `2,50 m`, `250 cm` ou `2500 mm` e pressione **Enter**. Você também pode digitar antes do segundo clique: esse clique conclui a parede. Sem medida, o segundo clique no PC abre a caixa e a linha permanece em prévia; cliques fora dela pedem a medida, sem apagar o desenho anterior. Se o fim estiver encaixado em outra ponta e a medida for incompatível, a linha aguarda a correção. **Esc** cancela a prévia.
+4. Antes de confirmar a medida, arraste a ponta da prévia para ajustar a direção. No celular, o teclado só abre quando você toca na caixa de medida. Depois de confirmar, arraste a parede pelo meio para movê-la sem alterar o comprimento. Toque no meio da parede, digite outra medida e pressione **Enter** para alterar o comprimento. Paredes ligadas acompanham o movimento; **Desfazer** recupera o desenho anterior.
+5. Use **Livre** para rascunhar sem pontos discretos. Use **Apagar** ou **Desfazer** para corrigir.
+
+## Elementos arquitetônicos
+
+- **Porta**: selecione e toque numa parede. Abre um vão de 90 cm com altura de até 2,10 m.
+- **Janela**: selecione e toque numa parede. Abre um vão de 1,20 m entre peitoril de 90 cm e verga de até 2,10 m.
+- Cada segmento aceita uma abertura nesta versão. **Apagar** remove a abertura quando você toca nela; caso contrário, remove a parede tocada.
+- **Espessura da parede** ajusta todas as paredes entre 10 e 30 cm.
+- **Piso no contorno fechado** gera uma laje de 14 cm apenas quando existe um ciclo simples de paredes. A área mostrada usa a linha central das paredes e é aproximada. Planta aberta não recebe piso automático.
+
+Use **Perspectiva**, **Alicerce** (vista de cima da base das paredes) ou **Frontal** para mudar a câmera. Arraste o painel 3D para girar e use a roda do mouse para ampliar. Ajuste a altura das paredes e a escala do plano. **Ver exemplo** carrega uma planta de demonstração.
+Defina a escala antes de desenhar. Depois da primeira parede, ela fica travada para preservar as medidas já confirmadas.
+
+## Arquivos
+
+- **Importar STL** carrega um STL binário ou ASCII como referência visível na cena 3D. Escolha se as coordenadas do arquivo estão em mm, cm ou m; STL não registra essa unidade. A prévia é centralizada no plano e limitada a 4.000 triângulos para manter o navegador responsivo. Arquivos de até 20 MB e 400.000 faces são aceitos.
+- **Exportar 3D** baixa paredes com vãos e piso em OBJ, com coordenadas em metros. O STL importado não é incluído nessa exportação.
+- **Salvar projeto** baixa JSON com paredes, aberturas, configurações e amostra da prévia STL. **Abrir projeto** restaura esses dados. O navegador também tenta manter uma cópia local.
+
+Este é um estudo geométrico, não um projeto executivo. Ele não interpreta fotos, móveis ou anotações desenhadas, não dimensiona estrutura e não produz renderização fotorrealista por IA. Medidas, acessibilidade, estrutura e normas devem ser conferidas por profissional habilitado antes de construir.
+
+## Peças em milímetros
+
+1. Abra **Mecânica · peças**. O exemplo inicial é um copo cônico oco: topo de 90 mm, base de 65 mm, altura de 110 mm, parede de 2,5 mm e fundo de 4 mm.
+2. Altere os cinco campos para atualizar imediatamente o corte 2D e o sólido 3D. Arraste o modelo para girar.
+3. Para outra peça de revolução, clique em **Novo perfil livre** e **Linha medida**. Clique no ponto inicial e no fim da primeira linha, digite o comprimento em mm e pressione **Enter**. Também pode digitar antes do clique final para concluir nesse clique. Cada linha permanece no perfil; o app mostra uma prévia 3D enquanto ele está aberto. O cursor encaixa nos eixos horizontal e vertical próximos.
+4. Repita as linhas e clique em **Fechar perfil** para gerar o sólido. Para inserir vértices por coordenadas, desligue **Linha medida**, informe **Raio** e **Altura** e use **Adicionar ponto**. Um contorno aberto ou que cruza a si mesmo não gera STL.
+5. **Exportar STL** baixa um STL binário em milímetros. **Salvar peça** e **Abrir peça** usam um JSON próprio; o modo de arquitetura conserva seu projeto separado.
+
+Peças simétricas ao redor de um eixo, como copos, cones, anéis e buchas, podem ser modeladas. O modo ainda não oferece extrusão de contornos arbitrários, furos fora do eixo, roscas, tolerâncias, montagem ou verificação estrutural. As coordenadas aceitam até 10.000.000 mm por segurança numérica, mas STL usa ponto flutuante de 32 bits e perde precisão em medidas extremas. Confira malha, espessura e processo de fabricação em uma ferramenta de engenharia antes de produzir.

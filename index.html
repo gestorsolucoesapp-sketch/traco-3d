@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f4ef" />
+    <title>Traço — do rascunho ao espaço</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#inicio" aria-label="Traço, início">
+          <span class="brand-mark" aria-hidden="true"><span></span></span>
+          <span>traço<span class="brand-dot">.</span></span>
+        </a>
+        <div class="topbar-right">
+          <span class="topbar-caption">ESTÚDIO DE ESPAÇOS</span>
+          <span class="status-pill"><span class="status-light"></span> Salvo neste dispositivo</span>
+        </div>
+      </header>
+
+      <main id="inicio">
+        <section class="intro">
+          <div>
+            <p class="eyebrow"><span class="eyebrow-line"></span> DESENHE · VISUALIZE · EXPLORE</p>
+            <h1>Seu rascunho, <em>em outra dimensão.</em></h1>
+            <p class="intro-copy">Um estúdio híbrido para desenhar ambientes em metros e peças em milímetros, acompanhando cada esboço em 3D.</p>
+          </div>
+          <div class="intro-step" aria-label="Fluxo em três passos">
+            <span><b>01</b> Desenhe</span><i></i><span><b>02</b> Veja em 3D</span><i></i><span><b>03</b> Exporte</span>
+          </div>
+        </section>
+
+        <div class="discipline-switch" role="tablist" aria-label="Tipo de projeto">
+          <button id="architectureTab" type="button" role="tab" aria-selected="true" aria-controls="architectureMode">Arquitetura · ambientes</button>
+          <button id="partsTab" type="button" role="tab" aria-selected="false" aria-controls="partsMode">Mecânica · peças</button>
+        </div>
+
+        <div id="architectureMode" role="tabpanel" aria-labelledby="architectureTab">
+
+        <section class="workspace" aria-label="Editor de rascunho e visualização 3D">
+          <div class="panel sketch-panel">
+            <div class="panel-head">
+              <div><p class="panel-kicker">ÁREA DE CRIAÇÃO</p><h2>Seu rascunho</h2></div>
+              <span class="panel-index">01 / 02</span>
+            </div>
+            <div class="tools-row" role="toolbar" aria-label="Ferramentas de desenho">
+              <button id="lineTool" class="tool active" type="button" aria-pressed="true" title="Criar linha com medida exata">
+                <span class="tool-icon">／</span> Linha
+              </button>
+              <button id="drawTool" class="tool" type="button" aria-pressed="false" title="Desenhar livremente">
+                <span class="tool-icon">✎</span> Livre
+              </button>
+              <button id="doorTool" class="tool" type="button" aria-pressed="false" title="Colocar porta em uma parede">Porta</button>
+              <button id="windowTool" class="tool" type="button" aria-pressed="false" title="Colocar janela em uma parede">Janela</button>
+              <button id="eraseTool" class="tool" type="button" aria-pressed="false" title="Apagar um traço">
+                <span class="tool-icon">⌫</span> Apagar
+              </button>
+              <span class="tool-divider"></span>
+              <button id="undoButton" class="icon-button" type="button" title="Desfazer" aria-label="Desfazer" disabled>↶</button>
+              <button id="redoButton" class="icon-button" type="button" title="Refazer" aria-label="Refazer" disabled>↷</button>
+              <button id="clearButton" class="icon-button" type="button" title="Limpar desenho" aria-label="Limpar desenho">×</button>
+            </div>
+            <div class="canvas-wrap sketch-wrap">
+              <canvas id="sketchCanvas" aria-label="Quadro para desenhar a planta à mão"></canvas>
+              <div id="sketchHint" class="canvas-hint"><span class="hint-symbol">✳</span><strong>Comece com uma linha.</strong><span>Clique no início e no fim. Digite a medida e pressione Enter para criar a parede.</span></div>
+              <div class="measure-box" aria-label="Medida da linha">
+                <span id="liveMeasure">Toque para iniciar</span>
+                <div class="measure-entry"><input id="measureInput" type="text" inputmode="decimal" placeholder="Ex.: 2,50 m" aria-label="Comprimento exato da linha" disabled /><button id="applyMeasure" type="button" aria-label="Aplicar medida" disabled>↵</button></div>
+              </div>
+              <span class="canvas-corner-label">VISTA SUPERIOR · 2D</span>
+            </div>
+            <div class="panel-foot">
+              <span id="wallCount">0 paredes</span>
+              <span id="toolHint">Arraste uma parede para mover · toque para editar</span>
+            </div>
+          </div>
+
+          <div class="panel model-panel">
+            <div class="panel-head">
+              <div><p class="panel-kicker">VISUALIZAÇÃO INSTANTÂNEA</p><h2>Seu espaço em 3D <span class="live-dot"></span></h2></div>
+              <span class="panel-index">02 / 02</span>
+            </div>
+            <div class="canvas-wrap model-wrap">
+              <canvas id="modelCanvas" aria-label="Modelo tridimensional giratório das paredes desenhadas"></canvas>
+              <div id="modelHint" class="model-hint"><span class="model-hint-icon">◇</span><span>Seu espaço aparece aqui<br />enquanto você desenha.</span></div>
+              <div id="viewBadge" class="view-badge">PERSPECTIVA 3D</div>
+              <div class="orbit-tip">↻ Arraste para girar · Role para ampliar</div>
+            </div>
+            <div class="view-switcher" role="group" aria-label="Vista do modelo">
+              <button id="viewPerspective" class="view-option active" type="button" aria-pressed="true">Perspectiva</button>
+              <button id="viewFoundation" class="view-option" type="button" aria-pressed="false">Alicerce</button>
+              <button id="viewFront" class="view-option" type="button" aria-pressed="false">Frontal</button>
+            </div>
+            <div class="panel-foot">
+              <span id="modelStatus">Aguardando desenho</span>
+              <button id="resetView" class="text-button" type="button">Redefinir vista ↗</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="control-bar" aria-label="Ajustes e ações do projeto">
+          <div class="control-group">
+            <label for="heightRange"><span>ALTURA DAS PAREDES</span><strong id="heightValue">2,7 m</strong></label>
+            <input id="heightRange" type="range" min="1.8" max="4" step="0.1" value="2.7" />
+          </div>
+          <div class="control-group">
+            <label for="scaleRange"><span>ESCALA ANTES DE DESENHAR</span><strong id="scaleValue">80 px / m</strong></label>
+            <input id="scaleRange" type="range" min="40" max="160" step="5" value="80" />
+          </div>
+          <div class="control-group">
+            <label for="thicknessRange"><span>ESPESSURA DA PAREDE</span><strong id="thicknessValue">15 cm</strong></label>
+            <input id="thicknessRange" type="range" min="10" max="30" step="1" value="15" />
+          </div>
+          <label class="floor-toggle"><input id="floorToggle" type="checkbox" checked /> Piso no contorno fechado</label>
+          <div class="action-group">
+            <button id="exampleButton" class="secondary-button" type="button">Ver exemplo</button>
+            <button id="importStlButton" class="secondary-button" type="button">Importar STL</button>
+            <button id="openButton" class="secondary-button" type="button">Abrir projeto</button>
+            <button id="saveButton" class="secondary-button" type="button">Salvar projeto</button>
+            <button id="exportButton" class="primary-button" type="button">Exportar 3D <span>↗</span></button>
+          </div>
+        </section>
+
+        <section id="stlControls" class="stl-controls" hidden aria-label="Modelo STL importado">
+          <div><strong id="stlName">Modelo STL</strong><span id="stlInfo"></span></div>
+          <label for="stlUnit">Unidade do STL</label>
+          <select id="stlUnit"><option value="mm">Milímetros</option><option value="cm">Centímetros</option><option value="m">Metros</option></select>
+          <button id="removeStl" type="button">Remover STL</button>
+        </section>
+
+        <div class="bottom-note"><span>✳</span> Portas e janelas recortam a parede no 3D. O piso aparece quando existe um contorno fechado. Confira medidas e normas com um profissional antes de construir.</div>
+        </div>
+
+        <div id="partsMode" role="tabpanel" aria-labelledby="partsTab" hidden>
+          <div class="parts-intro">
+            <div><p class="panel-kicker">PROJETO DE PEÇAS</p><h2>Esboço 2D que gira em 3D</h2><p>Desenhe uma seção em milímetros. O perfil fechado gira 360° em torno do eixo vertical para formar uma peça de revolução.</p></div>
+            <button id="cupExample" class="secondary-button" type="button">Copo cônico de exemplo</button>
+          </div>
+          <div class="parts-settings" aria-label="Medidas do copo cônico">
+            <label>Diâmetro superior <span>mm</span><input id="cupTop" type="text" inputmode="decimal" value="90" aria-label="Diâmetro superior em milímetros" /></label>
+            <label>Diâmetro inferior <span>mm</span><input id="cupBottom" type="text" inputmode="decimal" value="65" aria-label="Diâmetro inferior em milímetros" /></label>
+            <label>Altura <span>mm</span><input id="cupHeight" type="text" inputmode="decimal" value="110" aria-label="Altura em milímetros" /></label>
+            <label>Parede <span>mm</span><input id="cupWall" type="text" inputmode="decimal" value="2,5" aria-label="Espessura do copo em milímetros" /></label>
+            <label>Fundo <span>mm</span><input id="cupBase" type="text" inputmode="decimal" value="4" aria-label="Espessura do fundo em milímetros" /></label>
+          </div>
+          <div class="workspace parts-workspace">
+            <div class="panel">
+              <div class="panel-head"><div><p class="panel-kicker">CORTE AXIAL · 2D</p><h2>Perfil da peça</h2></div><span class="panel-index">01 / 02</span></div>
+              <div class="parts-tools">
+                <button id="newProfile" class="secondary-button" type="button">Novo perfil livre</button>
+                <button id="drawProfileTool" class="secondary-button" type="button" aria-pressed="false">Linha medida</button>
+                <button id="addProfilePoint" class="secondary-button" type="button">Adicionar ponto</button>
+                <button id="undoProfilePoint" class="secondary-button" type="button">Desfazer ponto</button>
+                <button id="closeProfile" class="primary-button" type="button">Fechar perfil</button>
+              </div>
+              <div class="canvas-wrap parts-canvas-wrap"><canvas id="partSketchCanvas" aria-label="Esboço da seção da peça em milímetros"></canvas><span class="canvas-corner-label">RAIO × ALTURA · mm</span></div>
+              <div class="coordinate-entry">
+                <label>Raio <input id="profileRadius" type="text" inputmode="decimal" value="0" aria-label="Raio do ponto em milímetros" /> mm</label>
+                <label>Altura <input id="profileZ" type="text" inputmode="decimal" value="0" aria-label="Altura do ponto em milímetros" /> mm</label>
+              </div>
+              <div class="segment-entry"><label>Comprimento da linha <input id="profileLength" type="text" inputmode="decimal" placeholder="Ex.: 25 mm" aria-label="Comprimento da linha da peça em milímetros" /> mm</label><button id="applyProfileLength" class="primary-button" type="button">Concluir linha ↵</button></div>
+              <div class="panel-foot"><span id="profileStatus">Perfil do copo pronto</span><span id="profileHint">Novo perfil livre → Linha medida → clique no ponto e digite mm</span></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><div><p class="panel-kicker">REVOLUÇÃO INSTANTÂNEA</p><h2>Peça em 3D <span class="live-dot"></span></h2></div><span class="panel-index">02 / 02</span></div>
+              <div class="canvas-wrap parts-canvas-wrap part-model-wrap"><canvas id="partModelCanvas" aria-label="Modelo 3D da peça de revolução"></canvas><div class="view-badge">REVOLUÇÃO 360°</div><div class="orbit-tip">↻ Arraste para girar · Role para ampliar</div></div>
+              <div class="panel-foot"><span id="partStatus">Copo cônico · 0 triângulos</span><button id="resetPartView" class="text-button" type="button">Redefinir vista ↗</button></div>
+            </div>
+          </div>
+          <div class="parts-actions">
+            <span id="partDimensions">Unidade: mm</span>
+            <button id="savePart" class="secondary-button" type="button">Salvar peça</button>
+            <button id="openPart" class="secondary-button" type="button">Abrir peça</button>
+            <button id="exportPartStl" class="primary-button" type="button">Exportar STL <span>↗</span></button>
+          </div>
+          <div class="bottom-note"><span>✳</span> O modo Peças cria sólidos de revolução, como copos, cones, buchas e vasos. Medidas em mm até 10.000.000; STL perde precisão em dimensões extremas. Peças não simétricas exigem ferramentas adicionais.</div>
+        </div>
+      </main>
+    </div>
+    <input id="projectFile" type="file" accept="application/json,.json" hidden />
+    <input id="stlFile" type="file" accept=".stl,model/stl,application/sla" hidden />
+    <input id="partFile" type="file" accept="application/json,.json" hidden />
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js" defer></script>
+    <script src="parts.js" defer></script>
+  </body>
+</html>
