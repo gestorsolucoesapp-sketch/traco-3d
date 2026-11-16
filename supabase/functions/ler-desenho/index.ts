@@ -48,6 +48,48 @@ FORMATO (responda só o JSON, sem texto em volta)
 - peca: o perfil é um contorno FECHADO. Para "revolucao", descreva meio perfil começando no eixo de giro. "profundidade_mm" só se estiver escrita (espessura/profundidade); senão null.
 - planta: cada parede é um segmento; ambientes separados viram contornos separados.`;
 
+const PROMPT_NARRAR = `O usuário descreveu, falando ou escrevendo, peças mecânicas que quer modelar em 3D.
+Transforme a descrição em JSON. Medidas em MILÍMETROS.
+
+REGRAS ABSOLUTAS
+- Use SOMENTE medidas ditas pelo usuário. Medida não dita = null. Nunca invente altura, comprimento ou tipo de cabeça.
+- Rosca métrica: "rosca de 6 mm", "M6" → rosca "M6", diametro 6. Passo só se o usuário disser (ex.: "M6x0,75" → passo 0.75); senão null.
+- "profundidade" de furo/rosca = quanto entra na peça. "passante"/"vazado de lado a lado" → passante true.
+- Se pedir um parafuso/porca "para essa rosca", use a mesma rosca do furo.
+- O que não couber nos tipos abaixo vai em "nao_suportado" (frase curta). Não force.
+
+TIPOS SUPORTADOS
+- "cilindro": diametro, altura, furos[]
+- "bloco": largura, comprimento, altura, furos[]
+- "parafuso": rosca, diametro, passo, comprimento (só a parte roscada, sem a cabeça), cabeca ("sextavada" | "allen" | "sem_cabeca" | null)
+- "porca": rosca, diametro, passo
+- furo (sempre no centro da face): { "face": "topo" | "base", "diametro", "rosca" (ex. "M6" ou null se for furo liso), "passo", "profundidade", "passante" }
+
+FORMATO (só o JSON)
+{ "pecas": [ { "tipo": "...", "nome": "nome curto", ...campos } ], "avisos": ["..."], "nao_suportado": ["..."] }`;
+
+async function narrar(texto: string, chave: string, h: Record<string, string>) {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: MODELO, max_tokens: 2000, system: PROMPT_NARRAR,
+      messages: [{ role: "user", content: texto.slice(0, 2000) }] }),
+  });
+  if (!r.ok) {
+    console.error("anthropic", r.status, (await r.text()).slice(0, 500));
+    return new Response(JSON.stringify({ erro: `IA respondeu ${r.status}.` }), { status: 502, headers: h });
+  }
+  const dados = await r.json();
+  const t: string = (dados.content ?? []).filter((c: { type: string }) => c.type === "text")
+    .map((c: { text: string }) => c.text).join("\n");
+  try {
+    const json = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
+    return new Response(JSON.stringify(json), { headers: h });
+  } catch {
+    return new Response(JSON.stringify({ erro: "Não entendi a descrição. Tente de novo com as medidas." }), { status: 502, headers: h });
+  }
+}
+
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const h = { ...cors(origin), "Content-Type": "application/json" };
@@ -59,10 +101,11 @@ Deno.serve(async (req) => {
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
   if (!chave) return new Response(JSON.stringify({ erro: "Servidor sem ANTHROPIC_API_KEY." }), { status: 500, headers: h });
 
-  let corpo: { imagem?: string; tipo?: string; midia?: string };
+  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string };
   try { corpo = await req.json(); } catch {
     return new Response(JSON.stringify({ erro: "Corpo inválido." }), { status: 400, headers: h });
   }
+  if (typeof corpo.texto === "string" && corpo.texto.trim()) return narrar(corpo.texto.trim(), chave, h);
   const imagem = (corpo.imagem ?? "").replace(/^data:[^,]+,/, "");
   if (!imagem || imagem.length > MAX_IMAGEM)
     return new Response(JSON.stringify({ erro: "Imagem ausente ou grande demais." }), { status: 413, headers: h });

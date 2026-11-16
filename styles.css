@@ -44,3 +44,19 @@
 .foto-fecho { color: #b3261e; font-weight: 600; min-height: 1.2em; margin: 10px 0 0; }
 .foto-acoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 .foto-acoes button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Narrar peça */
+.narrar-texto { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid #c9d3cf; border-radius: 10px; resize: vertical; }
+.narrar-acoes { flex-wrap: wrap; align-items: center; }
+.narrar-peca { border: 1px solid #dde4e0; border-radius: 12px; padding: 8px 12px 10px; margin: 10px 0; }
+.narrar-peca legend { font-weight: 700; padding: 0 6px; }
+.narrar-campos, .narrar-furo { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: flex-end; margin-top: 6px; }
+.narrar-furo { border-top: 1px dashed #dde4e0; padding-top: 8px; }
+.narrar-peca label, .narrar-folga { display: flex; flex-direction: column; gap: 3px; font-size: .86em; }
+.narrar-peca label:has(input[type=checkbox]) { flex-direction: row; align-items: center; gap: 6px; }
+.narrar-peca input:not([type=checkbox]), .narrar-folga input { width: 6.5em; font-size: 16px; padding: 4px 6px; border: 1px solid #c9d3cf; border-radius: 7px; }
+.narrar-peca select { font-size: 15px; padding: 4px; border-radius: 7px; }
+.narrar-peca label.falta input, .narrar-peca label.falta select { border-color: #d0342c; background: #fff0ef; }
+.narrar-peca small, .narrar-folga small { opacity: .6; font-size: .8em; }
+.narrar-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; font-size: .9em; }
+.narrar-folga { margin-top: 8px; }

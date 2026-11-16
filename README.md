@@ -38,6 +38,12 @@ Defina a escala antes de desenhar. Depois da primeira parede, ela fica travada p
 
 Publicação: `.github/workflows/deploy-ler-desenho.yml` publica a função e grava o endereço em `config.js`. Precisa dos segredos `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF` e `ANTHROPIC_API_KEY` no repositório.
 
+## Narrar peça
+
+**🎙️ Narrar peça** (Mecânica): fale (microfone do navegador, pt-BR) ou escreva a peça com as medidas. A IA (mesma função `ler-desenho`, modo texto) devolve as peças com **só as medidas ditas**; um formulário mostra tudo e marca em vermelho o que faltou — **Gerar 3D** só libera completo. Passo da rosca (ISO grossa), cabeça sextavada ISO 4017, allen ISO 4762 e porca ISO 4032 vêm de tabela de norma e aparecem marcados "ISO". **Montar sem IA** usa o mesmo formulário sem servidor.
+
+Tipos: cilindro e bloco (com até 2 furos centrais, topo/base, liso ou roscado, cego ou passante), parafuso (sextavado, allen ou barra roscada) e porca, M3 a M24, com rosca helicoidal real e campo de folga para impressão 3D. Malhas fechadas; **Exportar STL** gera um arquivo por peça.
+
 ## Arquivos
 
 - **Importar STL** carrega um STL binário ou ASCII como referência visível na cena 3D. Escolha se as coordenadas do arquivo estão em mm, cm ou m; STL não registra essa unidade. A prévia é centralizada no plano e limitada a 4.000 triângulos para manter o navegador responsivo. Arquivos de até 20 MB e 400.000 faces são aceitos.

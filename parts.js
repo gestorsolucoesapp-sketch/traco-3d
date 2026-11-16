@@ -65,7 +65,7 @@
       localStorage.setItem(STORAGE, JSON.stringify({ version: 1, kind: 'rotational-part',
         mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
         operation: part.operation, extrudeDepth: part.extrudeDepth,
-        shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix }));
+        shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado }));
     } catch { $('profileStatus').textContent = 'Armazenamento indisponível; use Salvar peça.'; }
   }
 
@@ -74,7 +74,8 @@
     if (data?.version !== 1 || data.kind !== 'rotational-part' ||
         !['cup', 'custom'].includes(data.mode) || !validCup(data.cup) ||
         !validProfile(data.profile) || typeof data.closed !== 'boolean' ||
-        (data.operation !== undefined && !['extrude', 'revolve', 'thread', 'spring'].includes(data.operation)) ||
+        (data.operation !== undefined && !['extrude', 'revolve', 'thread', 'spring', 'narrado'].includes(data.operation)) ||
+        (data.operation === 'narrado' && (!data.narrado || !Array.isArray(data.narrado.pecas) || !data.narrado.pecas.length)) ||
         (data.shapeType !== undefined && data.shapeType !== null && !['rectangle', 'circle'].includes(data.shapeType)) ||
         (data.holeDiameter !== undefined && (!Number.isFinite(data.holeDiameter) || data.holeDiameter < 0 || data.holeDiameter > MAX_MM)) ||
         (data.helix !== undefined && (!data.helix || !['diameter', 'pitch', 'turns', 'thickness'].every((key) =>
@@ -102,6 +103,7 @@
     part.shapeType = data.shapeType ?? null;
     part.holeDiameter = data.holeDiameter ?? 0;
     part.helix = data.helix ?? { diameter: 20, pitch: 5, turns: 5, thickness: 2 };
+    part.narrado = data.operation === 'narrado' ? data.narrado : null;
     part.cup = { ...data.cup };
     part.profile = part.mode === 'cup' ? cupProfile(part.cup) : data.profile.map((p) => [...p]);
     part.closed = data.closed;
@@ -461,6 +463,9 @@
   }
 
   function mesh() {
+    if (part.operation === 'narrado') {
+      try { return window.tracoNarrado?.montar(part.narrado).tris || []; } catch { return []; }
+    }
     if (!part.closed || part.profile.length < 3) return [];
     if (part.operation === 'thread' || part.operation === 'spring') return helixMesh();
     if (part.mode === 'custom' && part.operation === 'extrude' && part.holeDiameter > 0)
@@ -564,6 +569,27 @@
       ctx.textAlign = 'center'; ctx.fillText('Feche o perfil 2D para gerar o 3D', width / 2, height / 2);
       return;
     }
+    if (part.operation === 'narrado') {
+      const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+      for (const t of triangles) for (const q of t.points) for (let k = 0; k < 3; k++) { if (q[k] < b[k]) b[k] = q[k]; if (q[k] > b[k + 3]) b[k + 3] = q[k]; }
+      const cx = (b[0] + b[3]) / 2, cy = (b[1] + b[4]) / 2, cz = (b[2] + b[5]) / 2;
+      const unitN = Math.min(width, height) / (Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2], 1) * 1.65) * part.zoom;
+      const facesN = triangles.map((triangle) => {
+        const corners = triangle.points.map((q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz));
+        const [nx, ny, nz] = triangle.normal;
+        const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
+        const shade = Math.round(135 + 73 * light);
+        return { corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3,
+          color: `rgb(${Math.min(255, shade + 33)},${Math.round(shade * .80)},${Math.round(shade * .66)})` };
+      });
+      facesN.sort((a, c) => a.depth - c.depth);
+      for (const face of facesN) {
+        ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
+        ctx.lineTo(face.corners[1].x, face.corners[1].y); ctx.lineTo(face.corners[2].x, face.corners[2].y);
+        ctx.closePath(); ctx.fillStyle = face.color; ctx.fill();
+      }
+      return;
+    }
     const extruded = part.mode === 'custom' && part.operation === 'extrude';
     const minX = extruded ? Math.min(...part.profile.map((point) => point[0])) : 0;
     const maxX = Math.max(...part.profile.map((point) => point[0]));
@@ -652,6 +678,16 @@
       `${part.profile.length} pontos · ${part.closed ? 'perfil fechado' : 'perfil aberto'}` :
       'Copo cônico · seção oca';
     const triangles = mesh().length;
+    if (part.operation === 'narrado') {
+      const n = part.narrado.pecas.length;
+      $('shapeMethod').hidden = true;
+      $('partViewBadge').textContent = 'PEÇA NARRADA';
+      $('profileStatus').textContent = `Corte da 1ª peça · ${n} peça${n > 1 ? 's' : ''}`;
+      $('partStatus').textContent = `${part.narrado.pecas.map((pc) => pc.nome).join(' + ')} · ${triangles.toLocaleString('pt-BR')} triângulos`;
+      $('partDimensions').textContent = 'Exportar gera um STL por peça';
+      $('exportPartStl').disabled = !triangles;
+      render(); return;
+    }
     $('partStatus').textContent = triangles ? `${custom ? 'Peça livre' : 'Copo cônico'} · ${helix ? (part.operation === 'thread' ? 'rosca' : 'mola') : extruded ? 'extrusão' : 'revolução'} · ${triangles.toLocaleString('pt-BR')} triângulos` :
       custom && part.profile.length >= 2 ? `Prévia 3D do contorno aberto · ${extruded ? 'extrusão' : 'revolução'} · feche para gerar sólido` :
         'Aguardando perfil fechado';
@@ -674,7 +710,25 @@
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
+  function stlBuffer(triangles) {
+    const buffer = new ArrayBuffer(84 + triangles.length * 50);
+    const view = new DataView(buffer);
+    new Uint8Array(buffer).set(new TextEncoder().encode('Traco 3D part, units millimeters').slice(0, 80));
+    view.setUint32(80, triangles.length, true);
+    let offset = 84;
+    for (const triangle of triangles) {
+      for (const value of triangle.normal) { view.setFloat32(offset, value, true); offset += 4; }
+      for (const point of triangle.points) for (const value of point) { view.setFloat32(offset, value, true); offset += 4; }
+      view.setUint16(offset, 0, true); offset += 2;
+    }
+    return buffer;
+  }
   function exportStl() {
+    if (part.operation === 'narrado') {
+      const { pecas } = window.tracoNarrado.montar(part.narrado);
+      pecas.forEach((pc, i) => setTimeout(() => download(`traco-${(pc.nome || 'peca').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-')}-${i + 1}-mm.stl`, stlBuffer(pc.tris), 'model/stl'), i * 400));
+      return;
+    }
     const triangles = mesh();
     if (!triangles.length) return;
     const buffer = new ArrayBuffer(84 + triangles.length * 50);
@@ -1133,7 +1187,7 @@
     download('traco-peca.json', JSON.stringify({ version: 1, kind: 'rotational-part',
       mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
       operation: part.operation, extrudeDepth: part.extrudeDepth,
-      shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix }), 'application/json');
+      shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado }), 'application/json');
   });
   $('openPart').addEventListener('click', () => $('partFile').click());
   $('partFile').addEventListener('change', async (event) => {
@@ -1143,6 +1197,16 @@
     try { openProject(await file.text()); save(); }
     catch { $('profileStatus').textContent = 'Não foi possível abrir esse projeto de peça.'; }
   });
+  // Usado pela narração (narrar.js): mostra as peças montadas e o corte da 1ª no quadro 2D.
+  window.tracoAbrirNarrado = (spec) => {
+    if (!window.tracoNarrado.montar(spec).tris.length) throw new Error('nenhuma geometria');
+    part.mode = 'custom'; part.operation = 'narrado'; part.narrado = spec;
+    part.profile = window.tracoNarrado.corte(spec.pecas[0]).map(([x, z]) => [Math.max(0, x), Math.max(0, z)]);
+    part.closed = true; part.shapeType = null; part.holeDiameter = 0; part.shapeTool = null;
+    part.drawLine = false; part.freehand = false; part.pending = false; part.showHoleControls = false;
+    part.selected = [...part.profile.at(-1)]; part.zoom = 1;
+    fitSketchView(); save(); refresh();
+  };
   // Usado pela leitura de foto (foto.js): abre um perfil já em mm como peça personalizada.
   window.tracoAbrirPeca = (dados) => {
     openProject(JSON.stringify({ version: 1, kind: 'rotational-part', cup: { ...example }, ...dados }));
