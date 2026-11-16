@@ -80,9 +80,12 @@
     part.profile = part.mode === 'cup' ? cupProfile(part.cup) : data.profile.map((p) => [...p]);
     part.closed = data.closed;
     part.drawLine = false;
-    part.freehand = false;
+    part.freehand = part.mode === 'custom' && !part.closed;
     part.pending = false;
     part.selected = [...(part.profile.at(-1) ?? [0, 0])];
+    $('profileHint').textContent = part.freehand ?
+      'Mão livre ativa. Arraste no corte a partir da ponta do perfil.' :
+      'Novo perfil → Linha mm ou Mão livre';
     fitSketchView();
     refresh();
   }
@@ -404,9 +407,9 @@
   });
   $('newProfile').addEventListener('click', () => {
     part.mode = 'custom'; part.profile = []; part.closed = false;
-    part.drawLine = false; part.freehand = false; part.pending = false;
+    part.drawLine = false; part.freehand = true; part.pending = false;
     part.selected = [0, 0]; $('profileLength').value = ''; $('profileAngle').value = '';
-    $('profileHint').textContent = 'Ative Linha mm ou Mão livre para desenhar no corte';
+    $('profileHint').textContent = 'Mão livre ativa. Arraste no corte para começar.';
     fitSketchView(); save(); refresh();
   });
   $('drawProfileTool').addEventListener('click', () => {
@@ -543,6 +546,8 @@
     return true;
   }
   sketch.addEventListener('pointerdown', (event) => {
+    if (part.mode === 'custom' && !part.closed && (part.freehand || part.drawLine))
+      event.preventDefault();
     const point = sketchPoint(event);
     if (part.freehand && part.mode === 'custom' && !part.closed) {
       const last = part.profile.at(-1);
@@ -580,6 +585,7 @@
   });
   sketch.addEventListener('pointermove', (event) => {
     if (part.freehandDrag && event.pointerId === part.freehandDrag.pointerId) {
+      event.preventDefault();
       const point = sketchPoint(event);
       const points = part.freehandDrag.points;
       if (points.length < MAX_POINTS * 4 &&
@@ -609,6 +615,7 @@
     if (finishFreehand(event, true)) return;
     part.sketchPointer = null; render();
   });
+  sketch.addEventListener('contextmenu', (event) => event.preventDefault());
   $('addProfilePoint').addEventListener('click', () => {
     const r = number($('profileRadius').value), z = number($('profileZ').value);
     if (r == null || z == null || part.profile.length >= MAX_POINTS) {
