@@ -3,7 +3,7 @@ name: Publicar leitura de foto (Supabase)
 # Publica a função ler-desenho no Supabase e grava o endereço dela em config.js.
 # Segredos do repositório (Settings → Secrets and variables → Actions):
 #   SUPABASE_ACCESS_TOKEN  — token pessoal do Supabase (Account → Access Tokens)
-#   SUPABASE_PROJECT_REF   — id do projeto (ex.: cppuceykhffjdcmwpfpk)
+#   (o id do projeto traco, frcvjcrxcflsyzmdalom, já está fixo abaixo)
 #   ANTHROPIC_API_KEY      — chave da API Claude (fica como segredo da função)
 
 on:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      REF: ${{ secrets.SUPABASE_PROJECT_REF || 'frcvjcrxcflsyzmdalom' }}
     steps:
       - uses: actions/checkout@v4
       - name: Conferir segredos
