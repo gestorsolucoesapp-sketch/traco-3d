@@ -406,7 +406,7 @@
     part.mode = 'custom'; part.profile = []; part.closed = false;
     part.drawLine = false; part.freehand = false; part.pending = false;
     part.selected = [0, 0]; $('profileLength').value = ''; $('profileAngle').value = '';
-    $('profileHint').textContent = 'Ative Linha medida para desenhar no corte';
+    $('profileHint').textContent = 'Ative Linha mm ou Mão livre para desenhar no corte';
     fitSketchView(); save(); refresh();
   });
   $('drawProfileTool').addEventListener('click', () => {
