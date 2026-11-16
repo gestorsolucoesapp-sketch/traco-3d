@@ -14,6 +14,13 @@ Depois de desenhar, use **Equidistância** para informar a espessura entre 10 e 
 4. Antes de confirmar a medida, arraste a ponta da prévia para ajustar a direção. No celular, o teclado só abre quando você toca na caixa de medida. Depois de confirmar, arraste a parede pelo meio para movê-la sem alterar o comprimento. Toque no meio da parede, digite outra medida e pressione **Enter** para alterar o comprimento. Paredes ligadas acompanham o movimento; **Desfazer** recupera o desenho anterior.
 5. Use **Livre** para rascunhar sem pontos discretos. Use **Apagar** ou **Desfazer** para corrigir.
 
+## Inferência estilo SketchUp (Linha)
+
+- **Clique conclui a linha** no ponto inferido (no PC). A próxima linha já sai da ponta da anterior; **Esc** encerra. Fechar num ponto já desenhado encerra a sequência.
+- Marcadores com etiqueta junto ao cursor: **Ponto final** (verde), **Ponto médio** (ciano), **Na aresta** (vermelho), **No eixo vermelho** (horizontal), **No eixo verde** (vertical) e **A partir do ponto** (guia tracejada até um ponto já desenhado, na mesma altura ou coluna).
+- **Enter** sem medida conclui quando há inferência (ponto, médio, aresta ou alinhamento). Digitando a medida, ela manda.
+- **Shift** (segurar) trava a direção atual. **Seta →** trava no eixo vermelho, **Seta ←** no eixo verde; aperte de novo para soltar.
+
 ## Elementos arquitetônicos
 
 - **Porta**: selecione e toque numa parede. Abre um vão de 90 cm com altura de até 2,10 m.

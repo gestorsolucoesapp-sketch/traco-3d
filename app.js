@@ -27,6 +27,9 @@ const state = {
   linePending: false,
   lineSnapKind: null,
   lineGuides: [],
+  lineLock: null,      // direção travada (Shift ou setas) — vetor unitário
+  lineLockKey: null,   // 'shift' | 'x' | 'y'
+  lineHover: null,     // inferência mostrada antes do 1º clique
   lineDragOrigin: null,
   lineConfirmOnRelease: false,
   lineRequestMeasureOnRelease: false,
@@ -196,10 +199,26 @@ function snapToExisting(point, toleranceCss = 16) {
 
 function snapPoint(point, origin = null, bypass = false, pointerType = 'mouse') {
   if (bypass) return { point, kind: 'free' };
-  const existing = snapToExisting(point, pointerType === 'touch' ? 22 : 16);
-  if (existing) return { point: existing, kind: 'point' };
-  const step = state.pixelsPerMeter / 10;
   const tol = pointerType === 'touch' ? 16 : 10;
+  const step = state.pixelsPerMeter / 10;
+  // Direção travada (Shift ou setas): projeta o cursor nessa reta.
+  if (origin && state.lineLock) {
+    const [ux, uy] = state.lineLock;
+    const t = (point[0] - origin[0]) * ux + (point[1] - origin[1]) * uy;
+    const isX = Math.abs(uy) < 1e-6, isY = Math.abs(ux) < 1e-6;
+    if (isX) {
+      const inf = inferAlign(point, origin, tol, 'x');
+      return { point: [inf.x ?? Math.round((origin[0] + t * ux) / step) * step, origin[1]], kind: 'x', guides: inf.guides, locked: true };
+    }
+    if (isY) {
+      const inf = inferAlign(point, origin, tol, 'y');
+      return { point: [origin[0], inf.y ?? Math.round((origin[1] + t * uy) / step) * step], kind: 'y', guides: inf.guides, locked: true };
+    }
+    const len = Math.round(t / step) * step;
+    return { point: [origin[0] + ux * len, origin[1] + uy * len], kind: 'lock', guides: [], locked: true };
+  }
+  const hit = inferPoint(point, origin, pointerType === 'touch' ? 22 : 16);
+  if (hit) return { point: hit.point, kind: hit.kind, guides: [] };
   if (origin) {
     const dx = point[0] - origin[0], dy = point[1] - origin[1];
     if (Math.abs(dx) > 10 && Math.abs(dy) <= Math.abs(dx) * .22) {
@@ -214,6 +233,40 @@ function snapPoint(point, origin = null, bypass = false, pointerType = 'mouse') 
   const inf = inferAlign(point, origin, tol, null);
   return { point: [inf.x ?? Math.round(point[0] / step) * step, inf.y ?? Math.round(point[1] / step) * step],
     kind: inf.guides.length ? 'align' : 'grid', guides: inf.guides };
+}
+
+// Inferência de ponto estilo SketchUp: ponta (verde) > ponto médio (ciano) > na aresta (vermelho).
+function inferPoint(point, origin, toleranceCss) {
+  const bounds = sketchCanvas.getBoundingClientRect();
+  const sx = bounds.width / DESIGN_WIDTH || 1, sy = bounds.height / DESIGN_HEIGHT || 1;
+  const dist = (a) => Math.hypot((point[0] - a[0]) * sx, (point[1] - a[1]) * sy);
+  const isOrigin = (a) => origin && Math.abs(a[0] - origin[0]) < .5 && Math.abs(a[1] - origin[1]) < .5;
+  let best = null, bestD = toleranceCss;
+  for (const stroke of state.strokes)
+    for (const c of [stroke[0], stroke.at(-1), ...stroke.slice(1, -1)]) {
+      if (isOrigin(c)) continue;
+      const d = dist(c); if (d < bestD) { bestD = d; best = { point: [...c], kind: 'point' }; }
+    }
+  if (best) return best;
+  bestD = toleranceCss * .8;
+  for (const stroke of state.strokes)
+    for (let i = 1; i < stroke.length; i++) {
+      const m = [(stroke[i - 1][0] + stroke[i][0]) / 2, (stroke[i - 1][1] + stroke[i][1]) / 2];
+      const d = dist(m); if (d < bestD) { bestD = d; best = { point: m, kind: 'mid' }; }
+    }
+  if (best) return best;
+  bestD = toleranceCss * .55;
+  for (const stroke of state.strokes)
+    for (let i = 1; i < stroke.length; i++) {
+      const a = stroke[i - 1], b = stroke[i];
+      const vx = b[0] - a[0], vy = b[1] - a[1], L = vx * vx + vy * vy;
+      if (L < 1) continue;
+      const t = Math.max(0, Math.min(1, ((point[0] - a[0]) * vx + (point[1] - a[1]) * vy) / L));
+      const q = [a[0] + vx * t, a[1] + vy * t];
+      if (isOrigin(q)) continue;
+      const d = dist(q); if (d < bestD) { bestD = d; best = { point: q, kind: 'edge' }; }
+    }
+  return best;
 }
 
 // Inferência estilo SketchUp: alinha a ponta com pontos já desenhados (mesma altura ou mesma coluna)
@@ -260,12 +313,13 @@ function refreshMeasure() {
   }
   const distance = active && state.linePreview ? pointDistance(state.lineStart, state.linePreview) : 0;
   const axis = state.lineSnapKind === 'x' ? ' · eixo X' : state.lineSnapKind === 'y' ? ' · eixo Y' :
-    state.lineSnapKind === 'point' ? ' · ponto' : '';
+    state.lineSnapKind === 'point' ? ' · ponto final' : state.lineSnapKind === 'mid' ? ' · ponto médio' :
+    state.lineSnapKind === 'edge' ? ' · na aresta' : state.lineSnapKind === 'lock' ? ' · travado' : '';
   const alinh = (state.lineGuides || []).length ? ' · alinhado' : '';
   const typed = $('measureInput').value.trim();
   $('liveMeasure').textContent = active ? typed ?
     `Medida: ${typed} · Enter conclui${axis}${alinh}` :
-    `Prévia: ${formatMeters(distance)}${axis}${alinh} · ${alinh || state.lineSnapKind === 'point' ? 'Enter conclui' : 'digite medida'}` : 'Toque para iniciar';
+    `Prévia: ${formatMeters(distance)}${axis}${alinh} · ${alinh || ['point', 'mid', 'edge'].includes(state.lineSnapKind) ? 'Enter conclui' : 'clique ou digite medida'}` : 'Toque para iniciar';
 }
 
 function cancelLine() {
@@ -283,6 +337,7 @@ function cancelLine() {
   state.lineConfirmOnRelease = false;
   state.lineRequestMeasureOnRelease = false;
   state.selectedWallKey = null;
+  state.lineLock = null; state.lineLockKey = null;
   $('measureInput').value = '';
   if (state.tool === 'line') $('toolHint').textContent = 'Arraste uma parede para mover · toque para editar';
   refreshMeasure();
@@ -298,9 +353,26 @@ function commitLine(end) {
   }
   const start = state.lineStart;
   const rounded = end.map((value) => Math.round(value * 100) / 100);
+  const closes = state.strokes.some((st) => st.some((c) => Math.abs(c[0] - rounded[0]) < .5 && Math.abs(c[1] - rounded[1]) < .5));
   state.selectedWallKey = wallKey(start, rounded);
   commit([...state.strokes, [start, rounded]]);
   $('toast').classList.remove('show');
+  state.lineLock = null; state.lineLockKey = null;
+  if (!closes) {
+    // Igual ao SketchUp: a próxima linha já sai da ponta desta, até Esc.
+    state.lineStart = rounded;
+    state.linePreview = rounded;
+    state.linePending = false;
+    state.lineSnapKind = null;
+    state.lineGuides = [];
+    state.lineDragOrigin = null;
+    state.lineConfirmOnRelease = false;
+    state.lineRequestMeasureOnRelease = false;
+    $('measureInput').value = '';
+    $('toolHint').textContent = 'Continue a próxima linha · Esc encerra';
+    refreshMeasure(); requestRender();
+    return;
+  }
   state.lineStart = null;
   state.linePreview = null;
   state.linePending = false;
@@ -335,7 +407,7 @@ function applyExactLength() {
   if (!state.lineStart && !selectedWall()) return;
   // Sem medida digitada: se a ponta está alinhada (guia) ou grudada num ponto, Enter conclui ali mesmo.
   if (state.lineStart && !$('measureInput').value.trim() && state.linePreview &&
-      ((state.lineGuides || []).length || state.lineSnapKind === 'point') &&
+      ((state.lineGuides || []).length || ['point', 'mid', 'edge'].includes(state.lineSnapKind)) &&
       pointDistance(state.lineStart, state.linePreview) >= 5) {
     commitLine(state.linePreview); return;
   }
@@ -710,6 +782,7 @@ sketchCanvas.addEventListener('pointerdown', (event) => {
     return;
   }
   if (state.tool === 'line') {
+    state.lineHover = null;
     const snapped = snapPoint(point, state.lineStart, event.altKey, event.pointerType);
     if (!state.lineStart) {
       const hit = snapped.kind === 'point' ? null : nearestWall(point, event.pointerType === 'touch' ? 20 : 12);
@@ -733,6 +806,12 @@ sketchCanvas.addEventListener('pointerdown', (event) => {
         pointDistance(point, state.linePreview ?? point) > 32) {
         notify('Esta linha ainda é uma prévia. Digite a medida e pressione Enter para concluí-la.');
         if (event.pointerType === 'mouse') $('measureInput').focus();
+        return;
+      }
+      if (event.pointerType === 'mouse' && !hasMeasure && pointDistance(state.lineStart, snapped.point) >= 5) {
+        // Igual ao SketchUp: o clique conclui a linha no ponto inferido.
+        commitLine(snapped.point);
+        refreshControls();
         return;
       }
       $('measureInput').blur();
@@ -766,8 +845,14 @@ sketchCanvas.addEventListener('pointermove', (event) => {
     updateWallMove(sketchPoint(event));
     return;
   }
+  if (state.tool === 'line' && !state.lineStart && !state.moveDrag && event.pointerType === 'mouse') {
+    const h = snapPoint(sketchPoint(event), null, event.altKey, event.pointerType);
+    const show = ['point', 'mid', 'edge', 'align'].includes(h.kind) ? h : null;
+    if (JSON.stringify(show) !== JSON.stringify(state.lineHover)) { state.lineHover = show; requestRender(); }
+  }
   if (state.tool === 'line' && state.lineStart && (!state.linePending || state.lineDragOrigin)) {
-    const snapped = snapPoint(sketchPoint(event), state.lineStart, event.altKey, event.pointerType);
+    state.lineLastPointer = sketchPoint(event);
+    const snapped = snapPoint(state.lineLastPointer, state.lineStart, event.altKey, event.pointerType);
     state.linePreview = snapped.point;
     state.lineSnapKind = snapped.kind; state.lineGuides = snapped.guides || [];
     refreshMeasure(); requestRender();
@@ -833,6 +918,7 @@ function finishStroke(event) {
   else requestRender();
 }
 sketchCanvas.addEventListener('pointerup', finishStroke);
+sketchCanvas.addEventListener('pointerleave', () => { if (state.lineHover) { state.lineHover = null; requestRender(); } });
 sketchCanvas.addEventListener('pointercancel', () => {
   if (state.moveDrag) finishWallMove(true);
   state.rectangleStart = null; state.rectanglePointerId = null;
@@ -843,6 +929,11 @@ $('measureInput').addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { event.preventDefault(); cancelLine(); }
 });
 $('applyMeasure').addEventListener('click', applyExactLength);
+window.addEventListener('keyup', (event) => {
+  if (event.key === 'Shift' && state.lineLockKey === 'shift') {
+    state.lineLock = null; state.lineLockKey = null; refreshMeasure(); requestRender();
+  }
+});
 window.addEventListener('keydown', (event) => {
   if ($('architectureMode').hidden || state.tool !== 'line' || !state.lineStart ||
       event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
@@ -853,6 +944,24 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { event.preventDefault(); cancelLine(); return; }
   if (event.key === 'Enter') {
     event.preventDefault(); applyExactLength(); return;
+  }
+  if (event.key === 'Shift' && !event.repeat && !state.lineLockKey && state.linePreview &&
+      pointDistance(state.lineStart, state.linePreview) >= 5) {
+    const dx = state.linePreview[0] - state.lineStart[0], dy = state.linePreview[1] - state.lineStart[1];
+    const L = Math.hypot(dx, dy);
+    state.lineLock = [dx / L, dy / L]; state.lineLockKey = 'shift';
+    refreshMeasure(); requestRender(); return;
+  }
+  if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+    event.preventDefault();
+    const key = event.key === 'ArrowRight' ? 'x' : 'y';
+    if (state.lineLockKey === key) { state.lineLock = null; state.lineLockKey = null; }
+    else { state.lineLock = key === 'x' ? [1, 0] : [0, 1]; state.lineLockKey = key; }
+    if (state.lineLastPointer) {
+      const sn = snapPoint(state.lineLastPointer, state.lineStart, false, 'mouse');
+      state.linePreview = sn.point; state.lineSnapKind = sn.kind; state.lineGuides = sn.guides || [];
+    }
+    refreshMeasure(); requestRender(); return;
   }
   const input = $('measureInput');
   if (/^[0-9,.mc]$/i.test(event.key)) input.value += event.key.toLowerCase();
@@ -951,7 +1060,8 @@ function drawSketch() {
       context.setLineDash([5, 5]);
       if (state.lineSnapKind === 'x') { context.moveTo(0, state.lineStart[1]); context.lineTo(DESIGN_WIDTH, state.lineStart[1]); }
       else { context.moveTo(state.lineStart[0], 0); context.lineTo(state.lineStart[0], DESIGN_HEIGHT); }
-      context.strokeStyle = '#76a392'; context.lineWidth = 1.5; context.stroke();
+      context.strokeStyle = state.lineSnapKind === 'x' ? 'rgba(208,52,44,.75)' : 'rgba(46,158,79,.75)';
+      context.lineWidth = state.lineLock ? 2.5 : 1.5; context.stroke();
       context.setLineDash([]);
     }
     if (measured == null && (state.lineGuides || []).length) {
@@ -961,10 +1071,10 @@ function drawSketch() {
       for (const g of state.lineGuides) {
         context.beginPath(); context.moveTo(...g.from);
         context.lineTo(g.axis === 'h' ? end[0] : g.from[0], g.axis === 'h' ? g.from[1] : end[1]);
-        context.strokeStyle = g.axis === 'h' ? '#c0392b' : '#2e8b57'; context.stroke();
+        context.strokeStyle = g.axis === 'h' ? '#d0342c' : '#2e9e4f'; context.stroke();
         context.setLineDash([]);
         context.beginPath(); context.arc(g.from[0], g.from[1], 4, 0, Math.PI * 2);
-        context.fillStyle = g.axis === 'h' ? '#c0392b' : '#2e8b57'; context.fill();
+        context.fillStyle = g.axis === 'h' ? '#d0342c' : '#2e9e4f'; context.fill();
         context.setLineDash([2, 4]);
       }
       context.restore();
@@ -978,8 +1088,51 @@ function drawSketch() {
       context.beginPath(); context.arc(point[0], point[1], 5, 0, Math.PI * 2);
       context.fillStyle = '#fff'; context.fill(); context.strokeStyle = '#426f61'; context.lineWidth = 2; context.stroke();
     }
+    if (measured == null) drawInference(context, end, state.lineSnapKind, state.lineGuides, Boolean(state.lineLock));
+  } else if (state.tool === 'line' && state.lineHover) {
+    drawInference(context, state.lineHover.point, state.lineHover.kind, state.lineHover.guides || [], false);
   }
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+
+// Marcador + etiqueta da inferência, como no SketchUp.
+function drawInference(context, at, kind, guides, locked) {
+  const labels = { point: 'Ponto final', mid: 'Ponto médio', edge: 'Na aresta', x: 'No eixo vermelho',
+    y: 'No eixo verde', align: 'A partir do ponto', lock: 'Direção travada' };
+  let text = labels[kind];
+  if ((kind === 'x' || kind === 'y') && (guides || []).length) text += ' · a partir do ponto';
+  if (locked && kind !== 'lock') text += ' · travado';
+  if (!text) return;
+  context.save();
+  if (kind === 'point') {
+    context.beginPath(); context.arc(at[0], at[1], 7, 0, Math.PI * 2);
+    context.fillStyle = '#2e9e4f'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2; context.stroke();
+  } else if (kind === 'mid') {
+    context.beginPath(); context.arc(at[0], at[1], 7, 0, Math.PI * 2);
+    context.fillStyle = '#17b3c9'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2; context.stroke();
+  } else if (kind === 'edge') {
+    context.fillStyle = '#d0342c'; context.fillRect(at[0] - 5, at[1] - 5, 10, 10);
+    context.strokeStyle = '#fff'; context.lineWidth = 1.5; context.strokeRect(at[0] - 5, at[1] - 5, 10, 10);
+  }
+  if (!state.lineStart && guides && guides.length) {
+    context.setLineDash([2, 4]); context.lineWidth = 1.5;
+    for (const g of guides) {
+      context.beginPath(); context.moveTo(...g.from);
+      context.lineTo(g.axis === 'h' ? at[0] : g.from[0], g.axis === 'h' ? g.from[1] : at[1]);
+      context.strokeStyle = g.axis === 'h' ? '#d0342c' : '#2e9e4f'; context.stroke();
+    }
+    context.setLineDash([]);
+  }
+  context.font = '600 11px DM Sans, Arial, sans-serif';
+  const w = context.measureText(text).width + 12;
+  let x = at[0] + 14, y = at[1] + 14;
+  if (x + w > DESIGN_WIDTH) x = at[0] - 14 - w;
+  if (y + 20 > DESIGN_HEIGHT) y = at[1] - 34;
+  context.fillStyle = 'rgba(255,255,240,.95)'; context.strokeStyle = 'rgba(0,0,0,.35)'; context.lineWidth = 1;
+  context.beginPath(); context.rect(x, y, w, 20); context.fill(); context.stroke();
+  context.fillStyle = '#222'; context.textAlign = 'left'; context.textBaseline = 'middle';
+  context.fillText(text, x + 6, y + 10);
+  context.restore();
 }
 
 function drawDimension(context, start, end, preview = false) {
@@ -1247,6 +1400,7 @@ function setTool(tool) {
   if (state.tool === 'line' && tool !== 'line') cancelLine();
   state.rectangleStart = null; state.rectanglePointerId = null; state.draft = null;
   state.tool = tool;
+  state.lineHover = null;
   $('measureBox').hidden = tool !== 'line';
   for (const [id, name] of [['lineTool', 'line'], ['drawTool', 'draw'],
     ['rectangleArchTool', 'rectangle'], ['doorTool', 'door'],
