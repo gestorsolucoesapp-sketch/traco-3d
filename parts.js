@@ -108,7 +108,8 @@
     part.profile = part.mode === 'cup' ? cupProfile(part.cup) : data.profile.map((p) => [...p]);
     part.closed = data.closed;
     part.drawLine = false;
-    part.freehand = part.mode === 'custom' && !part.closed;
+    part.freehand = false;
+    part.drawLine = part.mode === 'custom' && !part.closed;
     part.pending = false;
     part.shapeTool = null; part.shapeDrag = null;
     part.selected = [...(part.profile.at(-1) ?? [0, 0])];
@@ -285,11 +286,43 @@
       const dr = preview[0] - part.profile.at(-1)[0];
       const dz = preview[1] - part.profile.at(-1)[1];
       ctx.beginPath(); ctx.moveTo(...start); ctx.lineTo(...end);
-      ctx.setLineDash([6, 4]); ctx.strokeStyle = '#286855'; ctx.lineWidth = 2.5;
-      ctx.stroke(); ctx.setLineDash([]);
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = part.infer?.kind === 'x' ? '#d0342c' : part.infer?.kind === 'y' ? '#2e9e4f' : '#286855';
+      ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = '#286855'; ctx.textAlign = 'center';
       ctx.fillText(`${display(Math.hypot(dr, dz))} mm · ${display(Math.atan2(dz, dr) * 180 / Math.PI)}°`,
       (start[0] + end[0]) / 2, (start[1] + end[1]) / 2 - 9);
+    }
+    if (part.mode === 'custom' && part.drawLine && !part.closed && part.infer && !$('profileLength').value.trim()) {
+      const at = t.screen(part.selected);
+      ctx.save(); ctx.setLineDash([2, 4]); ctx.lineWidth = 1.5;
+      for (const g of part.infer.guides) {
+        const from = t.screen(g.from);
+        ctx.beginPath(); ctx.moveTo(...from);
+        ctx.lineTo(g.axis === 'h' ? at[0] : from[0], g.axis === 'h' ? from[1] : at[1]);
+        ctx.strokeStyle = g.axis === 'h' ? '#d0342c' : '#2e9e4f'; ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      const k = part.infer.kind;
+      if (k === 'point' || k === 'fechar') {
+        ctx.beginPath(); ctx.arc(at[0], at[1], 7, 0, Math.PI * 2);
+        ctx.fillStyle = '#2e9e4f'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      }
+      const nomes = { point: 'Ponto final', fechar: 'Fechar perfil', x: 'No eixo vermelho', y: 'No eixo verde', align: 'A partir do ponto' };
+      let txt = nomes[k];
+      if ((k === 'x' || k === 'y') && part.infer.guides.length) txt += ' · a partir do ponto';
+      if (txt) {
+        ctx.font = '600 11px DM Sans, Arial, sans-serif';
+        const w = ctx.measureText(txt).width + 12;
+        let x = at[0] + 14, y = at[1] + 14;
+        if (x + w > width) x = at[0] - 14 - w;
+        if (y + 20 > height) y = at[1] - 34;
+        ctx.fillStyle = 'rgba(255,255,240,.95)'; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.rect(x, y, w, 20); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#222'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(txt, x + 6, y + 10); ctx.textBaseline = 'alphabetic';
+      }
+      ctx.restore();
     }
     if (!generated) {
       const [sx, sy] = t.screen(part.selected);
@@ -655,7 +688,7 @@
       'O contorno mantém a forma desenhada. Feche para criar um sólido.' :
       'O perfil gira ao redor do eixo para criar uma peça redonda.';
     $('addProfilePoint').disabled = !custom || part.closed;
-    $('drawProfileTool').disabled = !custom || part.closed;
+    $('drawProfileTool').disabled = false;
     $('drawProfileTool').setAttribute('aria-pressed', String(part.drawLine));
     $('freehandProfileTool').disabled = !custom || part.closed;
     $('freehandProfileTool').setAttribute('aria-pressed', String(part.freehand));
@@ -784,9 +817,9 @@
   $('newProfile').addEventListener('click', () => {
     part.mode = 'custom'; part.operation = 'extrude'; part.profile = []; part.closed = false;
     part.shapeType = null; part.holeDiameter = 0; part.shapeTool = null; part.showHoleControls = false;
-    part.drawLine = false; part.freehand = true; part.pending = false;
+    part.drawLine = true; part.freehand = false; part.pending = false;
     part.selected = [0, 0]; $('profileLength').value = ''; $('profileAngle').value = '';
-    $('profileHint').textContent = 'Mão livre ativa. Arraste no corte para começar.';
+    $('profileHint').textContent = 'Linha mm ativa: clique para começar; cada clique conclui uma linha. Digite os mm a qualquer hora.';
     fitSketchView(); save(); refresh();
   });
   for (const [id, type] of [['rectangleTool', 'rectangle'], ['circleTool', 'circle']]) {
@@ -887,10 +920,10 @@
     if (event.key === 'Enter') { event.preventDefault(); confirmExtrudeDepth(); }
   });
   $('drawProfileTool').addEventListener('click', () => {
-    if (part.mode !== 'custom' || part.closed) return;
+    if (part.mode !== 'custom' || part.closed) { $('newProfile').click(); $('sketchMenu').open = false; return; }
     part.drawLine = !part.drawLine; part.freehand = false; part.pending = false;
     $('profileHint').textContent = part.drawLine ?
-      'Clique no início, aponte a direção, digite os mm e pressione Enter' :
+      'Cada clique conclui uma linha · digite os mm a qualquer hora · clique no 1º ponto para fechar' :
       'Toque no corte para escolher coordenadas; Adicionar ponto confirma';
     refresh();
   });
@@ -907,17 +940,51 @@
     fitSketchView(); render();
     $('profileHint').textContent = 'Enquadramento ajustado. O plano fica fixo durante o traço.';
   });
+  // Inferência igual à Arquitetura/SketchUp: ponto existente > eixo > alinhamento > grade de mm.
   function sketchPoint(event) {
     const rect = sketch.getBoundingClientRect();
     const t = sketchTransform(rect.width, rect.height);
     let [r, z] = t.world([event.clientX - rect.left, event.clientY - rect.top]);
-    if (part.drawLine && part.profile.length) {
-      const [startR, startZ] = part.profile.at(-1);
-      const dr = r - startR, dz = z - startZ;
-      if (Math.abs(dr) < Math.abs(dz) * .18) r = startR;
-      else if (Math.abs(dz) < Math.abs(dr) * .18) z = startZ;
+    part.infer = null;
+    if (!part.drawLine || event.altKey) return [Math.round(r * 100) / 100, Math.round(z * 100) / 100];
+    const mmPorPx = t.extent.r / (t.right - t.left);
+    const tol = (event.pointerType === 'touch' ? 16 : 10) * mmPorPx;
+    const passo = t.extent.r > 120 ? 1 : t.extent.r > 30 ? .5 : .1;
+    const grade = (v) => Math.round(v / passo) * passo;
+    const ultimo = part.profile.at(-1);
+    // 1) ponto já desenhado (o primeiro fecha o perfil)
+    let melhor = null, dist = tol * 1.4;
+    part.profile.forEach((q, i) => {
+      if (i === part.profile.length - 1) return;
+      const d = Math.hypot(q[0] - r, q[1] - z);
+      if (d < dist) { dist = d; melhor = { q, i }; }
+    });
+    if (melhor) {
+      part.infer = { kind: melhor.i === 0 && part.profile.length >= 3 ? 'fechar' : 'point', guides: [] };
+      return [...melhor.q];
     }
-    return [Math.round(r * 100) / 100, Math.round(z * 100) / 100];
+    const guias = [];
+    const alinhar = (eixo, valor) => { // eixo 0 = mesma coluna (x), 1 = mesma altura (z)
+      let alvo = null, dd = tol;
+      for (const q of part.profile.slice(0, -1)) {
+        const d = Math.abs(q[eixo] - valor);
+        if (d < dd) { dd = d; alvo = q; }
+      }
+      if (alvo) guias.push({ from: [...alvo], axis: eixo === 0 ? 'v' : 'h' });
+      return alvo ? alvo[eixo] : null;
+    };
+    let kind = 'grid';
+    if (ultimo) {
+      const dr = r - ultimo[0], dz = z - ultimo[1];
+      if (Math.abs(dr) < Math.abs(dz) * .18) { r = ultimo[0]; z = alinhar(1, z) ?? grade(z); kind = 'y'; }
+      else if (Math.abs(dz) < Math.abs(dr) * .18) { z = ultimo[1]; r = alinhar(0, r) ?? grade(r); kind = 'x'; }
+    }
+    if (kind === 'grid') {
+      r = alinhar(0, r) ?? grade(r); z = alinhar(1, z) ?? grade(z);
+      if (guias.length) kind = 'align';
+    }
+    part.infer = { kind, guides: guias };
+    return [Math.max(0, Math.round(r * 100) / 100), Math.max(0, Math.round(z * 100) / 100)];
   }
   function selectPoint(point) {
     part.selected = point;
@@ -978,7 +1045,15 @@
     if ($('partsMode').hidden || !part.drawLine || part.closed || !part.profile.length ||
         event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
     if (event.target !== sketch && event.target !== document.body) return;
-    if (event.key === 'Enter') { event.preventDefault(); applySegmentLength(); return; }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const last = part.profile.at(-1);
+      if (!$('profileLength').value.trim() && Math.hypot(part.selected[0] - last[0], part.selected[1] - last[1]) >= .01) {
+        if (part.infer?.kind === 'fechar') { $('closeProfile').click(); return; }
+        part.profile.push([...part.selected]); part.pending = false; save(); refresh(); return;
+      }
+      applySegmentLength(); return;
+    }
     if (event.key === 'Escape') {
       event.preventDefault(); part.pending = false;
       $('profileLength').value = ''; part.selected = [...part.profile.at(-1)];
@@ -1072,6 +1147,16 @@
       return;
     }
     const validLength = number($('profileLength').value);
+    if (event.pointerType === 'mouse' && (validLength == null || validLength < .01)) {
+      // Igual à Arquitetura: o clique conclui a linha no ponto inferido e já segue para a próxima.
+      if (part.infer?.kind === 'fechar') { $('closeProfile').click(); return; }
+      const last = part.profile.at(-1);
+      if (Math.hypot(point[0] - last[0], point[1] - last[1]) < .01) return;
+      if (part.profile.length >= MAX_POINTS) { $('profileStatus').textContent = 'Limite de 128 pontos.'; return; }
+      part.profile.push(point); selectPoint(point); part.pending = false;
+      $('profileHint').textContent = 'Linha criada. Siga para a próxima, digite os mm, ou clique no 1º ponto para fechar.';
+      save(); refresh(); return;
+    }
     if (part.pending && (validLength == null || validLength < .01) &&
       Math.hypot(point[0] - part.selected[0], point[1] - part.selected[1]) > 8) {
       $('profileStatus').textContent = 'Esta linha ainda é prévia. Digite mm e pressione Enter.';
