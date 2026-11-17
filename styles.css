@@ -128,3 +128,5 @@ body.tela-cheia .mini3d-alca { display: block; }
 .cota-bar { position: absolute; left: 12px; top: 56px; display: flex; gap: 6px; z-index: 3; flex-wrap: wrap; }
 .cota-bar button { border: 1px solid #c9d3cf; background: #fff; color: #111; border-radius: 9px; padding: 7px 10px; font-weight: 800; font-size: 12px; }
 .cota-bar button.on { background: #2e4b3f; color: #fff; border-color: #2e4b3f; }
+#architectureMode .tools-row { height: auto; min-height: 50px; flex-wrap: wrap; row-gap: 4px; padding-bottom: 10px; }
+#architectureMode .tools-row .tool { white-space: nowrap; }

@@ -1143,6 +1143,7 @@ function drawSketch() {
     drawInference(context, state.lineHover.point, state.lineHover.kind, state.lineHover.guides || [], false);
   }
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  try { window.tracoFerramentas?.desenhar(context); } catch { /* opcional */ }
 }
 
 // Marcador + etiqueta da inferência, como no SketchUp.

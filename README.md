@@ -45,6 +45,10 @@ Publicação: `.github/workflows/deploy-ler-desenho.yml` publica a função e gr
 
 Tipos: cilindro e bloco (com até 2 furos centrais, topo/base, liso ou roscado, cego ou passante), parafuso (sextavado, allen ou barra roscada) e porca, M3 a M24, com rosca helicoidal real e campo de folga para impressão 3D. Malhas fechadas; **Exportar STL** gera um arquivo por peça.
 
+## Ferramentas estilo SketchUp (Arquitetura)
+
+◯ **Círculo/Polígono** (raio digitado; "6l" muda para 6 lados) · ⌒ **Arco** (início, fim, bojo) · ✥ **Mover/Copiar** (Ctrl ou "＋ Cópia"; depois "3x" repete em matriz) · ⟲ **Girar** (centro, referência, ângulo digitado; trava a cada 15°) · ⇋ **Espelhar** (eixo por 2 pontos) · 📏 **Fita métrica** (guia paralela à parede na distância digitada, as guias entram na inferência; em dois pontos só mede) · ↔ **Cota** e **A Texto** (anotações salvas no projeto; o Apagar remove). Esc cancela a ferramenta.
+
 ## Zoom e tela cheia
 
 Nos quadros de desenho (Arquitetura e Peças): **roda do mouse / pinça do trackpad** aproxima no ponto do cursor; **arrastar com o botão do meio, o direito ou segurando Espaço** move a vista; botões **− / Ver tudo / +** no canto. **⛶ Tela cheia** (computador) abre o desenho na janela inteira com o **3D numa janelinha no canto**, atualizando ao vivo; **Esc** ou o botão saem. Textos, cotas e marcadores mantêm o tamanho na tela com qualquer zoom.
