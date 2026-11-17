@@ -275,3 +275,6 @@ body.modo-pc .parts-intro{margin-bottom:8px}
 .pc-status{position:fixed;z-index:55;left:0;right:0;bottom:0;height:var(--pc-bot,26px);display:flex;align-items:center;padding:0 12px 0 calc(var(--pc-lat,74px) + 12px);background:#fbfaf7;border-top:1px solid #d8dad1;font-size:12px;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 body.modo-pc.tela-cheia .pc-barra,body.modo-pc.tela-cheia .pc-lateral,body.modo-pc.tela-cheia .pc-status{display:none}
 @media print{.pc-barra,.pc-lateral,.pc-status,.pc-menu{display:none!important}}
+body.modo-pc .parts-intro{display:none!important}
+body.modo-pc{overflow-x:hidden}
+@media(max-width:1000px){body.modo-pc .workspace{grid-template-columns:minmax(0,1fr)}}
