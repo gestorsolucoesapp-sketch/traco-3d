@@ -8,12 +8,16 @@ const ORIGENS = [
   "https://gestorsolucoesapp-sketch.github.io",
   "http://localhost:8000",
   "http://127.0.0.1:8000",
+  "https://traco-3d.vercel.app",
 ];
+// Endereços do Vercel do projeto traco-3d (principal e prévias).
+const permitida = (o: string | null) =>
+  !!o && (ORIGENS.includes(o) || /^https:\/\/traco-3d[a-z0-9-]*\.vercel\.app$/.test(o));
 const MODELO = Deno.env.get("TRACO_MODELO") ?? "claude-sonnet-5-5";
 const MAX_IMAGEM = 3_500_000; // ~2,6 MB de JPEG em base64
 
 function cors(origin: string | null) {
-  const ok = origin && ORIGENS.includes(origin);
+  const ok = permitida(origin);
   return {
     "Access-Control-Allow-Origin": ok ? origin! : ORIGENS[0],
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -95,7 +99,7 @@ Deno.serve(async (req) => {
   const h = { ...cors(origin), "Content-Type": "application/json" };
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(origin) });
   if (req.method !== "POST") return new Response(JSON.stringify({ erro: "Use POST." }), { status: 405, headers: h });
-  if (!origin || !ORIGENS.includes(origin))
+  if (!permitida(origin))
     return new Response(JSON.stringify({ erro: "Origem não autorizada." }), { status: 403, headers: h });
 
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
