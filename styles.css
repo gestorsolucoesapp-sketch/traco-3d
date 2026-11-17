@@ -96,3 +96,31 @@ body.tela-cheia .mini3d-alca { display: block; }
   background: linear-gradient(#ffffffd9, #ffffff00); border-radius: 14px 14px 0 0; text-align: center; font-size: 11px; font-weight: 800; color: #111; line-height: 24px; }
 
 .stl-lista{display:flex;flex-direction:column;gap:8px;margin:10px 0}.stl-lista button{text-align:left;font-size:14px;padding:14px}
+
+/* Pintura */
+.paint-bar { position: absolute; left: 12px; bottom: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; z-index: 3; pointer-events: none; }
+.paint-bar > *, .paint-opts > * { pointer-events: auto; }
+.paint-toggle { border: 1px solid #c9d3cf; background: #fff; color: #111; border-radius: 9px; padding: 8px 12px; font-weight: 800; font-size: 12px; }
+.paint-toggle.on { background: #2e4b3f; color: #fff; border-color: #2e4b3f; }
+.paint-opts { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; background: #ffffffe8; border: 1px solid #dbe2d8; border-radius: 10px; padding: 6px; }
+.paint-cor { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #9aa59e; padding: 0; }
+.paint-cor.sel { box-shadow: 0 0 0 3px #111; }
+.paint-custom input { width: 30px; height: 28px; border: 0; padding: 0; background: none; }
+.paint-opts select, .paint-opts button[data-p=limpar] { font-size: 12px; padding: 5px 7px; border-radius: 7px; border: 1px solid #c9d3cf; background: #fff; color: #111; }
+.part-model-wrap .orbit-tip { bottom: auto; top: 16px; right: 16px; }
+/* Histórico */
+.hist-lista { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 8px; }
+.hist-lista li { display: flex; gap: 10px; align-items: center; border: 1px solid #e1e5e0; border-radius: 12px; padding: 8px; }
+.hist-lista img, .hist-sem { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; background: #e8ebe4; flex: none; }
+.hist-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hist-info strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-info small { font-size: 11px; color: #333; }
+.hist-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.hist-ok, .hist-nao { font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 20px; }
+.hist-ok { background: #e3f2e7; color: #1b5e20; } .hist-nao { background: #fde8e6; color: #b3261e; }
+.hist-acoes { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+/* Lapiseira */
+.zoom-bar .zoom-lapis.on { background: #f6eae2; border-color: #c0623d; }
+.lapis-ponta { position: fixed; width: 0; height: 0; z-index: 99; pointer-events: none; }
+.lapis-ponta span { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #c0623d; background: #c0623d22; }
+.lapis-ponta span::after { content: ''; position: absolute; left: 7px; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: #c0623d; }

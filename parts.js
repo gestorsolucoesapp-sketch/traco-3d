@@ -61,11 +61,12 @@
   }
 
   function save() {
+    try { window.tracoHistorico?.mudou('peca'); } catch { /* opcional */ }
     try {
       localStorage.setItem(STORAGE, JSON.stringify({ version: 1, kind: 'rotational-part',
         mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
         operation: part.operation, extrudeDepth: part.extrudeDepth,
-        shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado }));
+        shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint }));
     } catch { $('profileStatus').textContent = 'Armazenamento indisponível; use Salvar peça.'; }
   }
 
@@ -104,6 +105,7 @@
     part.holeDiameter = data.holeDiameter ?? 0;
     part.helix = data.helix ?? { diameter: 20, pitch: 5, turns: 5, thickness: 2 };
     part.narrado = data.operation === 'narrado' ? data.narrado : null;
+    part.paint = data.paint && typeof data.paint.key === 'string' && data.paint.cores && typeof data.paint.cores === 'object' ? data.paint : null;
     part.cup = { ...data.cup };
     part.profile = part.mode === 'cup' ? cupProfile(part.cup) : data.profile.map((p) => [...p]);
     part.closed = data.closed;
@@ -498,7 +500,17 @@
     return triangles;
   }
 
+  // Pintura: cores por triângulo (índice global da malha), válidas só para a mesma geometria.
+  function geomKey() {
+    return JSON.stringify([part.mode, part.operation, part.profile, part.closed, part.extrudeDepth, part.holeDiameter, part.shapeType, part.helix, part.cup, part.narrado]);
+  }
   function mesh() {
+    const tris = meshBase();
+    if (part.sim || !part.paint || part.paint.key !== geomKey()) return tris;
+    const cores = part.paint.cores;
+    return tris.map((t, i) => cores[i] ? { ...t, cor: cores[i] } : t);
+  }
+  function meshBase() {
     if (part.operation === 'narrado') {
       try {
         if (part.sim) return window.tracoNarrado.montagem(part.narrado, part.sim.s)?.tris || [];
@@ -613,16 +625,14 @@
       if (!part.sim?.box) for (const t of triangles) for (const q of t.points) for (let k = 0; k < 3; k++) { if (q[k] < b[k]) b[k] = q[k]; if (q[k] > b[k + 3]) b[k + 3] = q[k]; }
       const cx = (b[0] + b[3]) / 2, cy = (b[1] + b[4]) / 2, cz = (b[2] + b[5]) / 2;
       const unitN = Math.min(width, height) / (Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2], 1) * 1.65) * part.zoom;
-      const facesN = triangles.map((triangle) => {
+      const facesN = triangles.map((triangle, idx) => {
         const corners = triangle.points.map((q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz));
         const [nx, ny, nz] = triangle.normal;
         const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
-        const shade = Math.round(135 + 73 * light);
-        return { corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3,
-          color: triangle.ghost ? `rgba(${Math.round(shade * .62)},${Math.round(shade * .78)},${Math.round(shade * .9)},.16)` :
-            `rgb(${Math.min(255, shade + 33)},${Math.round(shade * .80)},${Math.round(shade * .66)})` };
+        return { idx, corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3, color: corFace(triangle, light) };
       });
       facesN.sort((a, c) => a.depth - c.depth);
+      part.lastFaces = facesN;
       for (const face of facesN) {
         ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
         ctx.lineTo(face.corners[1].x, face.corners[1].y); ctx.lineTo(face.corners[2].x, face.corners[2].y);
@@ -639,17 +649,16 @@
       maxZ - minZ, extruded ? part.extrudeDepth : 1, 1);
     const unit = Math.min(width, height) / (span * 1.65) * part.zoom;
     const centerZ = (minZ + maxZ) / 2;
-    const faces = triangles.map((triangle) => {
+    const faces = triangles.map((triangle, idx) => {
       const corners = triangle.points.map((point) => project(extruded ?
         [point[0] - (minX + maxX) / 2, point[1] - part.extrudeDepth / 2, point[2]] : point,
       width, height, unit, centerZ));
       const [nx, ny, nz] = triangle.normal;
       const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
-      const shade = Math.round(135 + 73 * light);
-      return { corners, depth: corners.reduce((sum, corner) => sum + corner.depth, 0) / 3,
-        color: `rgb(${Math.min(255, shade + 33)},${Math.round(shade * .80)},${Math.round(shade * .66)})` };
+      return { idx, corners, depth: corners.reduce((sum, corner) => sum + corner.depth, 0) / 3, color: corFace(triangle, light) };
     });
     faces.sort((a, b) => a.depth - b.depth);
+    part.lastFaces = faces;
     for (const face of faces) {
       ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
       ctx.lineTo(face.corners[1].x, face.corners[1].y);
@@ -659,6 +668,16 @@
     }
   }
 
+  function corFace(triangle, light) {
+    const shade = Math.round(135 + 73 * light);
+    if (triangle.ghost) return `rgba(${Math.round(shade * .62)},${Math.round(shade * .78)},${Math.round(shade * .9)},.16)`;
+    if (triangle.cor) {
+      const h = triangle.cor.replace('#', ''), k = .5 + .55 * light;
+      const c = [0, 2, 4].map((i) => Math.min(255, Math.round(parseInt(h.slice(i, i + 2), 16) * k)));
+      return `rgb(${c[0]},${c[1]},${c[2]})`;
+    }
+    return `rgb(${Math.min(255, shade + 33)},${Math.round(shade * .80)},${Math.round(shade * .66)})`;
+  }
   function render() {
     if (scheduled) return;
     scheduled = true;
@@ -748,6 +767,7 @@
   }
 
   function download(name, content, type) {
+    try { window.tracoHistorico?.exportou('peca', name); } catch { /* opcional */ }
     const url = URL.createObjectURL(new Blob([content], { type }));
     const anchor = document.createElement('a');
     anchor.href = url; anchor.download = name; anchor.click();
@@ -982,7 +1002,8 @@
   function sketchPoint(event) {
     const rect = sketch.getBoundingClientRect();
     const t = sketchTransform(rect.width, rect.height);
-    let [r, z] = t.world([event.clientX - rect.left, event.clientY - rect.top]);
+    const [lx, ly] = window.tracoLapis?.desvio(event) || [0, 0];
+    let [r, z] = t.world([event.clientX + lx - rect.left, event.clientY + ly - rect.top]);
     part.infer = null; part.lastRaw = [r, z];
     if (!part.drawLine || event.altKey) return [Math.round(r * 100) / 100, Math.round(z * 100) / 100];
     const mmPorPx = t.extent.r / (t.right - t.left);
@@ -1309,6 +1330,7 @@
     save(); refresh();
   });
   model.addEventListener('pointerdown', (event) => {
+    if (window.tracoPintura?.ativa && window.tracoPintura.clique(event)) return;
     model.setPointerCapture(event.pointerId); part.drag = [event.clientX, event.clientY];
   });
   model.addEventListener('pointermove', (event) => {
@@ -1332,7 +1354,7 @@
     download('traco-peca.json', JSON.stringify({ version: 1, kind: 'rotational-part',
       mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
       operation: part.operation, extrudeDepth: part.extrudeDepth,
-      shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado }), 'application/json');
+      shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint }), 'application/json');
   });
   $('openPart').addEventListener('click', () => $('partFile').click());
   $('partFile').addEventListener('change', async (event) => {
@@ -1342,6 +1364,22 @@
     try { openProject(await file.text()); save(); }
     catch { $('profileStatus').textContent = 'Não foi possível abrir esse projeto de peça.'; }
   });
+  // API para extras.js (pintura, 3MF, STEP, histórico).
+  window.tracoPeca = {
+    part, mesh, meshBase, geomKey, render, model, download, save: () => { save(); }, refresh: () => refresh(),
+    // Peças para exportar: [{nome, tris, ini}] — ini = índice do 1º triângulo na malha global.
+    pecas() {
+      if (part.operation === 'narrado') {
+        const m = window.tracoNarrado.montar(part.narrado); let ini = 0; let x = 0;
+        return m.pecas.map((pc) => { const r = { nome: pc.nome, tris: m.tris.slice(ini, ini + pc.tris.length), ini }; ini += pc.tris.length; return r; });
+      }
+      const t = meshBase();
+      return t.length ? [{ nome: part.mode === 'cup' ? 'Copo' : 'Peça', tris: t, ini: 0 }] : [];
+    },
+    projeto() { return JSON.stringify({ version: 1, kind: 'rotational-part', mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
+      operation: part.operation, extrudeDepth: part.extrudeDepth, shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint }); },
+    abrir(raw) { part.sim = null; openProject(raw); save(); refresh(); },
+  };
   // Simulação de montagem: o parafuso desce girando pelo furo; o corpo fica transparente.
   function pararSim() { part.sim = null; refresh(); }
   $('simularMontagem')?.addEventListener('click', () => {

@@ -145,6 +145,7 @@ function readSavedProject() {
 }
 
 function saveProject() {
+  try { window.tracoHistorico?.mudou('planta'); } catch { /* opcional */ }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projectPayload()));
   } catch { notify('O navegador não permitiu salvar neste dispositivo.'); }
@@ -763,6 +764,8 @@ function zoomSketch(factor, at = [DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2]) {
 function sketchPoint(event) {
   const bounds = sketchCanvas.getBoundingClientRect();
   const { k, ox, oy } = sketchView;
+  const [lx, ly] = window.tracoLapis?.desvio(event) || [0, 0];
+  event = { clientX: event.clientX + lx, clientY: event.clientY + ly };
   return [
     Math.max(0, Math.min(DESIGN_WIDTH, ox + (event.clientX - bounds.left) * DESIGN_WIDTH / bounds.width / k)),
     Math.max(0, Math.min(DESIGN_HEIGHT, oy + (event.clientY - bounds.top) * DESIGN_HEIGHT / bounds.height / k)),
@@ -1784,6 +1787,7 @@ $('removeStl').addEventListener('click', () => {
 });
 
 function download(name, content, type) {
+  try { window.tracoHistorico?.exportou('planta', name); } catch { /* opcional */ }
   const url = URL.createObjectURL(new Blob([content], { type }));
   const anchor = document.createElement('a');
   anchor.href = url; anchor.download = name; anchor.click();
@@ -1834,6 +1838,12 @@ $('exportButton').addEventListener('click', () => {
   notify('Modelo OBJ exportado. Abra em Blender ou outro visualizador 3D.');
 });
 
+window.tracoPlanta = {
+  projeto: () => JSON.stringify(projectPayload()),
+  temDesenho: () => segments().length > 0,
+  canvas: modelCanvas,
+  abrir(raw) { recordHistory(); Object.assign(state, parseProject(raw)); saveProject(); refreshControls(); requestRender(); },
+};
 readSavedProject();
 refreshControls();
 setView('foundation');

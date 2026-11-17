@@ -9,12 +9,20 @@
     d.innerHTML = `<button type="button" data-z="out" title="Afastar (roda do mouse)">−</button>
       <button type="button" data-z="fit" title="Ver tudo">${modo === 'arq' ? '<span id="archZoomLevel">100%</span>' : 'Ver tudo'}</button>
       <button type="button" data-z="in" title="Aproximar (roda do mouse)">+</button>
+      <button type="button" data-z="lapis" class="zoom-lapis" title="Lapiseira: no toque, a ponta fica 5 mm ao lado do dedo">✏️</button>
       <button type="button" data-z="full" class="zoom-full" title="Tela cheia com o 3D no canto">⛶ Tela cheia</button>`;
     d.addEventListener('pointerdown', (e) => e.stopPropagation());
     d.addEventListener('click', (e) => {
       const z = e.target.closest('button')?.dataset.z;
       if (!z) return;
       if (z === 'full') return alternar(modo);
+      if (z === 'lapis') {
+        lapis.ativo = !lapis.ativo;
+        try { localStorage.setItem('traco-lapis', lapis.ativo ? '1' : '0'); } catch { /* */ }
+        document.querySelectorAll('.zoom-lapis').forEach((b) => b.classList.toggle('on', lapis.ativo));
+        const el = $('toast'); if (el) { el.textContent = lapis.ativo ? 'Lapiseira ligada: desenhe com a ponta 5 mm acima e à esquerda do dedo.' : 'Lapiseira desligada.'; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3000); }
+        return;
+      }
       if (modo === 'arq') {
         if (z === 'fit') { sketchView.k = 1; sketchView.ox = 0; sketchView.oy = 0; zoomSketch(1); }
         else zoomSketch(z === 'in' ? 1.4 : 1 / 1.4);
@@ -23,8 +31,28 @@
     });
     wrap.appendChild(d);
   }
+  // Lapiseira: no toque, a ponta fica 5 mm acima e à esquerda do dedo (o dedo não cobre a linha).
+  const MM = 96 / 25.4, DIST = 5 * MM;
+  const lapis = { ativo: false };
+  try { lapis.ativo = localStorage.getItem('traco-lapis') === '1'; } catch { /* */ }
+  lapis.desvio = (ev) => lapis.ativo && ev && ev.pointerType === 'touch' ? [-DIST * .7071, -DIST * .7071] : [0, 0];
+  window.tracoLapis = lapis;
+  const ponta = document.createElement('div'); ponta.className = 'lapis-ponta'; ponta.hidden = true;
+  ponta.innerHTML = '<span></span>'; document.body.appendChild(ponta);
+  for (const id of ['sketchCanvas', 'partSketchCanvas']) {
+    const c = $(id); if (!c) continue;
+    const mostra = (e) => {
+      if (!lapis.ativo || e.pointerType !== 'touch') return;
+      const [dx, dy] = lapis.desvio(e);
+      ponta.style.left = (e.clientX + dx) + 'px'; ponta.style.top = (e.clientY + dy) + 'px'; ponta.hidden = false;
+    };
+    c.addEventListener('pointerdown', mostra, { capture: true });
+    c.addEventListener('pointermove', mostra, { capture: true });
+    for (const tp of ['pointerup', 'pointercancel', 'pointerleave']) c.addEventListener(tp, () => { ponta.hidden = true; });
+  }
   barra(document.querySelector('#architectureMode .sketch-wrap'), 'arq');
   barra($('partSketchCanvas')?.parentElement, 'peca');
+  document.querySelectorAll('.zoom-lapis').forEach((b) => b.classList.toggle('on', lapis.ativo));
 
   function alternar(modo) {
     const liga = !document.body.classList.contains('tela-cheia');
