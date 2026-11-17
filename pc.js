@@ -83,7 +83,7 @@
         ['Simular montagem', arq ? '' : '#simularMontagem'],
       ]],
       ['Desenhar', null, 'desenho'],
-      ['Ferramentas', null, 'ferramentas'],
+      arq ? ['Ferramentas', null, 'ferramentas'] : ['Ferramentas', [['📐 Cotar', '#cotarPerfil'], ['🎙️ Narrar peça', '🎙️ Narrar'], ['📷 Foto do desenho', '#fotoPartButton'], ['Simular montagem', '#simularMontagem']]],
       ['Modelar', arq ? [['↑ Empurrar / puxar paredes', '#pushWallsTool'], ['🪑 Objetos', '🪑 Objetos']] : null, arq ? null : 'modelo'],
       ['Janela', [
         ['🏠 Arquitetura · ambientes', '#architectureTab'],
