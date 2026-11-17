@@ -252,8 +252,8 @@
       for (const point of part.profile.slice(1)) ctx.lineTo(...t.screen(point));
       if (part.closed) ctx.closePath();
       if (part.closed) { ctx.fillStyle = '#c8795555'; ctx.fill(); }
-      ctx.strokeStyle = '#c57650'; ctx.lineWidth = 3; ctx.stroke();
-      if (part.mode === 'custom' && !part.shapeType && part.profile.length <= 60) {
+      { const E = window.tracoEstilo || { esp: 3, tracejada: false }; if (E.tracejada) ctx.setLineDash([Math.max(6, E.esp * 2.4), Math.max(4, E.esp * 1.6)]); ctx.strokeStyle = '#c57650'; ctx.lineWidth = E.esp; ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([]); }
+      if (part.mode === 'custom' && !part.shapeType && part.profile.length <= 60 && (part.cotando || window.tracoEstilo?.cotas !== false)) {
         const n = part.profile.length, segs = part.closed ? n : n - 1;
         ctx.font = '700 11px DM Sans, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         for (let i = 0; i < segs; i++) {
@@ -296,7 +296,7 @@
       const first = t.screen(part.freehandDrag.points[0]);
       ctx.moveTo(...first);
       for (const point of part.freehandDrag.points.slice(1)) ctx.lineTo(...t.screen(point));
-      ctx.strokeStyle = '#286855'; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.strokeStyle = '#c57650'; ctx.lineWidth = (window.tracoEstilo?.esp || 3); ctx.lineCap = 'round'; ctx.stroke();
     }
     if (part.mode === 'custom' && part.drawLine && !part.closed && part.profile.length) {
       const preview = previewEndpoint();
@@ -304,9 +304,10 @@
       const dr = preview[0] - part.profile.at(-1)[0];
       const dz = preview[1] - part.profile.at(-1)[1];
       ctx.beginPath(); ctx.moveTo(...start); ctx.lineTo(...end);
-      ctx.setLineDash([6, 4]);
-      ctx.strokeStyle = part.infer?.kind === 'x' ? '#d0342c' : part.infer?.kind === 'y' ? '#2e9e4f' : '#286855';
-      ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
+      { const E = window.tracoEstilo || { esp: 3, tracejada: false };
+        if (E.tracejada) ctx.setLineDash([Math.max(6, E.esp * 2.4), Math.max(4, E.esp * 1.6)]);
+        ctx.strokeStyle = part.infer?.kind === 'x' ? '#d0342c' : part.infer?.kind === 'y' ? '#2e9e4f' : '#c57650';
+        ctx.lineWidth = E.esp; ctx.lineCap = 'round'; ctx.stroke(); ctx.setLineDash([]); }
       ctx.fillStyle = '#111111'; ctx.textAlign = 'center';
       ctx.fillText(`${display(Math.hypot(dr, dz))} mm · ${display(Math.atan2(dz, dr) * 180 / Math.PI)}°`,
       (start[0] + end[0]) / 2, (start[1] + end[1]) / 2 - 9);

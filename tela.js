@@ -9,6 +9,7 @@
     d.innerHTML = `<button type="button" data-z="out" title="Afastar (roda do mouse)">−</button>
       <button type="button" data-z="fit" title="Ver tudo">${modo === 'arq' ? '<span id="archZoomLevel">100%</span>' : 'Ver tudo'}</button>
       <button type="button" data-z="in" title="Aproximar (roda do mouse)">+</button>
+      <button type="button" data-z="estilo" class="zoom-estilo" title="Espessura, tracejado e mostrar/esconder cotas">〰</button>
       <button type="button" data-z="lapis" class="zoom-lapis" title="Lapiseira: no toque, a ponta fica 5 mm ao lado do dedo">✏️</button>
       <button type="button" data-z="full" class="zoom-full" title="Tela cheia com o 3D no canto">⛶ Tela cheia</button>`;
     d.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -16,6 +17,7 @@
       const z = e.target.closest('button')?.dataset.z;
       if (!z) return;
       if (z === 'full') return alternar(modo);
+      if (z === 'estilo') { const b = e.target.closest('button'); if (!pop.hidden) { pop.hidden = true; return; } abrirEstilo(b); return; }
       if (z === 'lapis') {
         // cada toque troca: desligada → 8 → 12 → 18 → 25 mm → desligada
         const atual = lapis.ativo ? lapis.mm : 0, prox = DISTS[(DISTS.indexOf(atual) + 1) % DISTS.length];
@@ -53,6 +55,28 @@
     c.addEventListener('pointermove', mostra, { capture: true });
     for (const tp of ['pointerup', 'pointercancel', 'pointerleave']) c.addEventListener(tp, () => { ponta.hidden = true; });
   }
+  // Estilo do traço: espessura, tracejado e mostrar/esconder cotas (vale nos dois modos).
+  const estilo = { esp: 3, tracejada: false, cotas: true };
+  try { Object.assign(estilo, JSON.parse(localStorage.getItem('traco-estilo')) || {}); } catch { /* */ }
+  window.tracoEstilo = estilo;
+  const pop = document.createElement('div'); pop.className = 'estilo-pop'; pop.hidden = true; document.body.appendChild(pop);
+  pop.addEventListener('pointerdown', (e) => e.stopPropagation());
+  function redesenha() { try { localStorage.setItem('traco-estilo', JSON.stringify(estilo)); } catch { /* */ } try { requestRender(); } catch { /* */ } try { window.tracoPeca?.render(); } catch { /* */ } }
+  function abrirEstilo(btn) {
+    pop.innerHTML = `<b>Traço</b>
+      <label>Espessura <input type="range" min="1" max="8" step=".5" value="${estilo.esp}" data-e="esp" /> <span>${estilo.esp}</span></label>
+      <svg viewBox="0 0 160 16" width="160" height="16"><line x1="6" y1="8" x2="154" y2="8" stroke="#c57650" stroke-linecap="round" stroke-width="${estilo.esp}" ${estilo.tracejada ? 'stroke-dasharray="6 4"' : ''}/></svg>
+      <label><input type="checkbox" data-e="tracejada" ${estilo.tracejada ? 'checked' : ''}/> Linha tracejada</label>
+      <label><input type="checkbox" data-e="cotas" ${estilo.cotas ? 'checked' : ''}/> Mostrar cotas (medidas)</label>`;
+    const r = btn.getBoundingClientRect();
+    pop.style.top = (r.bottom + 6 + scrollY) + 'px'; pop.style.left = Math.max(8, r.right - 220 + scrollX) + 'px';
+    pop.hidden = false;
+    pop.querySelectorAll('[data-e]').forEach((el) => el.addEventListener('input', () => {
+      const k = el.dataset.e; estilo[k] = el.type === 'checkbox' ? el.checked : +el.value;
+      redesenha(); abrirEstilo(btn);
+    }));
+  }
+  document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.zoom-estilo')) pop.hidden = true; });
   barra(document.querySelector('#architectureMode .sketch-wrap'), 'arq');
   barra($('partSketchCanvas')?.parentElement, 'peca');
   function marcaLapis() { document.querySelectorAll('.zoom-lapis').forEach((b) => { b.classList.toggle('on', lapis.ativo); b.textContent = lapis.ativo ? `✏️ ${lapis.mm}` : '✏️'; }); }

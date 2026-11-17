@@ -5,5 +5,5 @@
   if (visto) { v.remove(); return; }
   const fim = () => { v.classList.add('sai'); setTimeout(() => v.remove(), 400); };
   v.addEventListener('pointerdown', fim, { once: true });
-  setTimeout(() => v.remove(), 3500);
+  setTimeout(() => v.remove(), 6200);
 })();

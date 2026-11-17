@@ -1061,7 +1061,7 @@ function drawSketch() {
     drawStroke(context, stroke, '#e8b99d', Math.max(7, state.thickness * state.pixelsPerMeter));
     drawWallPlanEdges(context, stroke);
     if (stroke.length === 2 && pointDistance(stroke[0], stroke[1]) >= 25)
-      drawDimension(context, stroke[0], stroke[1]);
+      if (window.tracoEstilo?.cotas !== false) drawDimension(context, stroke[0], stroke[1]);
   }
   const selected = selectedWall();
   if (selected)
@@ -1131,7 +1131,9 @@ function drawSketch() {
     }
     if (pointDistance(state.lineStart, end) >= 2) {
       context.beginPath(); context.moveTo(...state.lineStart); context.lineTo(...end);
-      context.strokeStyle = '#426f61'; context.lineWidth = 3 / vk(); context.stroke();
+      { const E = window.tracoEstilo || { esp: 3, tracejada: false };
+        if (E.tracejada) context.setLineDash([Math.max(6, E.esp * 2.4) / vk(), Math.max(4, E.esp * 1.6) / vk()]);
+        context.strokeStyle = '#426f61'; context.lineWidth = E.esp / vk(); context.stroke(); context.setLineDash([]); }
       drawDimension(context, state.lineStart, end, true);
     }
     for (const point of [state.lineStart, end]) {
