@@ -1143,6 +1143,7 @@ function drawSketch() {
     drawInference(context, state.lineHover.point, state.lineHover.kind, state.lineHover.guides || [], false);
   }
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  try { window.tracoObjetos?.desenhar(context); } catch { /* opcional */ }
   try { window.tracoFerramentas?.desenhar(context); } catch { /* opcional */ }
 }
 
@@ -1370,7 +1371,8 @@ function drawModel() {
       context.strokeStyle = offset === 0 ? '#cbd7ca' : '#dce5db'; context.stroke();
     }
   }
-  if (!walls.length && !mesh) return;
+  const temObj = (state.objetos || []).length > 0;
+  if (!walls.length && !mesh && !temObj) return;
 
   const faces = [];
   const floor = floorOutline();
@@ -1403,6 +1405,7 @@ function drawModel() {
         imported: true });
     }
   }
+  try { window.tracoObjetos?.faces3d(faces, toScreen); } catch { /* opcional */ }
   faces.sort((a, b) => a.depth - b.depth);
   for (const face of faces) drawPolygon(context, face.corners, face.shade, face.imported ? '#34584c33' : '#a7654b33');
 }
@@ -1426,10 +1429,10 @@ function refreshControls() {
     floor ? `piso ${(polygonArea(floor) / state.pixelsPerMeter ** 2).toFixed(1).replace('.', ',')} m²` : null,
     state.stlMesh ? 'STL importado' : null].filter(Boolean).join(' · ') || 'Aguardando desenho';
   $('sketchHint').hidden = state.strokes.length > 0 || Boolean(state.draft) || Boolean(state.lineStart);
-  $('modelHint').hidden = count > 0 || Boolean(state.stlMesh);
+  $('modelHint').hidden = count > 0 || Boolean(state.stlMesh) || (state.objetos || []).length > 0;
   $('undoButton').disabled = state.history.length === 0;
   $('redoButton').disabled = state.future.length === 0;
-  $('exportButton').disabled = count === 0;
+  $('exportButton').disabled = count === 0 && !(state.objetos || []).length;
   $('pushWallsTool').disabled = count === 0;
   $('heightValue').textContent = `${state.height.toFixed(1).replace('.', ',')} m`;
   $('thicknessRange').value = String(Math.round(state.thickness * 100));
@@ -1830,11 +1833,12 @@ function modelToObj() {
     for (let i = 0; i < count; i++)
       lines.push(`f ${offset + i} ${offset + (i + 1) % count} ${offset + count + (i + 1) % count} ${offset + count + i}`);
   }
+  try { window.tracoObjetos?.obj(lines); } catch { /* opcional */ }
   return lines.join('\n') + '\n';
 }
 
 $('exportButton').addEventListener('click', () => {
-  if (!segments().length) return;
+  if (!segments().length && !(state.objetos || []).length) return;
   download('traco-projeto-3d.obj', modelToObj(), 'text/plain');
   notify('Modelo OBJ exportado. Abra em Blender ou outro visualizador 3D.');
 });

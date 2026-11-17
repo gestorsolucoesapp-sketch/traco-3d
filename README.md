@@ -49,6 +49,10 @@ Tipos: cilindro e bloco (com até 2 furos centrais, topo/base, liso ou roscado, 
 
 ◯ **Círculo/Polígono** (raio digitado; "6l" muda para 6 lados) · ⌒ **Arco** (início, fim, bojo) · ✥ **Mover/Copiar** (Ctrl ou "＋ Cópia"; depois "3x" repete em matriz) · ⟲ **Girar** (centro, referência, ângulo digitado; trava a cada 15°) · ⇋ **Espelhar** (eixo por 2 pontos) · 📏 **Fita métrica** (guia paralela à parede na distância digitada, as guias entram na inferência; em dois pontos só mede) · ↔ **Cota** e **A Texto** (anotações salvas no projeto; o Apagar remove). Esc cancela a ferramenta.
 
+## Objetos (🪑)
+
+Biblioteca própria (cama, sofá, mesa, cadeira, cozinha, banheiro, escada, pilar, árvore, carro) com medidas editáveis; modelos grátis do **Poly Haven** (CC0, baixados na hora, cor média da textura); e importação de **OBJ, GLB/glTF, DAE (Collada — o formato que o 3D Warehouse oferece) e STL**, com escolha de unidade e opção de pôr em pé. Modelos grandes são simplificados (até 3.500 triângulos). Na planta: arrastar move (encaixe de 5 cm), **R** gira 90°, **Delete** apaga, painel com largura/profundidade/altura, duplicar. Tudo vai junto no 3D, no projeto salvo e no OBJ exportado.
+
 ## Zoom e tela cheia
 
 Nos quadros de desenho (Arquitetura e Peças): **roda do mouse / pinça do trackpad** aproxima no ponto do cursor; **arrastar com o botão do meio, o direito ou segurando Espaço** move a vista; botões **− / Ver tudo / +** no canto. **⛶ Tela cheia** (computador) abre o desenho na janela inteira com o **3D numa janelinha no canto**, atualizando ao vivo; **Esc** ou o botão saem. Textos, cotas e marcadores mantêm o tamanho na tela com qualquer zoom.

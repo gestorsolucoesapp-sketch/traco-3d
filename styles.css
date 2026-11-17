@@ -130,3 +130,24 @@ body.tela-cheia .mini3d-alca { display: block; }
 .cota-bar button.on { background: #2e4b3f; color: #fff; border-color: #2e4b3f; }
 #architectureMode .tools-row { height: auto; min-height: 50px; flex-wrap: wrap; row-gap: 4px; padding-bottom: 10px; }
 #architectureMode .tools-row .tool { white-space: nowrap; }
+/* Objetos */
+.obj-painel { position: absolute; left: 10px; top: 52px; z-index: 4; background: #fff; border: 1px solid #c9d3cf; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px #0002; max-width: 260px; font-size: 12px; color: #111; }
+.obj-dims { display: flex; gap: 6px; flex-wrap: wrap; }
+.obj-dims label { display: flex; flex-direction: column; gap: 2px; font-weight: 700; }
+.obj-dims input { width: 58px; font-size: 16px; padding: 4px; border: 1px solid #c9d3cf; border-radius: 6px; }
+.obj-acoes { display: flex; gap: 6px; }
+.obj-acoes button { border: 1px solid #c9d3cf; background: #fff; color: #111; border-radius: 8px; padding: 6px 8px; font-weight: 800; font-size: 12px; }
+.lib-dialog { width: min(760px, 96vw); }
+.lib-abas { display: flex; gap: 6px; margin: 6px 0 10px; flex-wrap: wrap; }
+.lib-abas button { border: 1px solid #c9d3cf; background: #fff; color: #111; border-radius: 20px; padding: 7px 12px; font-weight: 800; font-size: 12px; }
+.lib-abas button.on { background: #2e4b3f; color: #fff; border-color: #2e4b3f; }
+.lib-corpo { max-height: 60vh; overflow: auto; }
+.lib-corpo h4 { margin: 10px 0 6px; }
+.lib-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.lib-grade button { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left; border: 1px solid #dde4e0; background: #fafbf8; border-radius: 10px; padding: 9px; color: #111; }
+.lib-grade button small { color: #333; }
+.lib-grade.ph img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 7px; background: #e8ebe4; }
+.lib-grade button.carregando { opacity: .6; }
+.lib-busca { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px 10px; border: 1px solid #c9d3cf; border-radius: 9px; margin-bottom: 8px; }
+.imp-op { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 13px; color: #111; }
+.imp-op select { font-size: 14px; padding: 4px; }
