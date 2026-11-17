@@ -734,7 +734,7 @@
       }
       ctx.restore();
     }
-    if (fase !== 'planos') {
+    if (fase === 'rotulos') {
       const PL = { frontal: [-S, 0, S], superior: [-S, S, 0], direito: [0, -S, S] };
       const NOME = { frontal: 'Frontal', superior: 'Superior', direito: 'Direito' };
       part.planoRects = [];
