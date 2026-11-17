@@ -29,6 +29,8 @@
   function alternar(modo) {
     const liga = !document.body.classList.contains('tela-cheia');
     document.body.classList.toggle('tela-cheia', liga);
+    for (const p of [document.querySelector('#architectureMode .model-panel'), document.querySelector('.parts-workspace > .panel:last-child')])
+      if (p) { p.style.left = p.style.top = p.style.right = p.style.bottom = ''; }
     document.body.dataset.telaCheia = liga ? modo : '';
     document.querySelectorAll('.zoom-full').forEach((b) => { b.textContent = liga ? '✕ Sair da tela cheia' : '⛶ Tela cheia'; });
     if (liga) (modo === 'arq' ? $('sketchCanvas') : $('partSketchCanvas'))?.focus({ preventScroll: true });
@@ -42,6 +44,32 @@
       setTimeout(() => { if (document.body.classList.contains('tela-cheia')) alternar(document.body.dataset.telaCheia); });
     }
   });
+  // Janelinha do 3D: dá para arrastar pela alça (fica onde você soltar).
+  function mini() {
+    return document.body.dataset.telaCheia === 'arq' ? document.querySelector('#architectureMode .model-panel') :
+      document.querySelector('.parts-workspace > .panel:last-child');
+  }
+  for (const wrap of [document.querySelector('#architectureMode .model-wrap'), document.querySelector('.part-model-wrap')]) {
+    if (!wrap) continue;
+    const alca = document.createElement('div');
+    alca.className = 'mini3d-alca'; alca.textContent = '⠿ arraste para mover';
+    wrap.appendChild(alca);
+    let drag = null;
+    alca.addEventListener('pointerdown', (e) => {
+      const p = mini(); if (!p) return;
+      const r = p.getBoundingClientRect();
+      drag = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, p };
+      alca.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
+    });
+    alca.addEventListener('pointermove', (e) => {
+      if (!drag || drag.id !== e.pointerId) return;
+      const { p } = drag, w = p.offsetWidth, h = p.offsetHeight;
+      const x = Math.max(0, Math.min(innerWidth - w, e.clientX - drag.dx));
+      const y = Math.max(0, Math.min(innerHeight - h, e.clientY - drag.dy));
+      p.style.left = x + 'px'; p.style.top = y + 'px'; p.style.right = 'auto'; p.style.bottom = 'auto';
+    });
+    alca.addEventListener('pointerup', () => { drag = null; });
+  }
   // Trocar de aba sai da tela cheia.
   for (const id of ['architectureTab', 'partsTab']) $(id)?.addEventListener('click', () => {
     if (document.body.classList.contains('tela-cheia')) alternar(document.body.dataset.telaCheia);
