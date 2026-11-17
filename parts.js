@@ -728,7 +728,17 @@
         ctx.beginPath(); c.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath();
         ctx.fillStyle = sel ? 'rgba(215,104,69,.13)' : 'rgba(80,110,160,.05)'; ctx.fill();
         ctx.setLineDash(sel ? [] : [5, 4]); ctx.lineWidth = sel ? 1.6 : 1; ctx.strokeStyle = sel ? '#D76845' : 'rgba(70,95,140,.45)'; ctx.stroke(); ctx.setLineDash([]);
-        const p = c[3], txt = NOME[k] + (sel ? ' ✓' : ''), w = ctx.measureText(txt).width + 12;
+      }
+      ctx.restore();
+    }
+    if (fase !== 'planos') {
+      const PL = { frontal: [-S, 0, S], superior: [-S, S, 0], direito: [0, -S, S] };
+      const NOME = { frontal: 'Frontal', superior: 'Superior', direito: 'Direito' };
+      part.planoRects = [];
+      ctx.save(); ctx.font = '700 11px DM Sans, Arial, sans-serif';
+      for (const k of ['superior', 'frontal', 'direito']) {
+        const sel = k === part.plano;
+        const p = P(PL[k]), txt = NOME[k] + (sel ? ' ✓' : ''), w = ctx.measureText(txt).width + 12;
         const r = { x: p.x + 4, y: p.y - 9, w, h: 18, k };
         ctx.fillStyle = sel ? '#D76845' : 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x, r.y, r.w, r.h, 5) : ctx.rect(r.x, r.y, r.w, r.h); ctx.fill();
         ctx.fillStyle = sel ? '#fff' : '#1e3350'; ctx.textBaseline = 'middle'; ctx.fillText(txt, r.x + 6, r.y + 9.5);
@@ -737,7 +747,7 @@
       ctx.restore();
     }
     if (fase !== 'planos') {
-      const L = Math.max(4, 46 / unit), o = P([0, 0, 0]);
+      const L = Math.max(4, 64 / unit), o = P([0, 0, 0]);
       ctx.save(); ctx.lineWidth = 2.2; ctx.font = '800 11px DM Sans, Arial, sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
       for (const [v, cor, n] of [[[L, 0, 0], '#d33d2f', 'X'], [[0, L, 0], '#2f9b4c', 'Y'], [[0, 0, L], '#2f63d3', 'Z']]) {
         const e = P(v); ctx.strokeStyle = cor; ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(e.x, e.y); ctx.stroke();
