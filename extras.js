@@ -84,6 +84,7 @@
     const marcarCor = () => bar.querySelectorAll('.paint-cor').forEach((b) => b.classList.toggle('sel', b.dataset.cor === pint.cor));
     bar.querySelector('[data-p=toggle]').onclick = (e) => {
       pint.ativa = !pint.ativa; opts.hidden = !pint.ativa;
+      if (pint.ativa && window.tracoCotas?.medindo) document.querySelector('.cota-bar [data-c=medir]')?.click();
       e.currentTarget.classList.toggle('on', pint.ativa);
       e.currentTarget.textContent = pint.ativa ? '✓ Pintando' : '🎨 Pintar';
       P().model.style.cursor = pint.ativa ? 'crosshair' : '';
@@ -301,7 +302,114 @@
     b.onclick = abrirHistorico; antes.insertAdjacentElement('beforebegin', b);
   }
 
+  // ====================== COTAS ======================
+  // Automáticas: largura × profundidade × altura de cada peça (+ Ø, rosca e furo das peças narradas).
+  // Manuais: toque em dois cantos da peça e aparece a distância entre eles.
+  const cotas = { auto: false, medindo: false, pendente: null, lista: [] };
+  window.tracoCotas = cotas;
+  const nf = (v) => String(+v.toFixed(2)).replace('.', ',');
+  function seta(ctx, a, b, txt, cor = '#111') {
+    ctx.save();
+    ctx.strokeStyle = cor; ctx.fillStyle = cor; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    for (const [p, s] of [[a, 1], [b, -1]]) {
+      ctx.beginPath(); ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + s * 7 * Math.cos(ang - .4), p.y + s * 7 * Math.sin(ang - .4));
+      ctx.lineTo(p.x + s * 7 * Math.cos(ang + .4), p.y + s * 7 * Math.sin(ang + .4)); ctx.closePath(); ctx.fill();
+    }
+    rotulo(ctx, (a.x + b.x) / 2, (a.y + b.y) / 2, txt, cor);
+    ctx.restore();
+  }
+  function rotulo(ctx, x, y, txt, cor = '#111') {
+    ctx.font = '700 12px DM Sans, Arial, sans-serif';
+    const w = ctx.measureText(txt).width + 10;
+    ctx.fillStyle = '#fffffff0'; ctx.strokeStyle = cor; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(x - w / 2, y - 10, w, 20, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = cor; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x, y + .5);
+  }
+  function caixa(tris) {
+    const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    for (const t of tris) for (const q of t.points) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], q[k]); b[k + 3] = Math.max(b[k + 3], q[k]); }
+    return b;
+  }
+  function detalhe(sp) {
+    if (!sp) return [];
+    const t = [];
+    if (sp.tipo === 'cilindro') t.push(`Ø${nf(sp.diametro)}`);
+    if (sp.tipo === 'parafuso') t.push(`M${nf(sp.diametro)}×${nf(sp.passo)} · ${nf(sp.comprimento)} mm${sp.cabeca === 'allen' ? ' · allen' : sp.cabeca === 'sextavada' ? ' · sextavado' : ''}`);
+    if (sp.tipo === 'porca') t.push(`Porca M${nf(sp.diametro)}×${nf(sp.passo)}`);
+    for (const f of sp.furos || []) t.push(`${f.rosca ? `M${nf(f.diametro)}×${nf(f.passo)}` : `Ø${nf(f.diametro)}`} ${f.passante ? 'passante' : `prof. ${nf(f.profundidade)}`}`);
+    return t;
+  }
+  cotas.desenhar = (ctx, proj) => {
+    const api = P(); if (!api || api.part.sim) return;
+    if (cotas.auto) for (const pc of api.pecas()) {
+      const [x0, y0, z0, x1, y1, z1] = caixa(pc.tris);
+      const pr = (x, y, z) => proj([x, y, z]);
+      // escolhe as arestas da frente (mais perto de quem olha)
+      const yf = pr(0, y0, z0).depth > pr(0, y1, z0).depth ? y0 : y1;
+      const xf = pr(x0, 0, z0).depth > pr(x1, 0, z0).depth ? x0 : x1;
+      const xo = xf === x0 ? x1 : x0, yo = yf === y0 ? y1 : y0;
+      const desl = (p, q, d) => { const dx = p.x - q.x, dy = p.y - q.y, L = Math.hypot(dx, dy) || 1; return (r) => ({ x: r.x + dx / L * d, y: r.y + dy / L * d }); };
+      const o1 = desl(pr((x0 + x1) / 2, yf, z0), pr((x0 + x1) / 2, yo, z0), 16);
+      seta(ctx, o1(pr(x0, yf, z0)), o1(pr(x1, yf, z0)), `${nf(x1 - x0)} mm`, '#b3261e');
+      const o2 = desl(pr(xf, (y0 + y1) / 2, z0), pr(xo, (y0 + y1) / 2, z0), 16);
+      seta(ctx, o2(pr(xf, y0, z0)), o2(pr(xf, y1, z0)), `${nf(y1 - y0)} mm`, '#1b5e20');
+      const o3 = desl(pr(xf, yf, z0), pr(xo, yo, z0), 16);
+      seta(ctx, o3(pr(xf, yf, z0)), o3(pr(xf, yf, z1)), `${nf(z1 - z0)} mm`, '#0d47a1');
+      const top = pr((x0 + x1) / 2, (y0 + y1) / 2, z1);
+      detalhe(pc.spec).forEach((t, i) => rotulo(ctx, top.x, top.y - 26 - i * 22, t, '#111'));
+    }
+    for (const c of cotas.lista) {
+      const a = proj(c.a), b = proj(c.b);
+      for (const p of [a, b]) { ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, 7); ctx.fillStyle = '#7B1FA2'; ctx.fill(); }
+      seta(ctx, a, b, `${nf(Math.hypot(c.b[0] - c.a[0], c.b[1] - c.a[1], c.b[2] - c.a[2]))} mm`, '#7B1FA2');
+    }
+    if (cotas.pendente) { const p = proj(cotas.pendente); ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 7); ctx.strokeStyle = '#7B1FA2'; ctx.lineWidth = 2; ctx.stroke(); }
+  };
+  cotas.clique = (event) => {
+    const api = P(), part = api.part;
+    if (part.sim || !part.lastProj) return false;
+    const r = api.model.getBoundingClientRect(), x = event.clientX - r.left, y = event.clientY - r.top;
+    const faces = part.lastFaces || [];
+    let alvo = null;
+    for (let i = faces.length - 1; i >= 0; i--) if (dentro(x, y, faces[i].corners)) { alvo = faces[i]; break; }
+    if (!alvo) return false;
+    const tri = api.mesh()[alvo.idx]; if (!tri) return false;
+    // canto mais próximo do toque (os cantos é que têm medida exata)
+    let melhor = tri.points[0], dm = Infinity;
+    tri.points.forEach((q, k) => { const c = alvo.corners[k], d = Math.hypot(c.x - x, c.y - y); if (d < dm) { dm = d; melhor = q; } });
+    if (!cotas.pendente) cotas.pendente = [...melhor];
+    else { cotas.lista.push({ a: cotas.pendente, b: [...melhor] }); cotas.pendente = null; }
+    api.render(); event.preventDefault(); event.stopPropagation();
+    return true;
+  };
+  function montarBarraCotas() {
+    const wrap = document.querySelector('.part-model-wrap'); if (!wrap) return;
+    const bar = document.createElement('div'); bar.className = 'cota-bar';
+    bar.innerHTML = `<button type="button" data-c="auto">📐 Cotas</button><button type="button" data-c="medir">📏 Medir</button><button type="button" data-c="limpar" hidden>Limpar</button>`;
+    bar.addEventListener('pointerdown', (e) => e.stopPropagation());
+    wrap.appendChild(bar);
+    const bAuto = bar.querySelector('[data-c=auto]'), bMed = bar.querySelector('[data-c=medir]'), bLim = bar.querySelector('[data-c=limpar]');
+    const att = () => {
+      bAuto.classList.toggle('on', cotas.auto); bMed.classList.toggle('on', cotas.medindo);
+      bMed.textContent = cotas.medindo ? (cotas.pendente ? '📏 Toque no 2º ponto' : '📏 Toque no 1º ponto') : '📏 Medir';
+      bLim.hidden = !cotas.lista.length && !cotas.pendente;
+    };
+    bAuto.onclick = () => { cotas.auto = !cotas.auto; att(); P().render(); };
+    bMed.onclick = () => {
+      cotas.medindo = !cotas.medindo; cotas.pendente = null;
+      if (cotas.medindo && pint.ativa) bar.parentElement.querySelector('.paint-toggle')?.click();
+      att(); P().render();
+      if (cotas.medindo) notifica('Toque em dois cantos da peça para medir a distância entre eles.');
+    };
+    bLim.onclick = () => { cotas.lista = []; cotas.pendente = null; att(); P().render(); };
+    P().model.addEventListener('pointerup', () => setTimeout(att, 0));
+  }
+
   montarBarraPintura();
+  montarBarraCotas();
   montarBotoesExport();
   botaoHistorico($('cupExample'));
   botaoHistorico($('exampleButton'));

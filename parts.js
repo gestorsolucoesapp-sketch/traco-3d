@@ -633,11 +633,13 @@
       });
       facesN.sort((a, c) => a.depth - c.depth);
       part.lastFaces = facesN;
+      part.lastProj = (q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz);
       for (const face of facesN) {
         ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
         ctx.lineTo(face.corners[1].x, face.corners[1].y); ctx.lineTo(face.corners[2].x, face.corners[2].y);
         ctx.closePath(); ctx.fillStyle = face.color; ctx.fill();
       }
+      try { window.tracoCotas?.desenhar(ctx, part.lastProj, width, height); } catch { /* opcional */ }
       return;
     }
     const extruded = part.mode === 'custom' && part.operation === 'extrude';
@@ -659,6 +661,7 @@
     });
     faces.sort((a, b) => a.depth - b.depth);
     part.lastFaces = faces;
+    part.lastProj = (q) => project(extruded ? [q[0] - (minX + maxX) / 2, q[1] - part.extrudeDepth / 2, q[2]] : q, width, height, unit, centerZ);
     for (const face of faces) {
       ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
       ctx.lineTo(face.corners[1].x, face.corners[1].y);
@@ -666,6 +669,7 @@
       ctx.closePath(); ctx.fillStyle = face.color; ctx.fill();
       ctx.strokeStyle = '#8d604522'; ctx.lineWidth = .5; ctx.stroke();
     }
+    try { window.tracoCotas?.desenhar(ctx, part.lastProj, width, height); } catch { /* opcional */ }
   }
 
   function corFace(triangle, light) {
@@ -796,12 +800,23 @@
       if (!d) { d = document.createElement('dialog'); d.id = 'stlDialog'; d.className = 'foto-dialog'; document.body.appendChild(d);
         d.addEventListener('click', (e) => { if (e.target === d) d.close(); }); }
       d.innerHTML = `<h3>Exportar STL</h3><p class="foto-sub">Um arquivo por peça, em mm. Toque em cada uma.</p>
-        <div class="stl-lista">${pecas.map((pc, i) => `<button type="button" class="secondary-button" data-i="${i}">⬇ ${pc.nome || 'Peça ' + (i + 1)}</button>`).join('')}</div>
+        <div class="stl-lista">${pecas.length > 1 ? '<button type="button" class="primary-button" data-todas="1">⬇ Todas juntas na mesma mesa (1 arquivo)</button>' : ''}${pecas.map((pc, i) => `<button type="button" class="secondary-button" data-i="${i}">⬇ ${pc.nome || 'Peça ' + (i + 1)}</button>`).join('')}</div>
         <div class="foto-acoes"><button type="button" class="primary-button" data-x="ok">Fechar</button></div>`;
       d.querySelectorAll('[data-i]').forEach((b) => b.onclick = () => {
         const i = +b.dataset.i; download(nome(pecas[i], i), stlBuffer(pecas[i].tris), 'model/stl');
         b.textContent = '✓ ' + (pecas[i].nome || 'Peça ' + (i + 1)) + ' baixado';
       });
+      const todas = d.querySelector('[data-todas]');
+      if (todas) todas.onclick = () => {
+        // Peças lado a lado (6 mm entre elas), todas apoiadas em z = 0 e centradas na mesa.
+        const t = window.tracoNarrado.montar(part.narrado).tris;
+        let mx = Infinity, Mx = -Infinity, my = Infinity, My = -Infinity;
+        for (const tr of t) for (const q of tr.points) { mx = Math.min(mx, q[0]); Mx = Math.max(Mx, q[0]); my = Math.min(my, q[1]); My = Math.max(My, q[1]); }
+        const cx = (mx + Mx) / 2, cy = (my + My) / 2;
+        const centr = t.map((tr) => ({ normal: tr.normal, points: tr.points.map(([x, y, z]) => [x - cx, y - cy, z]) }));
+        download('traco-mesa-completa-mm.stl', stlBuffer(centr), 'model/stl');
+        todas.textContent = '✓ Mesa completa baixada';
+      };
       d.querySelector('[data-x=ok]').onclick = () => d.close();
       d.showModal();
       return;
@@ -1331,6 +1346,7 @@
   });
   model.addEventListener('pointerdown', (event) => {
     if (window.tracoPintura?.ativa && window.tracoPintura.clique(event)) return;
+    if (window.tracoCotas?.medindo && window.tracoCotas.clique(event)) return;
     model.setPointerCapture(event.pointerId); part.drag = [event.clientX, event.clientY];
   });
   model.addEventListener('pointermove', (event) => {
@@ -1371,7 +1387,7 @@
     pecas() {
       if (part.operation === 'narrado') {
         const m = window.tracoNarrado.montar(part.narrado); let ini = 0; let x = 0;
-        return m.pecas.map((pc) => { const r = { nome: pc.nome, tris: m.tris.slice(ini, ini + pc.tris.length), ini }; ini += pc.tris.length; return r; });
+        return m.pecas.map((pc, i) => { const r = { nome: pc.nome, tris: m.tris.slice(ini, ini + pc.tris.length), ini, spec: part.narrado.pecas[i] }; ini += pc.tris.length; return r; });
       }
       const t = meshBase();
       return t.length ? [{ nome: part.mode === 'cup' ? 'Copo' : 'Peça', tris: t, ini: 0 }] : [];
