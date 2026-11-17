@@ -151,3 +151,14 @@ body.tela-cheia .mini3d-alca { display: block; }
 .lib-busca { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px 10px; border: 1px solid #c9d3cf; border-radius: 9px; margin-bottom: 8px; }
 .imp-op { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 13px; color: #111; }
 .imp-op select { font-size: 14px; padding: 4px; }
+
+.brand-svg { width: 42px; height: 42px; flex: none; }
+.brand-txt { display: flex; flex-direction: column; line-height: 1; }
+.brand-slogan { font-family: 'DM Sans', Arial, sans-serif; font-size: 10px; font-weight: 800; letter-spacing: 2.2px; text-transform: uppercase; color: #9F4D33; margin-top: 4px; }
+@media (max-width: 760px) { .brand-svg { width: 34px; height: 34px; } .brand-slogan { font-size: 8.5px; letter-spacing: 1.6px; } }
+
+.cota-edit { position: absolute; left: 10px; top: 52px; z-index: 5; background: #fff; border: 1px solid #c9d3cf; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px #0002; font-size: 12px; color: #111; max-width: 230px; }
+.cota-edit label { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.cota-edit input { width: 80px; font-size: 16px; padding: 4px 6px; border: 1px solid #c9d3cf; border-radius: 7px; }
+.cota-edit small { color: #333; }
+#cotarPerfil.on { background: #2e4b3f; color: #fff; border-color: #2e4b3f; }

@@ -253,6 +253,20 @@
       if (part.closed) ctx.closePath();
       if (part.closed) { ctx.fillStyle = '#c8795555'; ctx.fill(); }
       ctx.strokeStyle = '#c57650'; ctx.lineWidth = 3; ctx.stroke();
+      if (part.mode === 'custom' && !part.shapeType && part.profile.length <= 60) {
+        const n = part.profile.length, segs = part.closed ? n : n - 1;
+        ctx.font = '700 11px DM Sans, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (let i = 0; i < segs; i++) {
+          const a = part.profile[i], b = part.profile[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          if (L < .01) continue;
+          const A = t.screen(a), Bp = t.screen(b), mx = (A[0] + Bp[0]) / 2, my = (A[1] + Bp[1]) / 2;
+          const txt = display(L), w = ctx.measureText(txt).width + 10, sel = part.cotaSel === i;
+          ctx.fillStyle = sel ? '#2e4b3f' : '#fffffff0'; ctx.strokeStyle = sel ? '#2e4b3f' : (part.cotando ? '#1565c0' : '#c9b2a6'); ctx.lineWidth = part.cotando ? 1.5 : 1;
+          ctx.beginPath(); ctx.roundRect(mx - w / 2, my - 9, w, 18, 5); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = sel ? '#fff' : '#111'; ctx.fillText(txt, mx, my + .5);
+        }
+        ctx.textBaseline = 'alphabetic';
+      }
       for (const point of part.profile) {
         const [x, y] = t.screen(point);
         ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2);
@@ -995,6 +1009,73 @@
       'Escolha Linha mm ou toque no corte para definir coordenadas.';
     refresh();
   });
+  // ---------- Cotar: acerta comprimento e ângulo de qualquer linha do perfil ----------
+  const btnCotar = document.createElement('button');
+  btnCotar.id = 'cotarPerfil'; btnCotar.type = 'button'; btnCotar.className = 'secondary-button'; btnCotar.textContent = '📐 Cotar';
+  btnCotar.title = 'Toque numa linha do perfil e digite a medida certa';
+  $('fitProfileView').insertAdjacentElement('afterend', btnCotar);
+  const cotaBox = document.createElement('div'); cotaBox.className = 'cota-edit'; cotaBox.hidden = true;
+  sketch.parentElement.appendChild(cotaBox);
+  cotaBox.addEventListener('pointerdown', (e) => e.stopPropagation());
+  function segsPerfil() { const n = part.profile.length; return part.closed ? n : n - 1; }
+  function abrirCota(i) {
+    part.cotaSel = i; const n = part.profile.length, a = part.profile[i], b = part.profile[(i + 1) % n];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]), ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+    cotaBox.innerHTML = `<b>Linha ${i + 1}</b>
+      <label>Comprimento <input id="cotaL" inputmode="decimal" value="${display(L)}" /> mm</label>
+      <label>Ângulo <input id="cotaA" inputmode="decimal" value="${display(ang)}" /> °</label>
+      <div><button type="button" class="primary-button" data-c="ok">Aplicar</button> <button type="button" class="secondary-button" data-c="x">Fechar</button></div>
+      <small>Muda esta linha e leva o resto do desenho junto.${part.closed ? ' A linha de fechamento se ajusta.' : ''}</small>`;
+    cotaBox.hidden = false; render();
+    const inp = cotaBox.querySelector('#cotaL'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    const aplicar = () => {
+      const nL = number(cotaBox.querySelector('#cotaL').value), nA = Number(String(cotaBox.querySelector('#cotaA').value).replace(',', '.'));
+      if (nL == null || nL < .01 || !Number.isFinite(nA)) { $('profileStatus').textContent = 'Digite um comprimento em mm e um ângulo válidos.'; return; }
+      const rad = nA * Math.PI / 180, novoB = [a[0] + Math.cos(rad) * nL, a[1] + Math.sin(rad) * nL];
+      const dx = novoB[0] - b[0], dz = novoB[1] - b[1];
+      const ini = i + 1, fim = part.closed ? n - 1 : n - 1; // move os pontos seguintes (no fechado, o 1º ponto fica)
+      const novo = part.profile.map((p) => [...p]);
+      const horiz = Math.abs(b[1] - a[1]) < .01, vert = Math.abs(b[0] - a[0]) < .01;
+      if (part.closed && Math.abs(nA - ang) < .01 && (horiz || vert)) {
+        // Esticar (como cota do SketchUp/CAD): tudo que está além da ponta da linha anda junto,
+        // assim retângulos e perfis em L continuam retos.
+        const k = horiz ? 0 : 1, sinal = Math.sign(b[k] - a[k]), d = horiz ? dx : dz;
+        for (const q of novo) if ((q[k] - b[k]) * sinal >= -.01) q[k] += d;
+      } else if (part.closed && i === n - 1) { // linha de fechamento: move o primeiro ponto só
+        novo[0] = [novo[0][0] + dx, novo[0][1] + dz];
+      } else for (let k = ini; k <= fim; k++) novo[k] = [novo[k][0] + dx, novo[k][1] + dz];
+      // nada pode ir para x/z negativos
+      const mx = Math.min(0, ...novo.map((p) => p[0])), mz = Math.min(0, ...novo.map((p) => p[1]));
+      part.profile = novo.map((p) => [Math.round((p[0] - mx) * 100) / 100, Math.round((p[1] - mz) * 100) / 100]);
+      if (part.closed) part.shapeType = null;
+      part.selected = [...part.profile.at(-1)]; save(); refresh();
+      $('profileStatus').textContent = `Linha ${i + 1}: ${display(nL)} mm a ${display(nA)}°`;
+      if (i + 1 < segsPerfil()) abrirCota(i + 1); else fecharCota();
+    };
+    cotaBox.querySelector('[data-c=ok]').onclick = aplicar;
+    cotaBox.querySelector('[data-c=x]').onclick = fecharCota;
+    cotaBox.querySelectorAll('input').forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); aplicar(); } if (e.key === 'Escape') fecharCota(); }));
+  }
+  function fecharCota() { part.cotaSel = null; cotaBox.hidden = true; render(); }
+  btnCotar.addEventListener('click', () => {
+    part.cotando = !part.cotando; btnCotar.classList.toggle('on', part.cotando);
+    btnCotar.textContent = part.cotando ? '✓ Cotando' : '📐 Cotar';
+    if (!part.cotando) fecharCota(); else $('profileHint').textContent = 'Toque numa linha (ou na medida dela) para digitar o valor certo.';
+    render();
+  });
+  sketch.addEventListener('pointerdown', (event) => {
+    if (!part.cotando || part.mode !== 'custom' || part.profile.length < 2) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    const rect = sketch.getBoundingClientRect(), t = sketchTransform(rect.width, rect.height);
+    const x = event.clientX - rect.left, y = event.clientY - rect.top, n = part.profile.length;
+    let best = -1, bd = event.pointerType === 'touch' ? 26 : 14;
+    for (let i = 0; i < segsPerfil(); i++) {
+      const A = t.screen(part.profile[i]), Bp = t.screen(part.profile[(i + 1) % n]);
+      const vx = Bp[0] - A[0], vy = Bp[1] - A[1], L2 = vx * vx + vy * vy || 1, u = Math.max(0, Math.min(1, ((x - A[0]) * vx + (y - A[1]) * vy) / L2));
+      const d = Math.hypot(x - (A[0] + vx * u), y - (A[1] + vy * u)); if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= 0) abrirCota(best); else fecharCota();
+  }, { capture: true });
   $('fitProfileView').addEventListener('click', () => {
     fitSketchView(); render();
     $('profileHint').textContent = 'Enquadramento ajustado. O plano fica fixo durante o traço.';
@@ -1243,6 +1324,14 @@
       return;
     }
     const validLength = number($('profileLength').value);
+    const pontaTela = (() => { const rect = sketch.getBoundingClientRect(), t = sketchTransform(rect.width, rect.height), [x, y] = t.screen(part.profile.at(-1));
+      return Math.hypot(event.clientX - rect.left - x, event.clientY - rect.top - y); })();
+    if (event.pointerType === 'mouse' && (validLength == null || validLength < .01) && pontaTela < 14) {
+      // Igual ao SketchUp: aperta na ponta, puxa e solta — a linha fica pronta ao soltar.
+      selectPoint(point); part.pending = true;
+      part.sketchPointer = { origin: point, pointerId: event.pointerId, confirm: false, type: event.pointerType, arrastoMouse: true };
+      sketch.setPointerCapture(event.pointerId); return;
+    }
     if (event.pointerType === 'mouse' && (validLength == null || validLength < .01)) {
       // Igual à Arquitetura: o clique conclui a linha no ponto inferido e já segue para a próxima.
       if (part.infer?.kind === 'fechar') { $('closeProfile').click(); return; }
@@ -1306,6 +1395,16 @@
     if (moved) selectPoint(point);
     part.sketchPointer = null;
     if (pointer.confirm) { applySegmentLength(); return; }
+    if (moved) { // soltou depois de puxar: a linha fica pronta (depois dá para cotar)
+      if (part.infer?.kind === 'fechar') { part.pending = false; $('closeProfile').click(); return; }
+      const last = part.profile.at(-1);
+      if (Math.hypot(part.selected[0] - last[0], part.selected[1] - last[1]) >= .01 && part.profile.length < MAX_POINTS) {
+        part.profile.push([...part.selected]); part.pending = false; $('profileAngle').value = '';
+        $('profileHint').textContent = 'Linha criada. Puxe a próxima a partir da ponta, ou use 📐 Cotar para acertar as medidas.';
+        save(); refresh(); return;
+      }
+    }
+    if (pointer.arrastoMouse) { part.pending = false; render(); return; }
     $('profileHint').textContent = 'Prévia pronta: digite o comprimento em mm e Enter';
     if (pointer.type === 'mouse' && !moved) $('profileLength').focus();
     render();

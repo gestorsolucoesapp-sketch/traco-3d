@@ -17,10 +17,12 @@
       if (!z) return;
       if (z === 'full') return alternar(modo);
       if (z === 'lapis') {
-        lapis.ativo = !lapis.ativo;
-        try { localStorage.setItem('traco-lapis', lapis.ativo ? '1' : '0'); } catch { /* */ }
-        document.querySelectorAll('.zoom-lapis').forEach((b) => b.classList.toggle('on', lapis.ativo));
-        const el = $('toast'); if (el) { el.textContent = lapis.ativo ? 'Lapiseira ligada: desenhe com a ponta 5 mm acima e à esquerda do dedo.' : 'Lapiseira desligada.'; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3000); }
+        // cada toque troca: desligada → 8 → 12 → 18 → 25 mm → desligada
+        const atual = lapis.ativo ? lapis.mm : 0, prox = DISTS[(DISTS.indexOf(atual) + 1) % DISTS.length];
+        lapis.ativo = prox > 0; if (prox) lapis.mm = prox;
+        try { localStorage.setItem('traco-lapis-mm', String(prox)); } catch { /* */ }
+        marcaLapis();
+        const el = $('toast'); if (el) { el.textContent = lapis.ativo ? `Lapiseira: ponta ${lapis.mm} mm acima do dedo. Toque de novo no ✏️ para afastar mais.` : 'Lapiseira desligada.'; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3200); }
         return;
       }
       if (modo === 'arq') {
@@ -32,10 +34,11 @@
     wrap.appendChild(d);
   }
   // Lapiseira: no toque, a ponta fica 5 mm acima e à esquerda do dedo (o dedo não cobre a linha).
-  const MM = 96 / 25.4, DIST = 5 * MM;
-  const lapis = { ativo: false };
-  try { lapis.ativo = localStorage.getItem('traco-lapis') === '1'; } catch { /* */ }
-  lapis.desvio = (ev) => lapis.ativo && ev && ev.pointerType === 'touch' ? [-DIST * .7071, -DIST * .7071] : [0, 0];
+  const MM = 96 / 25.4, DISTS = [0, 8, 12, 18, 25];
+  const lapis = { ativo: false, mm: 12 };
+  try { const v = +localStorage.getItem('traco-lapis-mm'); if (DISTS.includes(v)) { lapis.mm = v || 12; lapis.ativo = v > 0; } else lapis.ativo = localStorage.getItem('traco-lapis') === '1'; } catch { /* */ }
+  // ponta acima e à esquerda do dedo, na distância escolhida
+  lapis.desvio = (ev) => lapis.ativo && ev && ev.pointerType === 'touch' ? [-lapis.mm * MM * .6, -lapis.mm * MM * .8] : [0, 0];
   window.tracoLapis = lapis;
   const ponta = document.createElement('div'); ponta.className = 'lapis-ponta'; ponta.hidden = true;
   ponta.innerHTML = '<span></span>'; document.body.appendChild(ponta);
@@ -52,7 +55,8 @@
   }
   barra(document.querySelector('#architectureMode .sketch-wrap'), 'arq');
   barra($('partSketchCanvas')?.parentElement, 'peca');
-  document.querySelectorAll('.zoom-lapis').forEach((b) => b.classList.toggle('on', lapis.ativo));
+  function marcaLapis() { document.querySelectorAll('.zoom-lapis').forEach((b) => { b.classList.toggle('on', lapis.ativo); b.textContent = lapis.ativo ? `✏️ ${lapis.mm}` : '✏️'; }); }
+  marcaLapis();
 
   function alternar(modo) {
     const liga = !document.body.classList.contains('tela-cheia');

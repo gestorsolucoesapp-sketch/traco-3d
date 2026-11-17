@@ -258,6 +258,7 @@
   }
   window.tracoHistorico = {
     mudou(tipo) { clearTimeout(timers[tipo]); timers[tipo] = setTimeout(() => registrar(tipo), 2500); },
+    agora(tipo) { clearTimeout(timers[tipo]); registrar(tipo); },
     exportou(tipo, nome) {
       const ext = (String(nome).split('.').pop() || '').toLowerCase();
       if (['stl', '3mf', 'step', 'obj'].includes(ext)) setTimeout(() => registrar(tipo, ext), 50);

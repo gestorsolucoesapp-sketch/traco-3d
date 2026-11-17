@@ -503,3 +503,28 @@
   O._teste = { parseObj, parseDae, parseGlb, parseGltf, normalizar, LIB };
   requestRender(); refreshControls();
 })();
+
+// Botão "Novo projeto" (Arquitetura): limpa paredes, aberturas, objetos, guias, cotas, textos e STL.
+(() => {
+  const ex = document.getElementById('exampleButton'); if (!ex) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'secondary-button foto-button'; b.id = 'novoProjeto'; b.textContent = '📄 Novo projeto';
+  b.title = 'Começar uma planta em branco (o desenho atual fica no Histórico)';
+  ex.parentElement.insertBefore(b, ex.parentElement.firstChild);
+  b.onclick = () => {
+    const tem = state.strokes.length || (state.objetos || []).length || state.stlMesh ||
+      ['guias', 'cotas', 'textos'].some((k) => (state.extras?.[k] || []).length);
+    if (tem && !confirm('Começar um projeto novo? O desenho atual fica salvo no 📚 Histórico.')) return;
+    try { window.tracoHistorico?.agora('planta'); } catch { /* */ }
+    {
+      if (state.modelTool === 'push') stopPush();
+      cancelLine();
+      recordHistory();
+      state.strokes = []; state.openings = []; state.objetos = []; state.stlMesh = null; state.wallsRaised = false;
+      state.extras = { guias: [], cotas: [], textos: [] };
+      if (window.tracoObjetos) window.tracoObjetos.sel = null;
+      saveProject(); refreshControls(); setView('foundation'); requestRender();
+      notify('Projeto novo. Use Desfazer para voltar as paredes, ou abra pelo Histórico.');
+    }
+  };
+})();
