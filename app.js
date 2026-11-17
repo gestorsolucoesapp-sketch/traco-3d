@@ -1154,7 +1154,7 @@ function drawInference(context, at, kind, guides, locked) {
   context.save();
   if (kind === 'point') {
     context.beginPath(); context.arc(at[0], at[1], 7 / vk(), 0, Math.PI * 2);
-    context.fillStyle = '#2e9e4f'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2 / vk(); context.stroke();
+    context.fillStyle = '#144422'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2 / vk(); context.stroke();
   } else if (kind === 'mid') {
     context.beginPath(); context.arc(at[0], at[1], 7 / vk(), 0, Math.PI * 2);
     context.fillStyle = '#17b3c9'; context.fill(); context.strokeStyle = '#fff'; context.lineWidth = 2 / vk(); context.stroke();
