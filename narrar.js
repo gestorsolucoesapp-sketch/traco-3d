@@ -431,7 +431,7 @@
       fechar();
       // nuvem de partículas montando o que foi pedido; depois rola até o 3D
       const nomes = limpo.pecas.map((p) => p.nome).join(' + ');
-      window.tracoRedemoinho?.(window.tracoNarrado.montar(limpo).tris, `Montando ${nomes}…`)
+      Promise.resolve(window.tracoRedemoinho ? window.tracoRedemoinho(window.tracoNarrado.montar(limpo).tris, `Montando ${nomes}…`) : null)
         .then(() => document.querySelector('.parts-workspace > .panel:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
     } catch (e) { dlg.querySelector('#narrarMsg').textContent = 'Não consegui gerar: ' + (e.message || e); }
   }

@@ -207,7 +207,7 @@ body.tela-cheia .mini3d-alca { display: block; }
 @keyframes vinGrade { to { opacity: 1; } }
 @keyframes vinSai { to { opacity: 0; visibility: hidden; transform: scale(1.04); } }
 @media (max-width: 760px) { .vin-icone { width: 108px; height: 108px; } .vin-nome { font-size: 46px; } .vin-slogan { font-size: 11px; letter-spacing: 4.5px; } }
-@media (prefers-reduced-motion: reduce) { #vinheta { animation-delay: .6s; } #vinheta * { animation-duration: .01s !important; animation-delay: 0s !important; } }
+
 
 .zoom-bar .zoom-estilo { font-size: 16px; }
 .estilo-pop { position: absolute; z-index: 60; width: 212px; background: #fff; border: 1px solid #c9d3cf; border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 30px #0003;

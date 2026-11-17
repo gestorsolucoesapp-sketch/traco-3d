@@ -19,7 +19,7 @@
     return pts;
   }
   window.tracoRedemoinho = (tris, titulo = 'Montando sua peça…', fim) => new Promise((resolve) => {
-    if (!tris || !tris.length || matchMedia('(prefers-reduced-motion: reduce)').matches) { resolve(); return; }
+    if (!tris || !tris.length) { resolve(); return; }
     const ov = document.createElement('div'); ov.className = 'redemoinho';
     ov.innerHTML = `<canvas></canvas><div class="rd-txt"><b>${titulo}</b><small>toque para pular</small></div>`;
     document.body.appendChild(ov);
