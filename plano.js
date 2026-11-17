@@ -52,7 +52,7 @@
   // Origem e eixos no 3D da Arquitetura (1 m de comprimento).
   window.tracoEixos = (ctx, toScreen, unit) => {
     const L = Math.max(.6, 60 / unit), o = toScreen([0, 0, 0]);
-    ctx.save(); ctx.lineWidth = 2.2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '800 11px DM Sans, Arial, sans-serif';
+    ctx.save(); ctx.lineWidth = 1.2; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '800 11px DM Sans, Arial, sans-serif';
     for (const [v, cor, n] of [[[L, 0, 0], '#d33d2f', 'X'], [[0, -L, 0], '#2f9b4c', 'Y'], [[0, 0, L], '#2f63d3', 'Z']]) {
       const e = toScreen(v); ctx.strokeStyle = cor; ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(e.x, e.y); ctx.stroke();
       const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy) || 1; ctx.fillStyle = cor; ctx.fillText(n, e.x + dx / d * 9, e.y + dy / d * 9);
