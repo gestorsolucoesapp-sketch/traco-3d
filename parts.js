@@ -207,12 +207,12 @@
       ctx.strokeStyle = i === 0 ? '#96b39f' : '#e1e8df';
       ctx.beginPath(); ctx.moveTo(x, t.top); ctx.lineTo(x, t.bottom); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(t.left, y); ctx.lineTo(t.right, y); ctx.stroke();
-      ctx.fillStyle = '#373d38';
+      ctx.fillStyle = '#111111';
       ctx.textAlign = 'center'; ctx.fillText(display((t.extent.r0 || 0) + t.extent.r * i / 5), x, t.bottom + 17);
       ctx.textAlign = 'right'; ctx.fillText(display((t.extent.z0 || 0) + t.extent.z * i / 5), t.left - 6, y + 4);
     }
     ctx.beginPath(); ctx.rect(t.left - 8, t.top - 8, t.right - t.left + 16, t.bottom - t.top + 16); ctx.clip();
-    ctx.fillStyle = '#343e37';
+    ctx.fillStyle = '#111111';
     ctx.textAlign = 'left'; ctx.fillText(part.operation === 'extrude' && part.mode === 'custom' ?
       'PLANO' : 'EIXO', t.left + 5, t.top + 12);
     const generated = part.operation === 'spring' || part.operation === 'thread';
@@ -240,7 +240,7 @@
         ctx.moveTo(...bottom); ctx.lineTo(...top);
         ctx.strokeStyle = '#8caa92'; ctx.lineWidth = 1.5; ctx.stroke();
       }
-      ctx.fillStyle = '#333e35'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#111111'; ctx.textAlign = 'left';
       ctx.fillText(`${display(diameter)} mm · ${turns} voltas · passo ${display(pitch)} mm`,
         t.left + 5, t.top + 27);
     } else if (part.profile.length) {
@@ -291,7 +291,7 @@
       ctx.setLineDash([6, 4]);
       ctx.strokeStyle = part.infer?.kind === 'x' ? '#d0342c' : part.infer?.kind === 'y' ? '#2e9e4f' : '#286855';
       ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = '#194236'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#111111'; ctx.textAlign = 'center';
       ctx.fillText(`${display(Math.hypot(dr, dz))} mm · ${display(Math.atan2(dz, dr) * 180 / Math.PI)}°`,
       (start[0] + end[0]) / 2, (start[1] + end[1]) / 2 - 9);
     }
@@ -331,7 +331,7 @@
       ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2);
       ctx.strokeStyle = '#286855'; ctx.lineWidth = 2; ctx.stroke();
     }
-    ctx.fillStyle = '#224134'; ctx.textAlign = 'right';
+    ctx.fillStyle = '#111111'; ctx.textAlign = 'right';
     ctx.fillText(generated ? 'projeção · mm' :
       `${part.mode === 'custom' && part.operation === 'extrude' ? 'x' : 'r'} ${display(part.selected[0])} · ${part.mode === 'custom' && part.operation === 'extrude' ? 'y' : 'z'} ${display(part.selected[1])} mm`, width - 10, 20);
     ctx.restore();
@@ -601,7 +601,7 @@
         }
         return;
       }
-      ctx.fillStyle = '#353e38'; ctx.font = '13px DM Sans, Arial, sans-serif';
+      ctx.fillStyle = '#111111'; ctx.font = '13px DM Sans, Arial, sans-serif';
       ctx.textAlign = 'center'; ctx.fillText('Feche o perfil 2D para gerar o 3D', width / 2, height / 2);
       return;
     }
