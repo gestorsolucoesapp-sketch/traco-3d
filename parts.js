@@ -718,6 +718,10 @@
   // Planos de referência (Frontal, Superior, Direito), origem e eixos X/Y/Z.
   function referencia(ctx, P, S, unit, fase = 'tudo') {
     S = Math.max(S, 6);
+    // Só a origem e os eixos (os planos ficam escondidos; escolha pelos botões).
+    part.planoRects = [];
+    if (fase === 'planos') return;
+    fase = 'eixos';
     if (fase !== 'eixos') {
       const PL = { frontal: [[-S, 0, -S], [S, 0, -S], [S, 0, S], [-S, 0, S]], superior: [[-S, -S, 0], [S, -S, 0], [S, S, 0], [-S, S, 0]], direito: [[0, -S, -S], [0, S, -S], [0, S, S], [0, -S, S]] };
       const NOME = { frontal: 'Frontal', superior: 'Superior', direito: 'Direito' };
