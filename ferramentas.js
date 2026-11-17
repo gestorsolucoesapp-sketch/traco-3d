@@ -325,6 +325,44 @@
       try { drawInference(ctx, h, ex.hoverKind, ex.hoverGuides, false); } catch { /* */ }
     }
   };
+  // Toque na medida de uma parede (com Linha sem traço em andamento): edita comprimento e ângulo.
+  const edBox = document.createElement('div'); edBox.className = 'cota-edit'; edBox.hidden = true;
+  document.querySelector('#architectureMode .sketch-wrap').appendChild(edBox);
+  edBox.addEventListener('pointerdown', (e) => e.stopPropagation());
+  function rotuloEm(p) {
+    const q2 = 1 / vk();
+    for (let si = 0; si < state.strokes.length; si++) { const s = state.strokes[si]; if (s.length !== 2) continue;
+      const mx = (s[0][0] + s[1][0]) / 2, my = (s[0][1] + s[1][1]) / 2 - 12 * q2;
+      if (Math.abs(p[0] - mx) < 30 * q2 && Math.abs(p[1] - my) < 13 * q2) return si; }
+    return -1;
+  }
+  function editarParede(si) {
+    const [a, b] = state.strokes[si], L = dist(a, b) / state.pixelsPerMeter, ang = -Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+    const fm = (v) => String(+v.toFixed(2)).replace('.', ',');
+    edBox.innerHTML = `<b>Parede</b>
+      <label>Comprimento <input id="edL" inputmode="decimal" value="${fm(L)}" /> m</label>
+      <label>Ângulo <input id="edA" inputmode="decimal" value="${fm(ang)}" /> °</label>
+      <div><button type="button" class="primary-button" data-c="ok">Aplicar</button> <button type="button" class="secondary-button" data-c="x">Fechar</button></div>
+      <small>A ponta final anda e as paredes ligadas a ela acompanham.</small>`;
+    edBox.hidden = false; const inp = edBox.querySelector('#edL'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    const ok = () => {
+      const nL = Number(edBox.querySelector('#edL').value.replace(',', '.')), nA = Number(edBox.querySelector('#edA').value.replace(',', '.'));
+      if (!(nL > .01) || !Number.isFinite(nA)) return notify('Digite comprimento e ângulo válidos.');
+      const r = -nA * Math.PI / 180, nb = r2([a[0] + Math.cos(r) * nL * state.pixelsPerMeter, a[1] + Math.sin(r) * nL * state.pixelsPerMeter]);
+      if (!dentro([nb])) return notify('Sai do quadro.');
+      const igual = (p) => Math.abs(p[0] - b[0]) < .5 && Math.abs(p[1] - b[1]) < .5;
+      commit(state.strokes.map((s) => s.map((p) => (igual(p) ? [...nb] : p))));
+      edBox.hidden = true; notify(`Parede: ${fm(nL)} m a ${fm(nA)}°`);
+    };
+    edBox.querySelector('[data-c=ok]').onclick = ok; edBox.querySelector('[data-c=x]').onclick = () => { edBox.hidden = true; };
+    edBox.querySelectorAll('input').forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ok(); } if (e.key === 'Escape') edBox.hidden = true; }));
+  }
+  sketchCanvas.addEventListener('pointerdown', (ev) => {
+    if (ex.tool || window.tracoObjetos?.ativo || state.tool !== 'line' || state.lineStart || window.tracoEstilo?.cotas === false) return;
+    const si = rotuloEm(sketchPoint(ev)); if (si < 0) return;
+    ev.preventDefault(); ev.stopImmediatePropagation(); editarParede(si);
+  }, { capture: true });
+
   // Apagar: também remove cota/texto tocado.
   sketchCanvas.addEventListener('pointerdown', (ev) => {
     if (state.tool !== 'erase') return;

@@ -214,3 +214,4 @@ body.tela-cheia .mini3d-alca { display: block; }
   display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #111; }
 .estilo-pop label { display: flex; align-items: center; gap: 6px; font-weight: 700; }
 .estilo-pop input[type=range] { flex: 1; min-width: 0; }
+#architectureMode .cota-edit { top: 52px; left: 10px; }

@@ -254,7 +254,7 @@
       if (part.closed) { ctx.fillStyle = '#c8795555'; ctx.fill(); }
       { const E = window.tracoEstilo || { esp: 3, tracejada: false }; if (E.tracejada) ctx.setLineDash([Math.max(6, E.esp * 2.4), Math.max(4, E.esp * 1.6)]); ctx.strokeStyle = '#c57650'; ctx.lineWidth = E.esp; ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([]); }
       if (part.mode === 'custom' && !part.shapeType && part.profile.length <= 60 && (part.cotando || window.tracoEstilo?.cotas !== false)) {
-        const n = part.profile.length, segs = part.closed ? n : n - 1;
+        const n = part.profile.length, segs = part.closed ? n : n - 1; part.cotaRects = [];
         ctx.font = '700 11px DM Sans, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         for (let i = 0; i < segs; i++) {
           const a = part.profile[i], b = part.profile[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -263,6 +263,7 @@
           const txt = display(L), w = ctx.measureText(txt).width + 10, sel = part.cotaSel === i;
           ctx.fillStyle = sel ? '#2e4b3f' : '#fffffff0'; ctx.strokeStyle = sel ? '#2e4b3f' : (part.cotando ? '#1565c0' : '#c9b2a6'); ctx.lineWidth = part.cotando ? 1.5 : 1;
           ctx.beginPath(); ctx.roundRect(mx - w / 2, my - 9, w, 18, 5); ctx.fill(); ctx.stroke();
+          part.cotaRects.push({ i, x: mx - w / 2 - 4, y: my - 13, w: w + 8, h: 26 });
           ctx.fillStyle = sel ? '#fff' : '#111'; ctx.fillText(txt, mx, my + .5);
         }
         ctx.textBaseline = 'alphabetic';
@@ -1065,7 +1066,13 @@
     render();
   });
   sketch.addEventListener('pointerdown', (event) => {
-    if (!part.cotando || part.mode !== 'custom' || part.profile.length < 2) return;
+    if (part.mode !== 'custom' || part.profile.length < 2) return;
+    if (!part.cotando) { // toque direto na medida de uma linha abre a edição
+      const rect0 = sketch.getBoundingClientRect(), x0 = event.clientX - rect0.left, y0 = event.clientY - rect0.top;
+      const hit = (part.cotaRects || []).find((r) => x0 >= r.x && x0 <= r.x + r.w && y0 >= r.y && y0 <= r.y + r.h);
+      if (!hit) return;
+      event.preventDefault(); event.stopImmediatePropagation(); abrirCota(hit.i); return;
+    }
     event.preventDefault(); event.stopImmediatePropagation();
     const rect = sketch.getBoundingClientRect(), t = sketchTransform(rect.width, rect.height);
     const x = event.clientX - rect.left, y = event.clientY - rect.top, n = part.profile.length;
