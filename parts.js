@@ -500,7 +500,10 @@
 
   function mesh() {
     if (part.operation === 'narrado') {
-      try { return window.tracoNarrado?.montar(part.narrado).tris || []; } catch { return []; }
+      try {
+        if (part.sim) return window.tracoNarrado.montagem(part.narrado, part.sim.s)?.tris || [];
+        return window.tracoNarrado?.montar(part.narrado).tris || [];
+      } catch { return []; }
     }
     if (!part.closed || part.profile.length < 3) return [];
     if (part.operation === 'thread' || part.operation === 'spring') return helixMesh();
@@ -606,8 +609,8 @@
       return;
     }
     if (part.operation === 'narrado') {
-      const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
-      for (const t of triangles) for (const q of t.points) for (let k = 0; k < 3; k++) { if (q[k] < b[k]) b[k] = q[k]; if (q[k] > b[k + 3]) b[k + 3] = q[k]; }
+      const b = part.sim?.box ? [...part.sim.box] : [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+      if (!part.sim?.box) for (const t of triangles) for (const q of t.points) for (let k = 0; k < 3; k++) { if (q[k] < b[k]) b[k] = q[k]; if (q[k] > b[k + 3]) b[k + 3] = q[k]; }
       const cx = (b[0] + b[3]) / 2, cy = (b[1] + b[4]) / 2, cz = (b[2] + b[5]) / 2;
       const unitN = Math.min(width, height) / (Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2], 1) * 1.65) * part.zoom;
       const facesN = triangles.map((triangle) => {
@@ -616,7 +619,8 @@
         const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
         const shade = Math.round(135 + 73 * light);
         return { corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3,
-          color: `rgb(${Math.min(255, shade + 33)},${Math.round(shade * .80)},${Math.round(shade * .66)})` };
+          color: triangle.ghost ? `rgba(${Math.round(shade * .62)},${Math.round(shade * .78)},${Math.round(shade * .9)},.16)` :
+            `rgb(${Math.min(255, shade + 33)},${Math.round(shade * .80)},${Math.round(shade * .66)})` };
       });
       facesN.sort((a, c) => a.depth - c.depth);
       for (const face of facesN) {
@@ -720,10 +724,14 @@
       $('partViewBadge').textContent = 'PEÇA NARRADA';
       $('profileStatus').textContent = `Corte da 1ª peça · ${n} peça${n > 1 ? 's' : ''}`;
       $('partStatus').textContent = `${part.narrado.pecas.map((pc) => pc.nome).join(' + ')} · ${triangles.toLocaleString('pt-BR')} triângulos`;
-      $('partDimensions').textContent = 'Exportar gera um STL por peça';
+      const pm = window.tracoNarrado.parMontagem(part.narrado);
+      $('partDimensions').textContent = part.sim ? pm.msgs.join(' ') : 'Exportar gera um STL por peça';
+      $('simularMontagem').hidden = !pm;
+      $('simularMontagem').textContent = part.sim ? '⏹ Parar simulação' : '▶ Simular montagem';
       $('exportPartStl').disabled = !triangles;
       render(); return;
     }
+    if ($('simularMontagem')) $('simularMontagem').hidden = true;
     $('partStatus').textContent = triangles ? `${custom ? 'Peça livre' : 'Copo cônico'} · ${helix ? (part.operation === 'thread' ? 'rosca' : 'mola') : extruded ? 'extrusão' : 'revolução'} · ${triangles.toLocaleString('pt-BR')} triângulos` :
       custom && part.profile.length >= 2 ? `Prévia 3D do contorno aberto · ${extruded ? 'extrusão' : 'revolução'} · feche para gerar sólido` :
         'Aguardando perfil fechado';
@@ -761,8 +769,21 @@
   }
   function exportStl() {
     if (part.operation === 'narrado') {
+      // Um botão por peça: o iPhone só deixa baixar um arquivo por toque.
       const { pecas } = window.tracoNarrado.montar(part.narrado);
-      pecas.forEach((pc, i) => setTimeout(() => download(`traco-${(pc.nome || 'peca').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-')}-${i + 1}-mm.stl`, stlBuffer(pc.tris), 'model/stl'), i * 400));
+      const nome = (pc, i) => `traco-${(pc.nome || 'peca').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-')}-${i + 1}-mm.stl`;
+      let d = $('stlDialog');
+      if (!d) { d = document.createElement('dialog'); d.id = 'stlDialog'; d.className = 'foto-dialog'; document.body.appendChild(d);
+        d.addEventListener('click', (e) => { if (e.target === d) d.close(); }); }
+      d.innerHTML = `<h3>Exportar STL</h3><p class="foto-sub">Um arquivo por peça, em mm. Toque em cada uma.</p>
+        <div class="stl-lista">${pecas.map((pc, i) => `<button type="button" class="secondary-button" data-i="${i}">⬇ ${pc.nome || 'Peça ' + (i + 1)}</button>`).join('')}</div>
+        <div class="foto-acoes"><button type="button" class="primary-button" data-x="ok">Fechar</button></div>`;
+      d.querySelectorAll('[data-i]').forEach((b) => b.onclick = () => {
+        const i = +b.dataset.i; download(nome(pecas[i], i), stlBuffer(pecas[i].tris), 'model/stl');
+        b.textContent = '✓ ' + (pecas[i].nome || 'Peça ' + (i + 1)) + ' baixado';
+      });
+      d.querySelector('[data-x=ok]').onclick = () => d.close();
+      d.showModal();
       return;
     }
     const triangles = mesh();
@@ -1321,10 +1342,30 @@
     try { openProject(await file.text()); save(); }
     catch { $('profileStatus').textContent = 'Não foi possível abrir esse projeto de peça.'; }
   });
+  // Simulação de montagem: o parafuso desce girando pelo furo; o corpo fica transparente.
+  function pararSim() { part.sim = null; refresh(); }
+  $('simularMontagem')?.addEventListener('click', () => {
+    if (part.sim) { pararSim(); return; }
+    const m = window.tracoNarrado.parMontagem(part.narrado); if (!m) return;
+    const t0 = window.tracoNarrado.montagem(part.narrado, 0).tris, t1 = window.tracoNarrado.montagem(part.narrado, m.curso).tris;
+    const box = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    for (const t of [...t0, ...t1]) for (const q of t.points) for (let k = 0; k < 3; k++) { box[k] = Math.min(box[k], q[k]); box[k + 3] = Math.max(box[k + 3], q[k]); }
+    const dur = Math.min(9000, Math.max(3500, m.curso / m.passo * 450)), ini = performance.now();
+    part.sim = { s: 0, box };
+    refresh();
+    const passo = (agora) => {
+      if (!part.sim) return;
+      const f = Math.min(1, (agora - ini) / dur);
+      part.sim.s = f * m.curso; render();
+      if (f < 1) setTimeout(() => requestAnimationFrame(passo), 60);
+      else $('partStatus').textContent = 'Montado · ' + m.msgs.join(' ');
+    };
+    requestAnimationFrame(passo);
+  });
   // Usado pela narração (narrar.js): mostra as peças montadas e o corte da 1ª no quadro 2D.
   window.tracoAbrirNarrado = (spec) => {
     if (!window.tracoNarrado.montar(spec).tris.length) throw new Error('nenhuma geometria');
-    part.mode = 'custom'; part.operation = 'narrado'; part.narrado = spec;
+    part.sim = null; part.mode = 'custom'; part.operation = 'narrado'; part.narrado = spec;
     part.profile = window.tracoNarrado.corte(spec.pecas[0]).map(([x, z]) => [Math.max(0, x), Math.max(0, z)]);
     part.closed = true; part.shapeType = null; part.holeDiameter = 0; part.shapeTool = null;
     part.drawLine = false; part.freehand = false; part.pending = false; part.showHoleControls = false;

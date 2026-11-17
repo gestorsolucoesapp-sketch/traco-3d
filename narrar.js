@@ -179,7 +179,50 @@
     if (ft) pts.push([ft.diametro / 2, H], [ft.diametro / 2, H - ft.profundidade], [0, H - ft.profundidade]); else pts.push([0, H]);
     return pts;
   }
-  window.tracoNarrado = { montar, corte };
+  // Montagem: acha um furo roscado e um parafuso da mesma rosca. O parafuso desce girando
+  // (avança 1 passo por volta) pelo eixo do furo. s = quanto já entrou (mm).
+  function parMontagem(spec) {
+    const corpoI = spec.pecas.findIndex((pc) => (pc.furos || []).some((f) => f.rosca));
+    if (corpoI < 0) return null;
+    const furo = spec.pecas[corpoI].furos.find((f) => f.rosca);
+    const parI = spec.pecas.findIndex((pc) => pc.tipo === 'parafuso' && Math.abs(pc.diametro - furo.diametro) < 1e-6);
+    if (parI < 0) return null;
+    const pc = spec.pecas[corpoI], pf = spec.pecas[parI];
+    const k = pf.cabeca === 'sextavada' ? SEXT[pf.diametro][1] : pf.cabeca === 'allen' ? ALLEN[pf.diametro][1] : 0;
+    const prof = furo.passante ? pc.altura : furo.profundidade;
+    const curso = Math.min(pf.comprimento, prof);
+    const msgs = [];
+    if (Math.abs(pf.passo - furo.passo) > 1e-6) msgs.push(`Passos diferentes: furo ${fmt(furo.passo)} mm × parafuso ${fmt(pf.passo)} mm — não rosqueia.`);
+    if (!furo.passante && pf.comprimento > prof) msgs.push(`O parafuso (${fmt(pf.comprimento)} mm) é maior que o furo (${fmt(prof)} mm): bate no fundo e sobram ${fmt(pf.comprimento - prof)} mm de rosca para fora.`);
+    else if (furo.passante && pf.comprimento > prof) msgs.push(`Furo passante: a ponta sai ${fmt(pf.comprimento - prof)} mm do outro lado.`);
+    else if (pf.comprimento < prof) msgs.push(`Entra os ${fmt(pf.comprimento)} mm inteiros; sobram ${fmt(prof - pf.comprimento)} mm de furo vazio.`);
+    else msgs.push('Entra até o fundo, encaixe exato.');
+    return { corpoI, parI, furo, k, L: pf.comprimento, H: pc.altura, curso, passo: pf.passo, msgs };
+  }
+  function montagem(spec, s) {
+    const m = parMontagem(spec); if (!m) return null;
+    const { pecas } = montar(spec);
+    const corpo = pecas[m.corpoI].tris, paraf = pecas[m.parI].tris;
+    const folga = Math.max(4, m.L * .6), entrou = Math.max(0, Math.min(m.curso, s));
+    const ang = -entrou / m.passo * TAU, c = Math.cos(ang), sn = Math.sin(ang);
+    const topo = m.furo.face !== 'base';
+    // topo: parafuso de cabeça para cima, ponta descendo até H - entrou.
+    const zPonta = topo ? m.H + folga * (1 - entrou / m.curso) - entrou : -folga * (1 - entrou / m.curso) + entrou;
+    const mov = (q) => {
+      const x = q[0] * c - q[1] * sn, y = q[0] * sn + q[1] * c;
+      const z = topo ? zPonta + (m.k + m.L - q[2]) : zPonta - (m.k + m.L - q[2]);
+      return [x, topo ? -y : y, z];
+    };
+    const tris = corpo.map((t) => ({ ...t, ghost: true }));
+    for (const t of paraf) {
+      const pts = t.points.map(mov);
+      const n = topo ? [t.normal[0] * c - t.normal[1] * sn, -(t.normal[0] * sn + t.normal[1] * c), -t.normal[2]] :
+        [t.normal[0] * c - t.normal[1] * sn, t.normal[0] * sn + t.normal[1] * c, t.normal[2]];
+      tris.push({ points: pts, normal: n });
+    }
+    return { tris, ...m };
+  }
+  window.tracoNarrado = { montar, corte, parMontagem, montagem };
 
   // ---------- Formulário ----------
   const CAMPOS = {
