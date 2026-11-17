@@ -8,11 +8,8 @@ const ORIGENS = [
   "https://gestorsolucoesapp-sketch.github.io",
   "http://localhost:8000",
   "http://127.0.0.1:8000",
-  "https://traco-3d.vercel.app",
 ];
-// Endereços do Vercel do projeto traco-3d (principal e prévias).
-const permitida = (o: string | null) =>
-  !!o && (ORIGENS.includes(o) || /^https:\/\/traco-3d[a-z0-9-]*\.vercel\.app$/.test(o));
+const permitida = (o: string | null) => !!o && ORIGENS.includes(o);
 const MODELO = Deno.env.get("TRACO_MODELO") ?? "claude-sonnet-5-5";
 const MAX_IMAGEM = 3_500_000; // ~2,6 MB de JPEG em base64
 
