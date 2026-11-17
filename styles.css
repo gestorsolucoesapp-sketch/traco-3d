@@ -226,3 +226,52 @@ body.tela-cheia .mini3d-alca { display: block; }
 .redemoinho.sai { animation: rdSai .45s ease forwards; }
 @keyframes rdEntra { from { opacity: 0; } }
 @keyframes rdSai { to { opacity: 0; transform: scale(1.05); } }
+/* Peças: botões do perfil em cima, desenho com a largura toda */
+.part-editor-layout{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto 1fr}
+.part-editor-layout .parts-tools{flex-direction:row!important;flex-wrap:wrap!important;gap:6px!important}
+.part-editor-layout .parts-tools button{width:auto!important;flex:1 1 0;min-width:0;min-height:38px!important;padding:6px 8px!important;text-align:center!important;white-space:nowrap!important;font-size:13px}
+.part-editor-layout .parts-canvas-wrap{height:min(52vw,560px)}
+@media(max-width:760px){.part-editor-layout .parts-tools{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px!important}.part-editor-layout .parts-tools button{font-size:10.5px!important;padding:4px 2px!important;white-space:normal!important;line-height:1.15!important;min-height:38px!important}.part-editor-layout .parts-canvas-wrap{height:440px!important;min-height:440px!important}}
+body.tela-cheia[data-tela-cheia=peca] .part-editor-layout{display:grid}
+
+/* ---------- Modo PC (estilo SketchUp) ---------- */
+.pc-entrar{border:1px solid #d9dccf;background:#fff;color:#111;border-radius:9px;padding:7px 12px;font-weight:800;font-size:12px;cursor:pointer;margin-right:10px}
+.pc-entrar:hover{border-color:#D76845}
+body.modo-pc{--pc-top:40px;--pc-lat:74px;--pc-bot:26px;background:#eceee8}
+body.modo-pc .app-shell{max-width:none;padding:calc(var(--pc-top) + 10px) 12px calc(var(--pc-bot) + 14px) calc(var(--pc-lat) + 12px)}
+body.modo-pc .topbar,body.modo-pc .intro,body.modo-pc .discipline-switch,body.modo-pc #architectureMode .tools-row,body.modo-pc #sketchMenu,body.modo-pc #modelMenu,body.modo-pc .panel-index,body.modo-pc .parts-intro p{display:none!important}
+body.modo-pc .panel-head{padding-top:10px;padding-bottom:6px}
+body.modo-pc .panel-head h2{font-size:17px}
+body.modo-pc .workspace{grid-template-columns:minmax(0,1fr) minmax(330px,30vw);gap:12px;align-items:start}
+body.modo-pc #architectureMode .sketch-wrap{height:calc(100vh - var(--pc-top) - var(--pc-bot) - 150px);min-height:420px}
+body.modo-pc #partsMode .part-editor-layout .parts-canvas-wrap{height:calc(100vh - var(--pc-top) - var(--pc-bot) - 230px);min-height:420px}
+body.modo-pc .model-wrap,body.modo-pc .part-model-wrap{height:calc(55vh - 40px);min-height:300px}
+body.modo-pc .parts-intro{margin-bottom:8px}
+.pc-barra{position:fixed;z-index:60;top:0;left:0;right:0;height:40px;display:flex;align-items:center;gap:2px;padding:0 10px;background:#fbfaf7;border-bottom:1px solid #d8dad1;box-shadow:0 1px 4px rgba(0,0,0,.05);font-size:13px}
+.pc-logo{display:flex;align-items:center;gap:6px;margin-right:12px;text-decoration:none;color:#111}
+.pc-logo img{width:24px;height:24px}.pc-logo b{font-size:16px;letter-spacing:-.3px}.pc-logo span{color:#D76845}
+.pc-menu-bt{border:0;background:none;color:#111;padding:7px 11px;border-radius:6px;font-weight:600;cursor:pointer}
+.pc-menu-bt:hover,.pc-menu-bt.aberto{background:#eceee6}
+.pc-dir{margin-left:auto;display:flex;align-items:center;gap:10px}
+.pc-troca{display:flex;background:#eceee6;border-radius:8px;padding:3px}
+.pc-troca button{border:0;background:none;padding:5px 12px;border-radius:6px;font-weight:700;font-size:12px;color:#111;cursor:pointer}
+.pc-troca button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);color:#D76845}
+.pc-sair{border:1px solid #d9dccf;background:#fff;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;color:#111;cursor:pointer}
+.pc-menu{position:fixed;z-index:70;min-width:230px;background:#fff;border:1px solid #d8dad1;border-radius:9px;box-shadow:0 10px 30px rgba(0,0,0,.16);padding:5px;display:flex;flex-direction:column}
+.pc-menu button{border:0;background:none;text-align:left;padding:8px 12px;border-radius:6px;font-size:13px;color:#111;cursor:pointer}
+.pc-menu button:hover:not(:disabled){background:#f3ece8}
+.pc-menu button:disabled{color:#9a9a92;cursor:default}
+.pc-menu button.marcado{background:#fbe9e3;font-weight:700}
+.pc-menu hr{border:0;border-top:1px solid #ecece6;margin:4px 6px}
+.pc-vazio{padding:8px 12px;color:#555;font-size:12px}
+.pc-lateral{position:fixed;z-index:55;top:var(--pc-top,40px);bottom:var(--pc-bot,26px);left:0;width:var(--pc-lat,74px);overflow-y:auto;display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:8px 5px;background:#fbfaf7;border-right:1px solid #d8dad1;scrollbar-width:thin}
+.pc-ferr{display:flex;flex-direction:column;align-items:center;gap:1px;border:1px solid transparent;background:none;border-radius:8px;padding:6px 2px 5px;cursor:pointer;color:#111}
+.pc-ferr:hover:not(:disabled){background:#eceee6}
+.pc-ferr.on{background:#fbe9e3;border-color:#D76845}
+.pc-ferr:disabled{opacity:.35;cursor:default}
+.pc-ic{font-size:19px;line-height:22px;height:22px}
+.pc-rot{font-size:9.5px;font-weight:700;line-height:1.1;text-align:center;max-width:62px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.pc-sep{height:1px;background:#dcded6;margin:5px 8px}
+.pc-status{position:fixed;z-index:55;left:0;right:0;bottom:0;height:var(--pc-bot,26px);display:flex;align-items:center;padding:0 12px 0 calc(var(--pc-lat,74px) + 12px);background:#fbfaf7;border-top:1px solid #d8dad1;font-size:12px;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.modo-pc.tela-cheia .pc-barra,body.modo-pc.tela-cheia .pc-lateral,body.modo-pc.tela-cheia .pc-status{display:none}
+@media print{.pc-barra,.pc-lateral,.pc-status,.pc-menu{display:none!important}}
