@@ -34,9 +34,9 @@ jobs:
         with:
           version: latest
       - name: Guardar a chave da IA na função
-        run: supabase secrets set --project-ref "$REF" ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}"
+        run: supabase secrets set --yes --project-ref "$REF" ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}"
       - name: Publicar ler-desenho
-        run: supabase functions deploy ler-desenho --project-ref "$REF" --no-verify-jwt
+        run: supabase functions deploy ler-desenho --yes --project-ref "$REF" --no-verify-jwt --use-api
       - name: Gravar endereço no app (config.js)
         run: |
           echo "window.TRACO_LER_URL = 'https://$REF.supabase.co/functions/v1/ler-desenho';" > config.js
