@@ -207,12 +207,12 @@
       ctx.strokeStyle = i === 0 ? '#96b39f' : '#e1e8df';
       ctx.beginPath(); ctx.moveTo(x, t.top); ctx.lineTo(x, t.bottom); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(t.left, y); ctx.lineTo(t.right, y); ctx.stroke();
-      ctx.fillStyle = '#87968a';
+      ctx.fillStyle = '#59635b';
       ctx.textAlign = 'center'; ctx.fillText(display((t.extent.r0 || 0) + t.extent.r * i / 5), x, t.bottom + 17);
       ctx.textAlign = 'right'; ctx.fillText(display((t.extent.z0 || 0) + t.extent.z * i / 5), t.left - 6, y + 4);
     }
     ctx.beginPath(); ctx.rect(t.left - 8, t.top - 8, t.right - t.left + 16, t.bottom - t.top + 16); ctx.clip();
-    ctx.fillStyle = '#7d9484';
+    ctx.fillStyle = '#55655a';
     ctx.textAlign = 'left'; ctx.fillText(part.operation === 'extrude' && part.mode === 'custom' ?
       'PLANO' : 'EIXO', t.left + 5, t.top + 12);
     const generated = part.operation === 'spring' || part.operation === 'thread';
@@ -240,7 +240,7 @@
         ctx.moveTo(...bottom); ctx.lineTo(...top);
         ctx.strokeStyle = '#8caa92'; ctx.lineWidth = 1.5; ctx.stroke();
       }
-      ctx.fillStyle = '#6a806e'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#546557'; ctx.textAlign = 'left';
       ctx.fillText(`${display(diameter)} mm · ${turns} voltas · passo ${display(pitch)} mm`,
         t.left + 5, t.top + 27);
     } else if (part.profile.length) {
@@ -601,7 +601,7 @@
         }
         return;
       }
-      ctx.fillStyle = '#728578'; ctx.font = '13px DM Sans, Arial, sans-serif';
+      ctx.fillStyle = '#56645a'; ctx.font = '13px DM Sans, Arial, sans-serif';
       ctx.textAlign = 'center'; ctx.fillText('Feche o perfil 2D para gerar o 3D', width / 2, height / 2);
       return;
     }
