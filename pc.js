@@ -153,7 +153,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechaMenu(); });
 
   function montaBarra() {
-    barra.innerHTML = `<a class="pc-logo" href="#inicio" title="Traço"><img src="marca/traco-icone.svg" alt=""><b>traço<span>.</span></b></a>`;
+    barra.innerHTML = `<a class="pc-logo" href="#inicio" title="Traço"><img src="marca/traco-icone.svg" alt=""><b>traço<span>.</span></b><small class="pc-ver">v${window.TRACO_VERSAO?.numero || ''}</small></a>`;
     for (const [nome] of MENUS()) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'pc-menu-bt'; b.textContent = nome; b.setAttribute('role', 'menuitem');
       b.onclick = () => (aberto?.botao === b ? fechaMenu() : abreMenu(nome, b));
@@ -220,6 +220,8 @@
     const dica = modo() === 'arq' ? $('toolHint')?.textContent : $('profileHint')?.textContent;
     const est = modo() === 'arq' ? $('wallCount')?.textContent : $('profileStatus')?.textContent;
     const txt = `${est || ''}${dica ? '  ·  ' + dica : ''}`;
+    const ver = window.TRACO_VERSAO ? `Traço v${window.TRACO_VERSAO.numero}` : '';
+    if (status.dataset.v !== ver) { status.dataset.v = ver; }
     if (status.textContent !== txt) status.textContent = txt;
   }
 
