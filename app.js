@@ -1410,6 +1410,7 @@ function drawModel() {
   try { window.tracoObjetos?.faces3d(faces, toScreen); } catch { /* opcional */ }
   faces.sort((a, b) => a.depth - b.depth);
   for (const face of faces) drawPolygon(context, face.corners, face.shade, face.imported ? '#34584c33' : '#a7654b33');
+  try { window.tracoEixos?.(context, toScreen, unit); } catch { /* opcional */ }
 }
 
 function requestRender() {

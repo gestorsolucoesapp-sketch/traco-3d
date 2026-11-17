@@ -278,3 +278,11 @@ body.modo-pc.tela-cheia .pc-barra,body.modo-pc.tela-cheia .pc-lateral,body.modo-
 body.modo-pc .parts-intro{display:none!important}
 body.modo-pc{overflow-x:hidden}
 @media(max-width:1000px){body.modo-pc .workspace{grid-template-columns:minmax(0,1fr)}}
+/* Plano do esboço (SolidWorks) ou direto no chão (SketchUp) */
+.plano-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 16px 10px}
+.plano-seg{display:flex;background:#eef0ea;border:1px solid #dfe3da;border-radius:10px;padding:3px;gap:2px}
+.plano-seg[hidden]{display:none}
+.plano-seg button{border:0;background:none;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;color:#111;cursor:pointer;white-space:nowrap}
+.plano-seg button small{font-weight:600;font-size:10px;opacity:.7;margin-left:3px}
+.plano-seg button.on{background:#fff;color:#D76845;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+@media(max-width:760px){.plano-row{padding:0 9px 8px;gap:5px}.plano-seg{flex:1 1 100%}.plano-seg button{flex:1;padding:7px 4px;font-size:11px}.plano-seg button small{display:block;margin:0}}

@@ -82,7 +82,7 @@
         ['3D · Redefinir vista', arq ? '#resetView' : '#resetPartView'],
         ['Simular montagem', arq ? '' : '#simularMontagem'],
       ]],
-      ['Desenhar', null, 'desenho'],
+      ['Desenhar', null, 'desenho', arq ? null : [['Plano Frontal (XZ)', '#planoFrontal'], ['Plano Superior (XY · chão)', '#planoSuperior'], ['Plano Direito (YZ)', '#planoDireito']]],
       arq ? ['Ferramentas', null, 'ferramentas'] : ['Ferramentas', [['📐 Cotar', '#cotarPerfil'], ['🎙️ Narrar peça', '🎙️ Narrar'], ['📷 Foto do desenho', '#fotoPartButton'], ['Simular montagem', '#simularMontagem']]],
       ['Modelar', arq ? [['↑ Empurrar / puxar paredes', '#pushWallsTool'], ['🪑 Objetos', '🪑 Objetos']] : null, arq ? null : 'modelo'],
       ['Janela', [
@@ -128,6 +128,7 @@
     const caixa = document.createElement('div'); caixa.className = 'pc-menu'; caixa.setAttribute('role', 'menu');
     let lista = def[1];
     if (!lista) lista = itensGrupo(def[2]).map((b) => { const p = partes(b); return [`${p.icone}  ${p.txt}`, b]; });
+    if (def[3]) lista = [...lista, null, ...def[3].filter(([, a]) => { const el = acha(a); return el && !el.closest('[hidden]'); })];
     let ultimoSep = true;
     for (const it of lista) {
       if (!it) { if (!ultimoSep) { caixa.appendChild(Object.assign(document.createElement('hr'))); ultimoSep = true; } continue; }

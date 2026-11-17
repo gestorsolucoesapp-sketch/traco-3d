@@ -18,6 +18,11 @@
     pending: false, sketchPointer: null, view: { r: 60, z: 140 },
   };
   let scheduled = false;
+  // Plano do esboço (igual SolidWorks): frontal = XZ, superior = XY (chão), direito = YZ.
+  const PLANO_T = { frontal: (p) => p, superior: ([x, y, z]) => [x, -z, y], direito: ([x, y, z]) => [-y, x, z] };
+  try { part.plano = localStorage.getItem('traco-plano') || 'frontal'; } catch { part.plano = 'frontal'; }
+  if (!PLANO_T[part.plano]) part.plano = 'frontal';
+  let projT = false;
 
   const display = (value) => Number(value.toFixed(2)).toString().replace('.', ',');
   const number = (raw) => {
@@ -66,7 +71,7 @@
       localStorage.setItem(STORAGE, JSON.stringify({ version: 1, kind: 'rotational-part',
         mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
         operation: part.operation, extrudeDepth: part.extrudeDepth,
-        shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint }));
+        shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint, plano: part.plano }));
     } catch { $('profileStatus').textContent = 'Armazenamento indisponível; use Salvar peça.'; }
   }
 
@@ -98,6 +103,7 @@
             Math.max(...data.profile.map((p) => p[1])) - Math.min(...data.profile.map((p) => p[1]))))))
       throw new Error('Projeto de peça inválido');
     part.mode = data.mode;
+    if (data.plano && ['frontal', 'superior', 'direito'].includes(data.plano)) part.plano = data.plano;
     part.operation = data.mode === 'cup' ? 'revolve' : data.operation ??
       (data.closed ? 'revolve' : 'extrude');
     part.extrudeDepth = data.extrudeDepth ?? 20;
@@ -527,6 +533,12 @@
     return tris.map((t, i) => cores[i] ? { ...t, cor: cores[i] } : t);
   }
   function meshBase() {
+    const tris = meshEsboco();
+    if (part.operation === 'narrado' || part.plano === 'frontal') return tris;
+    const T = PLANO_T[part.plano];
+    return tris.map((t) => ({ ...t, points: t.points.map(T), normal: T(t.normal) }));
+  }
+  function meshEsboco() {
     if (part.operation === 'narrado') {
       try {
         if (part.sim) return window.tracoNarrado.montagem(part.narrado, part.sim.s)?.tris || [];
@@ -557,7 +569,10 @@
     return triangles;
   }
 
-  function project([x, y, z], width, height, unit, centerZ) {
+  function project(v, width, height, unit, centerZ) {
+    let q = [v[0], v[1], v[2] - centerZ];
+    if (projT) q = PLANO_T[part.plano](q);
+    const [x, y, z] = q; centerZ = 0;
     const cy = Math.cos(part.yaw), sy = Math.sin(part.yaw);
     const right = x * cy - y * sy;
     const depth = x * sy + y * cy;
@@ -573,6 +588,7 @@
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
     const triangles = mesh();
+    projT = !triangles.length;
     if (!triangles.length) {
       const points = [...part.profile,
         ...(part.freehandDrag ? part.freehandDrag.points.slice(part.profile.length ? 1 : 0) :
@@ -602,6 +618,7 @@
             const a = projected(point, 0), b = projected(point, depth);
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
           }
+          referencia(ctx, deslocado([-centerX, -depth / 2, -centerZ], width, height, unit), Math.max(maxX - minX, maxZ - minZ, depth) * .75, unit);
           return;
         }
         const maxR = Math.max(1, ...points.map((p) => p[0]));
@@ -630,13 +647,15 @@
           }
           ctx.stroke();
         }
+        referencia(ctx, deslocado([0, 0, -centerZ], width, height, unit), Math.max(maxR * 2, maxZ - minZ) * .75, unit);
         return;
       }
+      { const u0 = Math.min(width, height) / (60 * 1.65) * part.zoom; referencia(ctx, deslocado([0, 0, 0], width, height, u0), 30, u0); }
       ctx.fillStyle = '#111111'; ctx.font = '13px DM Sans, Arial, sans-serif';
       ctx.textAlign = 'center'; ctx.fillText('Feche o perfil 2D para gerar o 3D', width / 2, height / 2);
       return;
     }
-    if (part.operation === 'narrado') {
+    {
       const b = part.sim?.box ? [...part.sim.box] : [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
       if (!part.sim?.box) for (const t of triangles) for (const q of t.points) for (let k = 0; k < 3; k++) { if (q[k] < b[k]) b[k] = q[k]; if (q[k] > b[k + 3]) b[k + 3] = q[k]; }
       const cx = (b[0] + b[3]) / 2, cy = (b[1] + b[4]) / 2, cz = (b[2] + b[5]) / 2;
@@ -650,11 +669,14 @@
       facesN.sort((a, c) => a.depth - c.depth);
       part.lastFaces = facesN;
       part.lastProj = (q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz);
+      const caixa = Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2], 1);
+      referencia(ctx, part.lastProj, caixa * .75, unitN, 'planos');
       for (const face of facesN) {
         ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
         ctx.lineTo(face.corners[1].x, face.corners[1].y); ctx.lineTo(face.corners[2].x, face.corners[2].y);
         ctx.closePath(); ctx.fillStyle = face.color; ctx.fill();
       }
+      referencia(ctx, part.lastProj, caixa * .75, unitN, 'eixos');
       try { window.tracoCotas?.desenhar(ctx, part.lastProj, width, height); } catch { /* opcional */ }
       return;
     }
@@ -687,6 +709,54 @@
     }
     try { window.tracoCotas?.desenhar(ctx, part.lastProj, width, height); } catch { /* opcional */ }
   }
+
+  // Converte um ponto do mundo para a tela, a partir de um deslocamento já no plano do esboço.
+  function deslocado(off, width, height, unit) {
+    const o = PLANO_T[part.plano](off);
+    return (q) => { const s = projT; projT = false; const r = project([q[0] + o[0], q[1] + o[1], q[2] + o[2]], width, height, unit, 0); projT = s; return r; };
+  }
+  // Planos de referência (Frontal, Superior, Direito), origem e eixos X/Y/Z.
+  function referencia(ctx, P, S, unit, fase = 'tudo') {
+    S = Math.max(S, 6);
+    if (fase !== 'eixos') {
+      const PL = { frontal: [[-S, 0, -S], [S, 0, -S], [S, 0, S], [-S, 0, S]], superior: [[-S, -S, 0], [S, -S, 0], [S, S, 0], [-S, S, 0]], direito: [[0, -S, -S], [0, S, -S], [0, S, S], [0, -S, S]] };
+      const NOME = { frontal: 'Frontal', superior: 'Superior', direito: 'Direito' };
+      part.planoRects = [];
+      ctx.save(); ctx.font = '700 11px DM Sans, Arial, sans-serif';
+      for (const k of ['superior', 'frontal', 'direito']) {
+        const sel = k === part.plano, c = PL[k].map(P);
+        ctx.beginPath(); c.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath();
+        ctx.fillStyle = sel ? 'rgba(215,104,69,.13)' : 'rgba(80,110,160,.05)'; ctx.fill();
+        ctx.setLineDash(sel ? [] : [5, 4]); ctx.lineWidth = sel ? 1.6 : 1; ctx.strokeStyle = sel ? '#D76845' : 'rgba(70,95,140,.45)'; ctx.stroke(); ctx.setLineDash([]);
+        const p = c[3], txt = NOME[k] + (sel ? ' ✓' : ''), w = ctx.measureText(txt).width + 12;
+        const r = { x: p.x + 4, y: p.y - 9, w, h: 18, k };
+        ctx.fillStyle = sel ? '#D76845' : 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x, r.y, r.w, r.h, 5) : ctx.rect(r.x, r.y, r.w, r.h); ctx.fill();
+        ctx.fillStyle = sel ? '#fff' : '#1e3350'; ctx.textBaseline = 'middle'; ctx.fillText(txt, r.x + 6, r.y + 9.5);
+        part.planoRects.push(r);
+      }
+      ctx.restore();
+    }
+    if (fase !== 'planos') {
+      const L = Math.max(4, 46 / unit), o = P([0, 0, 0]);
+      ctx.save(); ctx.lineWidth = 2.2; ctx.font = '800 11px DM Sans, Arial, sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+      for (const [v, cor, n] of [[[L, 0, 0], '#d33d2f', 'X'], [[0, L, 0], '#2f9b4c', 'Y'], [[0, 0, L], '#2f63d3', 'Z']]) {
+        const e = P(v); ctx.strokeStyle = cor; ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+        const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy) || 1;
+        ctx.fillStyle = cor; ctx.fillText(n, e.x + dx / d * 9, e.y + dy / d * 9);
+      }
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(o.x, o.y, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(o.x, o.y, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.textAlign = 'left'; ctx.font = '700 10px DM Sans, Arial, sans-serif'; ctx.fillText('0,0,0', o.x + 7, o.y + 10);
+      ctx.restore();
+    }
+  }
+  function escolherPlano(k) {
+    if (!PLANO_T[k]) return;
+    part.plano = k; try { localStorage.setItem('traco-plano', k); } catch { /* */ }
+    window.dispatchEvent(new CustomEvent('traco-plano', { detail: k }));
+    save(); render();
+  }
+  window.tracoPlano = { get: () => part.plano, set: escolherPlano };
 
   function corFace(triangle, light) {
     const shade = Math.round(135 + 73 * light);
@@ -1454,6 +1524,9 @@
   model.addEventListener('pointerdown', (event) => {
     if (window.tracoPintura?.ativa && window.tracoPintura.clique(event)) return;
     if (window.tracoCotas?.medindo && window.tracoCotas.clique(event)) return;
+    const rc = model.getBoundingClientRect(), mx = event.clientX - rc.left, my = event.clientY - rc.top;
+    const hit = (part.planoRects || []).find((r) => mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h);
+    if (hit && window.tracoPlano?.estilo !== 'sketchup') { escolherPlano(hit.k); return; }
     model.setPointerCapture(event.pointerId); part.drag = [event.clientX, event.clientY];
   });
   model.addEventListener('pointermove', (event) => {
@@ -1477,7 +1550,7 @@
     download('traco-peca.json', JSON.stringify({ version: 1, kind: 'rotational-part',
       mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
       operation: part.operation, extrudeDepth: part.extrudeDepth,
-      shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint }), 'application/json');
+      shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint, plano: part.plano }), 'application/json');
   });
   $('openPart').addEventListener('click', () => $('partFile').click());
   $('partFile').addEventListener('change', async (event) => {
@@ -1500,7 +1573,7 @@
       return t.length ? [{ nome: part.mode === 'cup' ? 'Copo' : 'Peça', tris: t, ini: 0 }] : [];
     },
     projeto() { return JSON.stringify({ version: 1, kind: 'rotational-part', mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
-      operation: part.operation, extrudeDepth: part.extrudeDepth, shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint }); },
+      operation: part.operation, extrudeDepth: part.extrudeDepth, shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint, plano: part.plano }); },
     abrir(raw) { part.sim = null; openProject(raw); save(); refresh(); },
   };
   // Simulação de montagem: o parafuso desce girando pelo furo; o corpo fica transparente.
