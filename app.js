@@ -1252,18 +1252,47 @@ function effectiveWallHeight() {
   return state.wallsRaised ? state.height : .15;
 }
 
+// Encontro das paredes em esquadria: no canto onde duas paredes se ligam, as faces
+// de cada lado são estendidas até se cruzarem (sem dente e sem sobra).
+function vizinhoEm(point, outro) {
+  const achados = [];
+  for (const [a, b] of segments()) {
+    if (pointDistance(a, point) < 1.5 && pointDistance(b, outro) >= 1.5) achados.push(b);
+    else if (pointDistance(b, point) < 1.5 && pointDistance(a, outro) >= 1.5) achados.push(a);
+  }
+  const unicos = achados.filter((c, i) => achados.findIndex((d) => pointDistance(c, d) < 1.5) === i);
+  return unicos.length === 1 ? unicos[0] : null;
+}
+function cantoParede(P, Q, isEnd, w, sigma) {
+  const t = state.thickness / 2;
+  const [px, py] = worldPoint(P);
+  const nw = [-w[1] * t, w[0] * t];
+  const simples = [px + sigma * nw[0], py + sigma * nw[1]];
+  const C = vizinhoEm(P, Q);
+  if (!C) return simples;
+  const [cx, cy] = worldPoint(C);
+  let vx = isEnd ? cx - px : px - cx, vy = isEnd ? cy - py : py - cy;
+  const lv = Math.hypot(vx, vy); if (lv < 1e-6) return simples;
+  vx /= lv; vy /= lv;
+  const nv = [-vy * t, vx * t];
+  const den = w[0] * vy - w[1] * vx;
+  if (Math.abs(den) < 1e-3) return simples; // paredes em linha reta
+  const rx = sigma * (nv[0] - nw[0]), ry = sigma * (nv[1] - nw[1]);
+  const sPar = (rx * vy - ry * vx) / den;
+  if (Math.abs(sPar) > t * 6) return simples; // ângulo muito fechado: corte reto
+  return [simples[0] + sPar * w[0], simples[1] + sPar * w[1]];
+}
 function wallVertices(start, end, z0 = 0, z1 = effectiveWallHeight()) {
   const [ax, ay] = worldPoint(start);
   const [bx, by] = worldPoint(end);
   const length = Math.hypot(bx - ax, by - ay);
   if (length < .05) return null;
-  const nx = -(by - ay) / length * state.thickness / 2;
-  const ny = (bx - ax) / length * state.thickness / 2;
+  const w = [(bx - ax) / length, (by - ay) / length];
+  const a1 = cantoParede(start, end, false, w, 1), a2 = cantoParede(start, end, false, w, -1);
+  const b2 = cantoParede(end, start, true, w, -1), b1 = cantoParede(end, start, true, w, 1);
   return [
-    [ax + nx, ay + ny, z0], [ax - nx, ay - ny, z0],
-    [bx - nx, by - ny, z0], [bx + nx, by + ny, z0],
-    [ax + nx, ay + ny, z1], [ax - nx, ay - ny, z1],
-    [bx - nx, by - ny, z1], [bx + nx, by + ny, z1],
+    [...a1, z0], [...a2, z0], [...b2, z0], [...b1, z0],
+    [...a1, z1], [...a2, z1], [...b2, z1], [...b1, z1],
   ];
 }
 
