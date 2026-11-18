@@ -8,6 +8,7 @@ const ORIGENS = [
   "https://gestorsolucoesapp-sketch.github.io",
   "http://localhost:8000",
   "http://127.0.0.1:8000",
+  "https://traco-estudio.vercel.app",
 ];
 const permitida = (o: string | null) => !!o && ORIGENS.includes(o);
 const MODELO = Deno.env.get("TRACO_MODELO") ?? "claude-sonnet-5-5";
