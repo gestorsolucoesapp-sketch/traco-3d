@@ -330,3 +330,4 @@ body.trilho .discipline-switch{margin:8px 0}
 .panel-head .plano-row{padding:0;margin-left:auto}
 #partsMode .part-menus,#partsMode #shapeMethod{margin-top:12px}
 @media(max-width:760px){.panel-head .plano-row{margin-left:0;width:100%}body.trilho .topbar{height:50px}}
+#partsMode .orbit-tip,#partViewBadge{display:none!important}
