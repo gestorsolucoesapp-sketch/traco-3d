@@ -318,3 +318,4 @@ body.des3d #architectureMode .model-wrap{height:calc(100vh - 230px);min-height:4
 body.des3d #modelCanvas{cursor:crosshair}
 body.des3d #architectureMode .model-wrap .measure-box{z-index:5}
 .des3d-bt.active{background:#fbe9e3!important;color:#D76845!important;border-color:#D76845!important}
+.olho-cotas.on{background:#fbe9e3!important;border-color:#D76845!important}

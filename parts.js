@@ -252,6 +252,7 @@
       ctx.fillText(`${display(diameter)} mm · ${turns} voltas · passo ${display(pitch)} mm`,
         t.left + 5, t.top + 27);
     } else if (part.profile.length) {
+      part.cotaRects = [];
       ctx.beginPath();
       const first = t.screen(part.profile[0]);
       ctx.moveTo(...first);
@@ -259,12 +260,13 @@
       if (part.closed) ctx.closePath();
       if (part.closed) { ctx.fillStyle = '#c8795555'; ctx.fill(); }
       { const E = window.tracoEstilo || { esp: 3, tracejada: false }; if (E.tracejada) ctx.setLineDash([Math.max(6, E.esp * 2.4), Math.max(4, E.esp * 1.6)]); ctx.strokeStyle = '#c57650'; ctx.lineWidth = E.esp; ctx.lineJoin = 'round'; ctx.stroke(); ctx.setLineDash([]); }
-      if (part.mode === 'custom' && !part.shapeType && part.profile.length <= 60 && (part.cotando || window.tracoEstilo?.cotas !== false)) {
-        const n = part.profile.length, segs = part.closed ? n : n - 1; part.cotaRects = [];
+      const todas = part.cotando || (part.olho && window.tracoEstilo?.cotas !== false);
+      if (part.mode === 'custom' && !part.shapeType && part.profile.length <= 60 && (todas || part.cotaSel != null)) {
+        const n = part.profile.length, segs = part.closed ? n : n - 1;
         ctx.font = '700 11px DM Sans, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         for (let i = 0; i < segs; i++) {
           const a = part.profile[i], b = part.profile[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-          if (L < .01) continue;
+          if (L < .01 || (!todas && part.cotaSel !== i)) continue;
           const A = t.screen(a), Bp = t.screen(b), mx = (A[0] + Bp[0]) / 2, my = (A[1] + Bp[1]) / 2;
           const txt = display(L), w = ctx.measureText(txt).width + 10, sel = part.cotaSel === i;
           ctx.fillStyle = sel ? '#2e4b3f' : '#fffffff0'; ctx.strokeStyle = sel ? '#2e4b3f' : (part.cotando ? '#1565c0' : '#c9b2a6'); ctx.lineWidth = part.cotando ? 1.5 : 1;
@@ -305,7 +307,7 @@
       for (const point of part.freehandDrag.points.slice(1)) ctx.lineTo(...t.screen(point));
       ctx.strokeStyle = '#c57650'; ctx.lineWidth = (window.tracoEstilo?.esp || 3); ctx.lineCap = 'round'; ctx.stroke();
     }
-    if (part.mode === 'custom' && part.drawLine && !part.closed && part.profile.length) {
+    if (part.mode === 'custom' && part.drawLine && !part.solto && !part.closed && part.profile.length) {
       const preview = previewEndpoint();
       const start = t.screen(part.profile.at(-1)), end = t.screen(preview);
       const dr = preview[0] - part.profile.at(-1)[0];
@@ -988,7 +990,7 @@
   $('newProfile').addEventListener('click', () => {
     part.mode = 'custom'; part.operation = 'extrude'; part.profile = []; part.closed = false;
     part.shapeType = null; part.holeDiameter = 0; part.shapeTool = null; part.showHoleControls = false;
-    part.drawLine = true; part.freehand = false; part.pending = false;
+    part.drawLine = true; part.freehand = false; part.pending = false; part.solto = false;
     part.selected = [0, 0]; $('profileLength').value = ''; $('profileAngle').value = '';
     $('profileHint').textContent = 'Linha mm ativa: clique para começar; cada clique conclui uma linha. Digite os mm a qualquer hora.';
     fitSketchView(); save(); refresh();
@@ -1092,7 +1094,8 @@
   });
   $('drawProfileTool').addEventListener('click', () => {
     if (part.mode !== 'custom' || part.closed) { $('newProfile').click(); $('sketchMenu').open = false; return; }
-    part.drawLine = !part.drawLine; part.freehand = false; part.pending = false;
+    if (part.solto) { part.solto = false; part.drawLine = true; } else part.drawLine = !part.drawLine;
+    part.freehand = false; part.pending = false;
     $('profileHint').textContent = part.drawLine ?
       'Cada clique conclui uma linha · digite os mm a qualquer hora · clique no 1º ponto para fechar' :
       'Toque no corte para escolher coordenadas; Adicionar ponto confirma';
@@ -1100,7 +1103,7 @@
   });
   $('freehandProfileTool').addEventListener('click', () => {
     if (part.mode !== 'custom' || part.closed) return;
-    part.freehand = !part.freehand; part.drawLine = false; part.pending = false;
+    part.freehand = !part.freehand; part.drawLine = false; part.pending = false; part.solto = false;
     $('profileLength').value = ''; $('profileAngle').value = '';
     $('profileHint').textContent = part.freehand ?
       'Arraste no corte. Continue do último ponto para manter o perfil ligado.' :
@@ -1166,10 +1169,10 @@
     if (!part.cotando) { // toque direto na medida de uma linha abre a edição
       const rect0 = sketch.getBoundingClientRect(), x0 = event.clientX - rect0.left, y0 = event.clientY - rect0.top;
       const hit = (part.cotaRects || []).find((r) => x0 >= r.x && x0 <= r.x + r.w && y0 >= r.y && y0 <= r.y + r.h);
-      if (!hit) return;
-      event.preventDefault(); event.stopImmediatePropagation(); abrirCota(hit.i); return;
+      if (hit) { event.preventDefault(); event.stopImmediatePropagation(); abrirCota(hit.i); return; }
+      // desenho pronto (fechado ou solto): tocar na própria linha também edita a medida
+      if (!(part.closed || part.solto || !part.drawLine) || part.shapeTool || part.freehand) return;
     }
-    event.preventDefault(); event.stopImmediatePropagation();
     const rect = sketch.getBoundingClientRect(), t = sketchTransform(rect.width, rect.height);
     const x = event.clientX - rect.left, y = event.clientY - rect.top, n = part.profile.length;
     let best = -1, bd = event.pointerType === 'touch' ? 26 : 14;
@@ -1178,6 +1181,8 @@
       const vx = Bp[0] - A[0], vy = Bp[1] - A[1], L2 = vx * vx + vy * vy || 1, u = Math.max(0, Math.min(1, ((x - A[0]) * vx + (y - A[1]) * vy) / L2));
       const d = Math.hypot(x - (A[0] + vx * u), y - (A[1] + vy * u)); if (d < bd) { bd = d; best = i; }
     }
+    if (best < 0 && !part.cotando) return; // fora das linhas: segue o clique normal
+    event.preventDefault(); event.stopImmediatePropagation();
     if (best >= 0) abrirCota(best); else fecharCota();
   }, { capture: true });
   $('fitProfileView').addEventListener('click', () => {
@@ -1306,7 +1311,7 @@
     if (event.key === 'Enter') { event.preventDefault(); applySegmentLength(); }
   });
   window.addEventListener('keydown', (event) => {
-    if ($('partsMode').hidden || !part.drawLine || part.closed || !part.profile.length ||
+    if ($('partsMode').hidden || !part.drawLine || part.solto || part.closed || !part.profile.length ||
         event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
     if (event.target instanceof HTMLElement && (event.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName))) return;
     if (part.angleTyping) {
@@ -1320,6 +1325,8 @@
           part.view.r > 120 ? 1 : part.view.r > 30 ? .5 : .1);
       } else if (/^[0-9,.\-]$/.test(event.key)) ang.value += event.key;
       else if (event.key === 'Backspace') ang.value = ang.value.slice(0, -1);
+      { const g = Number(ang.value.replace(',', '.')); // prévia no ângulo exato, sem pular para sugestões
+        if (ang.value.trim() && Number.isFinite(g) && part.lastRaw) part.selected = projetarAngulo(part.lastRaw, g, part.view.r > 120 ? 1 : part.view.r > 30 ? .5 : .1); }
       $('profileHint').textContent = part.angleTyping ? `Ângulo: ${ang.value || '_'}° · Enter trava · Esc cancela` :
         ang.value ? `Ângulo ${ang.value}° travado · puxe ou digite os mm e Enter` : 'Ângulo cancelado.';
       render(); return;
@@ -1343,11 +1350,10 @@
       const tinha = $('profileLength').value.trim() || $('profileAngle').value.trim();
       part.pending = false; $('profileLength').value = ''; $('profileAngle').value = ''; part.selected = [...part.profile.at(-1)];
       if (tinha) { $('profileHint').textContent = 'Medida cancelada. Aponte uma nova direção.'; render(); return; }
-      // Igual ao SketchUp: Esc conclui a linha (para de puxar). Se já forma um laço, fecha o objeto.
-      part.drawLine = false; part.freehand = false; part.sketchPointer = null;
-      $('profileHint').textContent = part.profile.length >= 3 ?
-        'Linha concluída. Toque em Fechar perfil (⬠) para ligar a ponta ao início e virar sólido.' : 'Linha concluída.';
-      save(); refresh(); return;
+      // Igual ao SketchUp: Esc conclui a linha. A ferramenta continua ativa: toque numa ponta para seguir dela.
+      part.solto = true; part.sketchPointer = null;
+      $('profileHint').textContent = 'Linha concluída. Para continuar, toque numa ponta (primeiro ou último ponto). Tocar uma ponta na outra fecha o objeto.';
+      save(); refresh(); render(); return;
     }
     const input = $('profileLength');
     if (/^[0-9,.]$/.test(event.key)) input.value += event.key;
@@ -1430,6 +1436,13 @@
     if (!part.drawLine || part.mode !== 'custom' || part.closed) {
       selectPoint(point); return;
     }
+    if (part.solto && part.profile.length) {
+      const ini = part.profile[0], fim = part.profile.at(-1), perto = (q) => Math.hypot(q[0] - point[0], q[1] - point[1]) < .02;
+      if (perto(fim)) { part.solto = false; selectPoint(point); $('profileHint').textContent = 'Continuando do último ponto.'; render(); return; }
+      if (perto(ini)) { part.profile.reverse(); part.solto = false; selectPoint(point); $('profileHint').textContent = 'Continuando do primeiro ponto.'; save(); refresh(); return; }
+      $('profileHint').textContent = part.profile.some(perto) ? 'Só dá para continuar a partir de uma ponta (primeiro ou último ponto).' : 'Toque numa ponta do desenho para continuar.';
+      render(); return;
+    }
     if (!part.profile.length) {
       part.profile.push(point); selectPoint(point); save(); refresh();
       $('profileHint').textContent = 'Aponte a direção, digite os mm direto no teclado e pressione Enter.';
@@ -1481,6 +1494,8 @@
     }
     if (!part.drawLine || part.mode !== 'custom' || part.closed || !part.profile.length ||
       (part.pending && !part.sketchPointer)) return;
+    if (part.solto) { sketchPoint(event); render(); return; } // só mostra a inferência
+    if (part.angleTyping) { const rc = sketch.getBoundingClientRect(), tt = sketchTransform(rc.width, rc.height); part.lastRaw = tt.world([event.clientX - rc.left, event.clientY - rc.top]); return; }
     selectPoint(sketchPoint(event));
   });
   sketch.addEventListener('pointerup', (event) => {
@@ -1554,7 +1569,7 @@
       $('profileStatus').textContent = 'Feche um contorno simples com ao menos 3 pontos.';
       $('profileHint').textContent = 'Não deu para fechar: as linhas se cruzam ou faltam pontos. Use Desfazer e refaça o trecho.'; return;
     }
-    part.closed = true; part.pending = false; part.drawLine = false; part.freehand = false;
+    part.closed = true; part.pending = false; part.drawLine = false; part.freehand = false; part.solto = false;
     save(); refresh();
   });
   model.addEventListener('pointerdown', (event) => {

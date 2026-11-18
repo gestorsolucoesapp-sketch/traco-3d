@@ -49,6 +49,21 @@
   if (estilo === 'sketchup' && P.get() !== 'superior') P.set('superior');
   pinta();
 
+  // 👁 mostrar/esconder as medidas de todas as linhas do perfil (por padrão só a linha em edição)
+  const part = window.tracoPeca?.part;
+  if (part) {
+    try { part.olho = localStorage.getItem('traco-olho-cotas') === '1'; } catch { part.olho = false; }
+    const pondo = () => {
+      const barra = document.getElementById('partSketchCanvas')?.parentElement.querySelector('.zoom-bar');
+      if (!barra) return setTimeout(pondo, 300);
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'olho-cotas';
+      const pinta2 = () => { b.textContent = part.olho ? '👁' : '👁‍🗨'; b.title = part.olho ? 'Esconder as medidas das linhas' : 'Mostrar as medidas de todas as linhas'; b.classList.toggle('on', part.olho); };
+      b.onclick = () => { part.olho = !part.olho; try { localStorage.setItem('traco-olho-cotas', part.olho ? '1' : '0'); } catch { /* */ } pinta2(); window.tracoPeca.render(); };
+      pinta2(); barra.insertBefore(b, barra.children[3] || null);
+    };
+    pondo();
+  }
+
   // Origem e eixos no 3D da Arquitetura (1 m de comprimento).
   window.tracoEixos = (ctx, toScreen, unit) => {
     const L = Math.max(.6, 60 / unit), o = toScreen([0, 0, 0]);
