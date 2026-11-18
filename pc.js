@@ -24,6 +24,16 @@
     drawProfileTool: '／', freehandProfileTool: '✎', rectangleTool: '▭', circleTool: '◯', addProfilePoint: '⌖',
     extrudeTool: '⬆', revolveTool: '⟳', pushPullTool: '⇕', holeTool: '◎', threadTool: '🔩', springTool: '〰',
     doorTool: '🚪', windowTool: '🪟', undoButton: '↶', redoButton: '↷', clearButton: '🗑',
+    newProfile: '📄', undoProfilePoint: '↶', closeProfile: '⬠', fitProfileView: '⤢', cotarPerfil: '📐',
+    openPart: '📂', savePart: '💾', cupExample: '⭐', exportPartStl: '⬇️', export3mf: '🌈', exportStep: '🧩',
+    novoProjeto: '📄', openButton: '📂', saveButton: '💾', exampleButton: '⭐', importStlButton: '📥', exportButton: '⬇️',
+    pushWallsTool: '⇕', narrarButton: '🎙️', fotoArchButton: '📷', fotoPartButton: '📷',
+  };
+  const NOMES = {
+    newProfile: 'Novo perfil', closeProfile: 'Fechar perfil', fitProfileView: 'Enquadrar', exportPartStl: 'Exportar STL',
+    export3mf: 'Exportar 3MF (cores)', exportStep: 'SolidWorks (STEP)', cupExample: 'Exemplo pronto', exampleButton: 'Exemplo pronto',
+    exportButton: 'Exportar STL', importStlButton: 'Importar STL', clearButton: 'Limpar desenho', undoButton: 'Desfazer', redoButton: 'Refazer',
+    pushWallsTool: 'Empurrar / puxar paredes',
   };
   function partes(b) {
     const ic = b.querySelector('.tool-icon');
@@ -194,21 +204,47 @@
     for (const b of document.querySelectorAll('#modelMenu .part-menu-content button')) out.push({ b, g: 'm' });
     return out;
   }
+  function trilhoItens() {
+    const arq = modo() === 'arq';
+    const ids = (...l) => l.map((a) => acha(a)).filter(Boolean);
+    const grupos = arq ? [
+      ids('#novoProjeto', '#openButton', '#saveButton', '#exampleButton', '#fotoArchButton', '#importStlButton'),
+      botoesLateral().filter((x) => x && x.g !== 'e').map((x) => x.b),
+      ids('#pushWallsTool'),
+      ids('#undoButton', '#redoButton', '#clearButton'),
+      ids('#exportButton', '🖨️ Prancha', '📚 Histórico'),
+    ] : [
+      ids('#newProfile', '#openPart', '#savePart', '#cupExample', '#fotoPartButton', '#narrarButton'),
+      [...document.querySelectorAll('#sketchMenu .part-menu-content button')],
+      ids('#cotarPerfil', '#closeProfile', '#undoProfilePoint', '#fitProfileView'),
+      [...document.querySelectorAll('#modelMenu .part-menu-content button')],
+      ids('#exportPartStl', '#export3mf', '#exportStep', '🖨️ Prancha', '📚 Histórico'),
+    ];
+    const out = [];
+    for (const g of grupos) { if (!g.length) continue; if (out.length) out.push(null); for (const b of g) out.push({ b }); }
+    return out;
+  }
   let assinatura = '';
+  function dicaRapida(el, txt) {
+    let d = document.querySelector('.pc-dica'); if (!d) { d = document.createElement('div'); d.className = 'pc-dica'; document.body.appendChild(d); }
+    const r = el.getBoundingClientRect(); d.textContent = txt; d.style.top = `${r.top + r.height / 2}px`; d.style.left = `${r.right + 8}px`;
+    d.classList.add('on'); clearTimeout(dicaRapida.t); dicaRapida.t = setTimeout(() => d.classList.remove('on'), 1300);
+  }
   function montaLateral() {
-    const itens = botoesLateral();
+    const itens = trilhoItens();
     const ass = modo() + itens.map((x) => (x ? x.b.id || x.b.textContent : '|') + (x?.b.hidden ? 'h' : '')).join(',');
     if (ass === assinatura) return; assinatura = ass;
     lateral.innerHTML = '';
     for (const x of itens) {
       if (!x) { if (lateral.lastElementChild && !lateral.lastElementChild.classList.contains('pc-sep')) lateral.appendChild(Object.assign(document.createElement('span'), { className: 'pc-sep' })); continue; }
       if (x.b.hidden) continue;
-      const { icone, txt } = partes(x.b);
+      const pt = partes(x.b); const icone = ICONES[x.b.id] || pt.icone;
+      const txt = NOMES[x.b.id] || pt.txt.replace(/[↗↵]/g, '').trim();
       const p = document.createElement('button'); p.type = 'button'; p.className = 'pc-ferr';
-      p.title = x.b.title ? `${txt} — ${x.b.title}` : txt;
-      p.innerHTML = '<span class="pc-ic"></span><span class="pc-rot"></span>';
-      p.querySelector('.pc-ic').textContent = icone; p.querySelector('.pc-rot').textContent = txt;
-      p.onclick = () => { x.b.closest('details')?.setAttribute('open', ''); x.b.click(); sincroniza(); };
+      p.title = txt; p.setAttribute('aria-label', txt);
+      p.innerHTML = '<span class="pc-ic"></span>';
+      p.querySelector('.pc-ic').textContent = icone;
+      p.onclick = () => { x.b.closest('details')?.setAttribute('open', ''); x.b.click(); sincroniza(); dicaRapida(p, txt); };
       p._alvo = x.b;
       lateral.appendChild(p);
     }
@@ -231,17 +267,9 @@
     document.body.classList.toggle('modo-pc', on);
     try { localStorage.setItem(CHAVE, on ? '1' : '0'); } catch { /* */ }
     fechaMenu();
-    if (on) {
-      if (!barra.isConnected) document.body.append(barra, lateral, status);
-      ultimoModo = ''; assinatura = '';
-      clearInterval(laco);
-      laco = setInterval(() => {
-        if (modo() !== ultimoModo) { ultimoModo = modo(); montaBarra(); }
-        montaLateral(); sincroniza();
-      }, 350);
-    } else {
-      clearInterval(laco); barra.remove(); lateral.remove(); status.remove();
-    }
+    if (on) { if (!barra.isConnected) document.body.append(barra, status); ultimoModo = ''; }
+    else { barra.remove(); status.remove(); }
+    assinatura = '';
     botaoPC.hidden = on;
     setTimeout(() => dispatchEvent(new Event('resize')), 60);
   }
@@ -252,6 +280,14 @@
   botaoPC.title = 'Tela de computador igual ao SketchUp: menus no alto e ferramentas na lateral';
   botaoPC.onclick = () => liga(true);
   document.querySelector('.topbar-right')?.prepend(botaoPC);
+
+  // Trilho de ícones na lateral: sempre ligado (celular e computador).
+  document.body.classList.add('trilho');
+  document.body.appendChild(lateral);
+  laco = setInterval(() => {
+    if (document.body.classList.contains('modo-pc') && modo() !== ultimoModo) { ultimoModo = modo(); montaBarra(); }
+    montaLateral(); sincroniza();
+  }, 350);
 
   let salvo = null; try { salvo = localStorage.getItem(CHAVE); } catch { /* */ }
   const telaGrande = matchMedia('(min-width: 1100px) and (pointer: fine)').matches;

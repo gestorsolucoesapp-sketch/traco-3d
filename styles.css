@@ -290,3 +290,20 @@ body.modo-pc{overflow-x:hidden}
 .pc-ver{font-size:10px;font-weight:800;color:#111;background:#eef0ea;border-radius:999px;padding:2px 7px}
 .pc-status::after{content:attr(data-v);margin-left:auto;padding-left:14px;font-weight:800}
 @media(max-width:760px){.traco-versao{font-size:10px;padding:2px 7px}}
+/* ---------- Trilho de ícones na lateral (celular e computador) ---------- */
+body.trilho .pc-lateral{top:0;bottom:0;width:54px;padding:8px 5px;gap:1px}
+body.trilho.modo-pc .pc-lateral{top:var(--pc-top,40px);bottom:var(--pc-bot,26px)}
+body.trilho{--pc-lat:54px}
+body.trilho .app-shell{padding-left:66px}
+body.trilho.modo-pc .app-shell{padding-left:calc(var(--pc-lat) + 12px)}
+body.trilho .pc-ferr{padding:7px 0;min-height:40px;justify-content:center}
+body.trilho .pc-ic{font-size:19px;line-height:24px;height:24px}
+body.trilho .pc-rot{display:none}
+body.trilho .pc-sep{margin:4px 6px}
+body.trilho #architectureMode .tools-row,body.trilho #architectureMode .action-group,
+body.trilho #sketchMenu,body.trilho #modelMenu,body.trilho .parts-intro button,body.trilho .parts-tools,
+body.trilho .parts-actions>button{display:none!important}
+.pc-dica{position:fixed;z-index:80;transform:translateY(-50%);background:#263c32;color:#fff;font-size:12px;font-weight:700;padding:6px 10px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .15s;white-space:nowrap}
+.pc-dica.on{opacity:1}
+@media(max-width:760px){body.trilho .pc-lateral{width:48px;padding:6px 3px}body.trilho{--pc-lat:48px}body.trilho .app-shell{padding-left:56px;padding-right:8px}body.trilho .pc-ic{font-size:18px}}
+body.tela-cheia .pc-lateral{display:none}
