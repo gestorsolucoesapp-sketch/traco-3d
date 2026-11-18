@@ -21,7 +21,17 @@
       <button type="button" id="planoDireito" data-p="direito">Direito</button>
     </div>`;
   const layout = document.querySelector('#partsMode .part-editor-layout');
-  layout?.parentElement.insertBefore(row, layout);
+  // cabeçalho compacto: a escolha do plano fica na mesma linha do título
+  const cab = layout?.closest('.panel')?.querySelector('.panel-head');
+  if (cab) cab.appendChild(row); else layout?.parentElement.insertBefore(row, layout);
+  // área de trabalho em cima; medidas do copo e "como transformar" vão para baixo
+  const ws = document.querySelector('#partsMode .parts-workspace');
+  if (ws) {
+    let ref = ws;
+    for (const el of [document.querySelector('#partsMode .part-menus'), document.getElementById('shapeMethod'), document.getElementById('holeControls'), document.getElementById('helixControls')]) {
+      if (el) { ref.after(el); ref = el; }
+    }
+  }
   const rotulo = document.getElementById('partSketchCanvas')?.parentElement.querySelector('.canvas-corner-label');
 
   function pinta() {

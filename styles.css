@@ -319,3 +319,14 @@ body.des3d #modelCanvas{cursor:crosshair}
 body.des3d #architectureMode .model-wrap .measure-box{z-index:5}
 .des3d-bt.active{background:#fbe9e3!important;color:#D76845!important;border-color:#D76845!important}
 .olho-cotas.on{background:#fbe9e3!important;border-color:#D76845!important}
+
+/* Tela compacta: área de trabalho primeiro, cabeçalhos baixos */
+body.trilho .intro,body.trilho .parts-intro{display:none!important}
+body.trilho .topbar{height:54px}
+body.trilho .discipline-switch{margin:8px 0}
+.panel-head{height:auto!important;min-height:0!important;padding:10px 16px 8px!important;gap:10px;flex-wrap:wrap}
+.panel-head .panel-kicker,.panel-head .panel-index{display:none!important}
+.panel-head h2{font-size:16px!important}
+.panel-head .plano-row{padding:0;margin-left:auto}
+#partsMode .part-menus,#partsMode #shapeMethod{margin-top:12px}
+@media(max-width:760px){.panel-head .plano-row{margin-left:0;width:100%}body.trilho .topbar{height:50px}}
