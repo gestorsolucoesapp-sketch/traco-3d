@@ -1175,6 +1175,10 @@
     }
     const rect = sketch.getBoundingClientRect(), t = sketchTransform(rect.width, rect.height);
     const x = event.clientX - rect.left, y = event.clientY - rect.top, n = part.profile.length;
+    if (!part.cotando && part.solto) { // tocar numa ponta continua o desenho (não abre a cota)
+      const ponta = [part.profile[0], part.profile.at(-1)].some((q) => { const [sx, sy] = t.screen(q); return Math.hypot(sx - x, sy - y) < (event.pointerType === 'touch' ? 22 : 13); });
+      if (ponta) return;
+    }
     let best = -1, bd = event.pointerType === 'touch' ? 26 : 14;
     for (let i = 0; i < segsPerfil(); i++) {
       const A = t.screen(part.profile[i]), Bp = t.screen(part.profile[(i + 1) % n]);
