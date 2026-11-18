@@ -1298,7 +1298,7 @@
     if (Math.hypot(end[0] - start[0], end[1] - start[1]) < .01) return;
     part.profile.push(end); part.selected = end; part.pending = false;
     $('profileLength').value = '';
-    $('profileAngle').value = '';
+    $('profileAngle').value = ''; part.angleTyping = false;
     $('profileHint').textContent = 'Linha criada. Aponte a próxima ou feche o perfil.';
     $('profileLength').blur(); save(); refresh();
   }
@@ -1352,7 +1352,7 @@
       const last = part.profile.at(-1);
       if (!$('profileLength').value.trim() && Math.hypot(part.selected[0] - last[0], part.selected[1] - last[1]) >= .01) {
         if (part.infer?.kind === 'fechar') { $('closeProfile').click(); return; }
-        part.profile.push([...part.selected]); part.pending = false; $('profileAngle').value = ''; save(); refresh(); return;
+        part.profile.push([...part.selected]); part.pending = false; $('profileAngle').value = ''; part.angleTyping = false; save(); refresh(); return;
       }
       applySegmentLength(); return;
     }
@@ -1474,7 +1474,7 @@
       const last = part.profile.at(-1);
       if (Math.hypot(point[0] - last[0], point[1] - last[1]) < .01) return;
       if (part.profile.length >= MAX_POINTS) { $('profileStatus').textContent = 'Limite de 128 pontos.'; return; }
-      part.profile.push(point); selectPoint(point); part.pending = false; $('profileAngle').value = '';
+      part.profile.push(point); selectPoint(point); part.pending = false; $('profileAngle').value = ''; part.angleTyping = false;
       $('profileHint').textContent = 'Linha criada. Siga para a próxima, digite os mm, ou clique no 1º ponto para fechar.';
       save(); refresh(); return;
     }
@@ -1537,7 +1537,7 @@
       if (part.infer?.kind === 'fechar') { part.pending = false; $('closeProfile').click(); return; }
       const last = part.profile.at(-1);
       if (Math.hypot(part.selected[0] - last[0], part.selected[1] - last[1]) >= .01 && part.profile.length < MAX_POINTS) {
-        part.profile.push([...part.selected]); part.pending = false; $('profileAngle').value = '';
+        part.profile.push([...part.selected]); part.pending = false; $('profileAngle').value = ''; part.angleTyping = false;
         $('profileHint').textContent = 'Linha criada. Puxe a próxima a partir da ponta, ou use 📐 Cotar para acertar as medidas.';
         save(); refresh(); return;
       }
