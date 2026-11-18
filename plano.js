@@ -89,3 +89,31 @@
   };
   try { window.requestRender?.(); } catch { /* */ }
 })();
+
+// Caixinha de ângulo: aparece junto do mouse quando aperta/segura A (Peças e Arquitetura).
+// Dá para digitar o ângulo (Enter trava) ou só soltar o A e usar o ângulo do mouse.
+(() => {
+  const caixa = document.createElement('div');
+  caixa.className = 'caixa-angulo'; caixa.hidden = true;
+  caixa.innerHTML = '<span>Ângulo</span><b></b><i>°</i><small>digite e Enter · ou solte o A</small>';
+  document.body.appendChild(caixa);
+  let mx = 0, my = 0;
+  addEventListener('pointermove', (e) => { mx = e.clientX; my = e.clientY; }, true);
+  const graus = (dx, dy) => { let g = Math.atan2(dy, dx) * 180 / Math.PI; return Math.round(g * 10) / 10; };
+  setInterval(() => {
+    let ativo = false, txt = '', vivo = null;
+    const P = window.tracoPeca?.part;
+    if (!document.getElementById('partsMode')?.hidden && P?.angleTyping) {
+      ativo = true; txt = document.getElementById('profileAngle')?.value || '';
+      const a = P.profile?.at(-1), b = P.selected; if (a && b) vivo = graus(b[0] - a[0], b[1] - a[1]);
+    } else if (!document.getElementById('architectureMode')?.hidden && typeof state !== 'undefined' && state.angleTyping != null) {
+      ativo = true; txt = state.angleTyping;
+      const a = state.lineStart, b = state.linePreview; if (a && b) vivo = graus(b[0] - a[0], a[1] - b[1]);
+    }
+    caixa.hidden = !ativo; if (!ativo) return;
+    const b = caixa.querySelector('b');
+    b.textContent = txt || (vivo != null ? String(vivo).replace('.', ',') : '—');
+    b.classList.toggle('vivo', !txt);
+    caixa.style.left = `${Math.min(innerWidth - 190, mx + 18)}px`; caixa.style.top = `${Math.min(innerHeight - 70, my + 18)}px`;
+  }, 60);
+})();
