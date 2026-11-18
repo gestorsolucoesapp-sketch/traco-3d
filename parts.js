@@ -683,6 +683,7 @@
         ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
         ctx.lineTo(face.corners[1].x, face.corners[1].y); ctx.lineTo(face.corners[2].x, face.corners[2].y);
         ctx.closePath(); ctx.fillStyle = face.color; ctx.fill();
+        ctx.strokeStyle = face.color; ctx.lineWidth = .6; ctx.stroke(); // esconde a costura entre triângulos
       }
       referencia(ctx, part.lastProj, caixa * .75, unitN, 'eixos');
       try { window.tracoCotas?.desenhar(ctx, part.lastProj, width, height); } catch { /* opcional */ }
