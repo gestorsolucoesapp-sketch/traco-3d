@@ -1195,15 +1195,15 @@
   });
   // Tecla A: ângulo digitado trava a direção; o cursor só puxa o comprimento ao longo dela.
   function anguloTravado() {
-    if (part.angleTyping) return null;
-    const txt = $('profileAngle').value.trim();
+    const txt = $('profileAngle').value.trim(); // vale já enquanto digita (ex.: -5), sem precisar do Enter
     const a = Number(txt.replace(',', '.'));
     return txt && Number.isFinite(a) ? a : null;
   }
   function projetarAngulo([r, z], graus, passo) {
     const [r0, z0] = part.profile.at(-1), rad = graus * Math.PI / 180;
     const ux = Math.cos(rad), uz = Math.sin(rad);
-    const L = Math.max(0, Math.round(((r - r0) * ux + (z - z0) * uz) / passo) * passo);
+    // a linha segue o lado para onde o mouse puxa (pode ir para trás no mesmo ângulo)
+    const L = Math.round(((r - r0) * ux + (z - z0) * uz) / passo) * passo;
     part.infer = { kind: 'ang', guides: [] };
     return [Math.max(0, Math.round((r0 + ux * L) * 100) / 100), Math.max(0, Math.round((z0 + uz * L) * 100) / 100)];
   }
@@ -1214,7 +1214,7 @@
     const [lx, ly] = window.tracoLapis?.desvio(event) || [0, 0];
     let [r, z] = t.world([event.clientX + lx - rect.left, event.clientY + ly - rect.top]);
     part.infer = null; part.fecharEm = null; part.lastRaw = [r, z];
-    if (!part.drawLine || event.altKey || part.livre) return [Math.round(r * 100) / 100, Math.round(z * 100) / 100]; // Alt ou A segurado: solta
+    if (!part.drawLine || event.altKey || (part.livre && anguloTravado() == null)) return [Math.round(r * 100) / 100, Math.round(z * 100) / 100]; // Alt ou A segurado: solta
     const mmPorPx = t.extent.r / (t.right - t.left);
     const travado = anguloTravado();
     if (travado != null && part.profile.length) return projetarAngulo([r, z], travado, t.extent.r > 120 ? 1 : t.extent.r > 30 ? .5 : .1);
@@ -1506,7 +1506,7 @@
     if (!part.drawLine || part.mode !== 'custom' || part.closed || !part.profile.length ||
       (part.pending && !part.sketchPointer)) return;
     if (part.solto) { sketchPoint(event); render(); return; } // só mostra a inferência
-    if (part.angleTyping && !part.livre) { const rc = sketch.getBoundingClientRect(), tt = sketchTransform(rc.width, rc.height); part.lastRaw = tt.world([event.clientX - rc.left, event.clientY - rc.top]); return; }
+    if (part.angleTyping && !part.livre && anguloTravado() == null) { const rc = sketch.getBoundingClientRect(), tt = sketchTransform(rc.width, rc.height); part.lastRaw = tt.world([event.clientX - rc.left, event.clientY - rc.top]); return; }
     selectPoint(sketchPoint(event));
   });
   sketch.addEventListener('pointerup', (event) => {
