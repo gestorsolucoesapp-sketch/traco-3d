@@ -43,6 +43,19 @@
   }
   for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'pointerleave']) wrap.addEventListener(t, repassa, true);
 
+  // eixos longos, como no SketchUp (desenhados antes das paredes, ficam atrás delas)
+  window.tracoEixosFundo = (ctx, toScreen) => {
+    if (!ligado) return;
+    ctx.save();
+      for (const [a, b, cor] of [[[60, 0, 0], [-60, 0, 0], '#d33d2f'], [[0, 60, 0], [0, -60, 0], '#2f9b4c'], [[0, 0, 30], [0, 0, 0], '#2f63d3']]) {
+        const o = toScreen([0, 0, 0]), pa = toScreen(a), pb = toScreen(b);
+        ctx.strokeStyle = cor; ctx.lineWidth = .8; ctx.globalAlpha = .7;
+        ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(pa.x, pa.y); ctx.stroke();
+        if (b[2] === 0 && b !== a) { ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); }
+      }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.restore();
+  };
   // prévia do desenho no chão do 3D
   window.tracoDes3D = {
     camera: null,
@@ -51,14 +64,6 @@
       const S = st(), ppm = S.pixelsPerMeter;
       const W = (p, z = .012) => toScreen([(p[0] - DESIGN_WIDTH / 2) / ppm, (p[1] - DESIGN_HEIGHT / 2) / ppm, z]);
       ctx.save();
-      // eixos longos, como no SketchUp
-      for (const [a, b, cor] of [[[60, 0, 0], [-60, 0, 0], '#d33d2f'], [[0, 60, 0], [0, -60, 0], '#2f9b4c'], [[0, 0, 30], [0, 0, 0], '#2f63d3']]) {
-        const o = toScreen([0, 0, 0]), pa = toScreen(a), pb = toScreen(b);
-        ctx.strokeStyle = cor; ctx.lineWidth = .8; ctx.globalAlpha = .7;
-        ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(pa.x, pa.y); ctx.stroke();
-        if (b[2] === 0 && b !== a) { ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); }
-      }
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
       // traço à mão / retângulo em andamento
       if (S.draft?.length > 1) {
         ctx.strokeStyle = '#D76845'; ctx.lineWidth = 2; ctx.beginPath();
