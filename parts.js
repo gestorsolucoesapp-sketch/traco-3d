@@ -1529,7 +1529,9 @@
     const pointer = part.sketchPointer;
     if (!pointer || pointer.pointerId !== event.pointerId) return;
     const point = sketchPoint(event);
-    const moved = Math.hypot(point[0] - pointer.origin[0], point[1] - pointer.origin[1]) >= 1;
+    // "puxou" medido na tela (5 px), não em mm: com zoom alto um trecho de 0,2 mm também conta
+    const moved = (() => { const rc = sketch.getBoundingClientRect(), tt = sketchTransform(rc.width, rc.height), A = tt.screen(point), B = tt.screen(pointer.origin);
+      return Math.hypot(A[0] - B[0], A[1] - B[1]) >= 5 && Math.hypot(point[0] - pointer.origin[0], point[1] - pointer.origin[1]) >= .01; })();
     if (moved) selectPoint(point);
     part.sketchPointer = null;
     if (pointer.confirm) { applySegmentLength(); return; }
