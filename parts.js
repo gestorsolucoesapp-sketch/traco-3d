@@ -660,11 +660,19 @@
       if (!part.sim?.box) for (const t of triangles) for (const q of t.points) for (let k = 0; k < 3; k++) { if (q[k] < b[k]) b[k] = q[k]; if (q[k] > b[k + 3]) b[k + 3] = q[k]; }
       const cx = (b[0] + b[3]) / 2, cy = (b[1] + b[4]) / 2, cz = (b[2] + b[5]) / 2;
       const unitN = Math.min(width, height) / (Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2], 1) * 1.65) * part.zoom;
-      const facesN = triangles.map((triangle, idx) => {
-        const corners = triangle.points.map((q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz));
+      // Sólido fechado com faces para fora: não desenha as faces de trás (evita que apareçam por cima da frente).
+      let vol = 0;
+      for (const t of triangles) { const [a, b2, c] = t.points;
+        vol += a[0] * ((b2[1] - a[1]) * (c[2] - a[2]) - (b2[2] - a[2]) * (c[1] - a[1])) + a[1] * ((b2[2] - a[2]) * (c[0] - a[0]) - (b2[0] - a[0]) * (c[2] - a[2])) + a[2] * ((b2[0] - a[0]) * (c[1] - a[1]) - (b2[1] - a[1]) * (c[0] - a[0])); }
+      const culling = vol > 0;
+      const d0 = project([0, 0, 0], width, height, unitN, 0).depth;
+      const facesN = [];
+      triangles.forEach((triangle, idx) => {
         const [nx, ny, nz] = triangle.normal;
+        if (culling && project([nx, ny, nz], width, height, unitN, 0).depth - d0 < -1e-9) return;
+        const corners = triangle.points.map((q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz));
         const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
-        return { idx, corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3, color: corFace(triangle, light) };
+        facesN.push({ idx, corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3, color: corFace(triangle, light) });
       });
       facesN.sort((a, c) => a.depth - c.depth);
       part.lastFaces = facesN;
