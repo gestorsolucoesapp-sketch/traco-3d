@@ -239,7 +239,7 @@
       if (!x) { if (lateral.lastElementChild && !lateral.lastElementChild.classList.contains('pc-sep')) lateral.appendChild(Object.assign(document.createElement('span'), { className: 'pc-sep' })); continue; }
       if (x.b.hidden) continue;
       const pt = partes(x.b); const icone = ICONES[x.b.id] || pt.icone;
-      const txt = NOMES[x.b.id] || pt.txt.replace(/[↗↵]/g, '').trim();
+      const txt = NOMES[x.b.id] || pt.txt.replace(/[↗↵]/g, '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
       const p = document.createElement('button'); p.type = 'button'; p.className = 'pc-ferr';
       p.title = txt; p.setAttribute('aria-label', txt);
       p.innerHTML = '<span class="pc-ic"></span>';

@@ -307,3 +307,4 @@ body.trilho .parts-actions>button{display:none!important}
 .pc-dica.on{opacity:1}
 @media(max-width:760px){body.trilho .pc-lateral{width:48px;padding:6px 3px}body.trilho{--pc-lat:48px}body.trilho .app-shell{padding-left:56px;padding-right:8px}body.trilho .pc-ic{font-size:18px}}
 body.tela-cheia .pc-lateral{display:none}
+@media(max-width:560px){.pc-entrar{display:none}}
