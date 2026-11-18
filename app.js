@@ -1290,10 +1290,28 @@ function wallVertices(start, end, z0 = 0, z1 = effectiveWallHeight()) {
   const w = [(bx - ax) / length, (by - ay) / length];
   const a1 = cantoParede(start, end, false, w, 1), a2 = cantoParede(start, end, false, w, -1);
   const b2 = cantoParede(end, start, true, w, -1), b1 = cantoParede(end, start, true, w, 1);
-  return [
+  const v = [
     [...a1, z0], [...a2, z0], [...b2, z0], [...b1, z0],
     [...a1, z1], [...a2, z1], [...b2, z1], [...b1, z1],
   ];
+  v.ligaA = !!vizinhoEm(start, end); v.ligaB = !!vizinhoEm(end, start);
+  return v;
+}
+// Contorno do piso alargado meia espessura, para a laje acompanhar a face de fora das paredes.
+function pisoAlargado(pts) {
+  const n = pts.length; if (n < 3) return pts;
+  let area = 0; for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; area += p[0] * q[1] - q[0] * p[1]; }
+  const d = (area > 0 ? -1 : 1) * state.thickness / 2;
+  return pts.map((p, i) => {
+    const a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
+    const e1 = [p[0] - a[0], p[1] - a[1]], e2 = [b[0] - p[0], b[1] - p[1]];
+    const l1 = Math.hypot(...e1) || 1, l2 = Math.hypot(...e2) || 1;
+    const n1 = [-e1[1] / l1, e1[0] / l1], n2 = [-e2[1] / l2, e2[0] / l2];
+    const bx = n1[0] + n2[0], by = n1[1] + n2[1], bl = Math.hypot(bx, by);
+    if (bl < 1e-3) return [p[0] + n1[0] * d, p[1] + n1[1] * d];
+    const k = d / Math.max(.25, (bx / bl) * n1[0] + (by / bl) * n1[1]);
+    return [p[0] + bx / bl * k, p[1] + by / bl * k];
+  });
 }
 
 function wallBoxes(start, end) {
@@ -1413,11 +1431,12 @@ function drawModel() {
   const faces = [];
   const floor = floorOutline();
   if (floor) {
-    const top = floor.map((point) => toScreen([...worldPoint(point), -.02]));
+    const largo = pisoAlargado(floor.map((point) => worldPoint(point)));
+    const top = largo.map((p) => toScreen([...p, -.02]));
     faces.push({ corners: top, shade: '#dce9d7',
       depth: top.reduce((sum, corner) => sum + corner.depth, 0) / top.length });
-    for (let i = 0; i < floor.length; i++) {
-      const a = worldPoint(floor[i]), b = worldPoint(floor[(i + 1) % floor.length]);
+    for (let i = 0; i < largo.length; i++) {
+      const a = largo[i], b = largo[(i + 1) % largo.length];
       const corners = [[...a, -.02], [...b, -.02], [...b, -.16], [...a, -.16]].map(toScreen);
       faces.push({ corners, shade: '#b9cdb7',
         depth: corners.reduce((sum, corner) => sum + corner.depth, 0) / 4 });
@@ -1425,11 +1444,12 @@ function drawModel() {
   }
   for (const [start, end] of walls) {
     for (const box of wallBoxes(start, end)) {
-      for (const face of BOX_FACES) {
+      BOX_FACES.forEach((face, fi) => {
+        if ((fi === 2 && box.ligaA) || (fi === 3 && box.ligaB)) return; // emenda: sem tampa
         const corners = face.corners.map((index) => toScreen(box[index]));
-        faces.push({ corners, shade: face.shade,
+        faces.push({ corners, shade: face.shade, semBorda: fi === 4,
           depth: corners.reduce((sum, corner) => sum + corner.depth, 0) / corners.length });
-      }
+      });
     }
   }
   if (mesh) {
@@ -1443,7 +1463,7 @@ function drawModel() {
   }
   try { window.tracoObjetos?.faces3d(faces, toScreen); } catch { /* opcional */ }
   faces.sort((a, b) => a.depth - b.depth);
-  for (const face of faces) drawPolygon(context, face.corners, face.shade, face.imported ? '#34584c33' : '#a7654b33');
+  for (const face of faces) drawPolygon(context, face.corners, face.shade, face.semBorda ? face.shade : face.imported ? '#34584c33' : '#a7654b33');
   try { window.tracoEixos?.(context, toScreen, unit); } catch { /* opcional */ }
   try { window.tracoDes3D?.desenhar(context, toScreen, unit); } catch { /* opcional */ }
 }
