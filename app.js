@@ -965,7 +965,6 @@ window.addEventListener('keydown', (event) => {
   if ($('architectureMode').hidden || state.tool !== 'line' || !state.lineStart ||
       event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
   const target = event.target;
-  if (target !== sketchCanvas && target !== document.body) return;
   if (target instanceof HTMLElement &&
       (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
   if (state.angleTyping != null) { // digitando o ângulo (tecla A)

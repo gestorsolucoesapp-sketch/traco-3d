@@ -787,6 +787,11 @@
   }
 
   function refresh() {
+    if (part.drawLine && !part.closed && part.profile.length >= 4) {
+      const fim = part.profile.at(-1);
+      const i = part.profile.slice(0, -3).findIndex((q) => Math.hypot(q[0] - fim[0], q[1] - fim[1]) < .02);
+      if (i >= 0) { part.profile = part.profile.slice(i, -1); part.fecharEm = null; part.closed = false; setTimeout(() => $('closeProfile').click(), 0); }
+    }
     for (const [id, key] of [['cupTop', 'top'], ['cupBottom', 'bottom'],
       ['cupHeight', 'height'], ['cupWall', 'wall'], ['cupBase', 'base']])
       $(id).value = display(part.cup[key]);
@@ -1190,7 +1195,7 @@
     const t = sketchTransform(rect.width, rect.height);
     const [lx, ly] = window.tracoLapis?.desvio(event) || [0, 0];
     let [r, z] = t.world([event.clientX + lx - rect.left, event.clientY + ly - rect.top]);
-    part.infer = null; part.lastRaw = [r, z];
+    part.infer = null; part.fecharEm = null; part.lastRaw = [r, z];
     if (!part.drawLine || event.altKey) return [Math.round(r * 100) / 100, Math.round(z * 100) / 100];
     const mmPorPx = t.extent.r / (t.right - t.left);
     const travado = anguloTravado();
@@ -1207,7 +1212,10 @@
       if (d < dist) { dist = d; melhor = { q, i }; }
     });
     if (melhor) {
-      part.infer = { kind: melhor.i === 0 && part.profile.length >= 3 ? 'fechar' : 'point', guides: [] };
+      // Igual ao SketchUp: tocar em qualquer ponto anterior fecha o laço a partir dele.
+      const fecha = part.profile.length - melhor.i >= 3;
+      part.infer = { kind: fecha ? 'fechar' : 'point', guides: [] };
+      part.fecharEm = fecha ? melhor.i : null;
       return [...melhor.q];
     }
     const guias = [];
@@ -1291,7 +1299,7 @@
   window.addEventListener('keydown', (event) => {
     if ($('partsMode').hidden || !part.drawLine || part.closed || !part.profile.length ||
         event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
-    if (event.target !== sketch && event.target !== document.body) return;
+    if (event.target instanceof HTMLElement && (event.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName))) return;
     if (part.angleTyping) {
       event.preventDefault();
       const ang = $('profileAngle');
@@ -1322,10 +1330,15 @@
       applySegmentLength(); return;
     }
     if (event.key === 'Escape') {
-      event.preventDefault(); part.pending = false;
-      $('profileLength').value = ''; $('profileAngle').value = ''; part.selected = [...part.profile.at(-1)];
-      $('profileHint').textContent = 'Medida cancelada. Aponte uma nova direção.';
-      render(); return;
+      event.preventDefault();
+      const tinha = $('profileLength').value.trim() || $('profileAngle').value.trim();
+      part.pending = false; $('profileLength').value = ''; $('profileAngle').value = ''; part.selected = [...part.profile.at(-1)];
+      if (tinha) { $('profileHint').textContent = 'Medida cancelada. Aponte uma nova direção.'; render(); return; }
+      // Igual ao SketchUp: Esc conclui a linha (para de puxar). Se já forma um laço, fecha o objeto.
+      part.drawLine = false; part.freehand = false; part.sketchPointer = null;
+      $('profileHint').textContent = part.profile.length >= 3 ?
+        'Linha concluída. Toque em Fechar perfil (⬠) para ligar a ponta ao início e virar sólido.' : 'Linha concluída.';
+      save(); refresh(); return;
     }
     const input = $('profileLength');
     if (/^[0-9,.]$/.test(event.key)) input.value += event.key;
@@ -1525,10 +1538,12 @@
     part.selected = [...(part.profile.at(-1) ?? [0, 0])]; save(); refresh();
   });
   $('closeProfile').addEventListener('click', () => {
+    if (part.fecharEm > 0 && !part.closed) { part.profile = part.profile.slice(part.fecharEm); part.fecharEm = null; }
     if (part.profile.length < 3 || Math.abs(signedArea(part.profile)) < .001 ||
         !simpleProfile(part.profile) ||
         (part.operation === 'extrude' && !extrusionMesh().length)) {
-      $('profileStatus').textContent = 'Feche um contorno simples com ao menos 3 pontos.'; return;
+      $('profileStatus').textContent = 'Feche um contorno simples com ao menos 3 pontos.';
+      $('profileHint').textContent = 'Não deu para fechar: as linhas se cruzam ou faltam pontos. Use Desfazer e refaça o trecho.'; return;
     }
     part.closed = true; part.pending = false; part.drawLine = false; part.freehand = false;
     save(); refresh();

@@ -244,7 +244,7 @@
       p.title = txt; p.setAttribute('aria-label', txt);
       p.innerHTML = '<span class="pc-ic"></span>';
       p.querySelector('.pc-ic').textContent = icone;
-      p.onclick = () => { x.b.closest('details')?.setAttribute('open', ''); x.b.click(); sincroniza(); dicaRapida(p, txt); };
+      p.onclick = () => { x.b.closest('details')?.setAttribute('open', ''); x.b.click(); p.blur(); sincroniza(); dicaRapida(p, txt); };
       p._alvo = x.b;
       lateral.appendChild(p);
     }
