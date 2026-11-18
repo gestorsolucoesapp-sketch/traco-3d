@@ -308,3 +308,13 @@ body.trilho .parts-actions>button{display:none!important}
 @media(max-width:760px){body.trilho .pc-lateral{width:48px;padding:6px 3px}body.trilho{--pc-lat:48px}body.trilho .app-shell{padding-left:56px;padding-right:8px}body.trilho .pc-ic{font-size:18px}}
 body.tela-cheia .pc-lateral{display:none}
 @media(max-width:560px){.pc-entrar{display:none}}
+
+/* 3D da Arquitetura limpo, sem avisos */
+#modelHint,#viewBadge,#architectureMode .orbit-tip{display:none!important}
+/* Desenhar no 3D (SketchUp): o 3D vira a janela principal */
+body.des3d #architectureMode .workspace{grid-template-columns:minmax(0,1fr)!important}
+body.des3d #architectureMode .workspace>.panel:last-child{order:-1}
+body.des3d #architectureMode .model-wrap{height:calc(100vh - 230px);min-height:420px}
+body.des3d #modelCanvas{cursor:crosshair}
+body.des3d #architectureMode .model-wrap .measure-box{z-index:5}
+.des3d-bt.active{background:#fbe9e3!important;color:#D76845!important;border-color:#D76845!important}

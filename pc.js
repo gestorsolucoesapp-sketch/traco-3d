@@ -27,13 +27,13 @@
     newProfile: '📄', undoProfilePoint: '↶', closeProfile: '⬠', fitProfileView: '⤢', cotarPerfil: '📐',
     openPart: '📂', savePart: '💾', cupExample: '⭐', exportPartStl: '⬇️', export3mf: '🌈', exportStep: '🧩',
     novoProjeto: '📄', openButton: '📂', saveButton: '💾', exampleButton: '⭐', importStlButton: '📥', exportButton: '⬇️',
-    pushWallsTool: '⇕', narrarButton: '🎙️', fotoArchButton: '📷', fotoPartButton: '📷',
+    pushWallsTool: '⇕', desenhar3d: '🧊', narrarButton: '🎙️', fotoArchButton: '📷', fotoPartButton: '📷',
   };
   const NOMES = {
     newProfile: 'Novo perfil', closeProfile: 'Fechar perfil', fitProfileView: 'Enquadrar', exportPartStl: 'Exportar STL',
     export3mf: 'Exportar 3MF (cores)', exportStep: 'SolidWorks (STEP)', cupExample: 'Exemplo pronto', exampleButton: 'Exemplo pronto',
     exportButton: 'Exportar STL', importStlButton: 'Importar STL', clearButton: 'Limpar desenho', undoButton: 'Desfazer', redoButton: 'Refazer',
-    pushWallsTool: 'Empurrar / puxar paredes',
+    pushWallsTool: 'Empurrar / puxar paredes', desenhar3d: 'Desenhar no 3D (SketchUp)',
   };
   function partes(b) {
     const ic = b.querySelector('.tool-icon');
@@ -210,7 +210,7 @@
     const grupos = arq ? [
       ids('#novoProjeto', '#openButton', '#saveButton', '#exampleButton', '#fotoArchButton', '#importStlButton'),
       botoesLateral().filter((x) => x && x.g !== 'e').map((x) => x.b),
-      ids('#pushWallsTool'),
+      ids('#desenhar3d', '#pushWallsTool'),
       ids('#undoButton', '#redoButton', '#clearButton'),
       ids('#exportButton', '🖨️ Prancha', '📚 Histórico'),
     ] : [

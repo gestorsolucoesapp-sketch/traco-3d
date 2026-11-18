@@ -1383,11 +1383,15 @@ function drawModel() {
   const spanMeters = Math.max(5, meshSpan,
     xs.length ? (Math.max(...xs) - Math.min(...xs)) / state.pixelsPerMeter : 0,
     ys.length ? (Math.max(...ys) - Math.min(...ys)) / state.pixelsPerMeter : 0);
-  const centerWorldX = xs.length ? ((Math.min(...xs) + Math.max(...xs)) / 2 - DESIGN_WIDTH / 2) / state.pixelsPerMeter : 0;
-  const centerWorldY = ys.length ? ((Math.min(...ys) + Math.max(...ys)) / 2 - DESIGN_HEIGHT / 2) / state.pixelsPerMeter : 0;
-  const unit = Math.min(width, height) / (spanMeters * 1.42 + effectiveWallHeight()) * state.zoom;
+  let centerWorldX = xs.length ? ((Math.min(...xs) + Math.max(...xs)) / 2 - DESIGN_WIDTH / 2) / state.pixelsPerMeter : 0;
+  let centerWorldY = ys.length ? ((Math.min(...ys) + Math.max(...ys)) / 2 - DESIGN_HEIGHT / 2) / state.pixelsPerMeter : 0;
+  let unit = Math.min(width, height) / (spanMeters * 1.42 + effectiveWallHeight()) * state.zoom;
   const centerX = width * .5;
   const centerY = height * .61;
+  // Desenhar no 3D: a câmera fica parada enquanto se desenha (não recentraliza a cada parede).
+  const fixa = window.tracoDes3D?.camera;
+  if (fixa) { centerWorldX = fixa.cx; centerWorldY = fixa.cy; unit = fixa.base * state.zoom; }
+  window.tracoCam3D = { cx: centerWorldX, cy: centerWorldY, base: unit / state.zoom, centerX, centerY, unit };
   const toScreen = (vertex) => project([vertex[0] - centerWorldX, vertex[1] - centerWorldY, vertex[2]], centerX, centerY, unit);
 
   // A faint ground grid keeps the orientation visible before the first wall.
@@ -1402,8 +1406,9 @@ function drawModel() {
       context.strokeStyle = offset === 0 ? '#cbd7ca' : '#dce5db'; context.stroke();
     }
   }
+  try { window.tracoEixosFundo?.(context, toScreen, unit); } catch { /* opcional */ }
   const temObj = (state.objetos || []).length > 0;
-  if (!walls.length && !mesh && !temObj) return;
+  if (!walls.length && !mesh && !temObj) { try { window.tracoDes3D?.desenhar(context, toScreen, unit); } catch { /* */ } return; }
 
   const faces = [];
   const floor = floorOutline();
@@ -1440,6 +1445,7 @@ function drawModel() {
   faces.sort((a, b) => a.depth - b.depth);
   for (const face of faces) drawPolygon(context, face.corners, face.shade, face.imported ? '#34584c33' : '#a7654b33');
   try { window.tracoEixos?.(context, toScreen, unit); } catch { /* opcional */ }
+  try { window.tracoDes3D?.desenhar(context, toScreen, unit); } catch { /* opcional */ }
 }
 
 function requestRender() {
