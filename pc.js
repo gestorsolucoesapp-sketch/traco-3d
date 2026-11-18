@@ -24,7 +24,7 @@
     drawProfileTool: '／', freehandProfileTool: '✎', rectangleTool: '▭', circleTool: '◯', addProfilePoint: '⌖',
     extrudeTool: '⬆', revolveTool: '⟳', pushPullTool: '⇕', holeTool: '◎', threadTool: '🔩', springTool: '〰',
     doorTool: '🚪', windowTool: '🪟', undoButton: '↶', redoButton: '↷', clearButton: '🗑',
-    newProfile: '📄', undoProfilePoint: '↶', closeProfile: '⬠', fitProfileView: '⤢', cotarPerfil: '📐',
+    newProfile: '📄', undoProfilePoint: '↶', closeProfile: '⬠', fitProfileView: '⤢', cotarPerfil: '📐', espessuraPerfil: '⧉',
     openPart: '📂', savePart: '💾', cupExample: '⭐', exportPartStl: '⬇️', export3mf: '🌈', exportStep: '🧩',
     novoProjeto: '📄', openButton: '📂', saveButton: '💾', exampleButton: '⭐', importStlButton: '📥', exportButton: '⬇️',
     pushWallsTool: '⇕', desenhar3d: '🧊', narrarButton: '🎙️', fotoArchButton: '📷', fotoPartButton: '📷',
@@ -33,7 +33,7 @@
     newProfile: 'Novo perfil', closeProfile: 'Fechar perfil', fitProfileView: 'Enquadrar', exportPartStl: 'Exportar STL',
     export3mf: 'Exportar 3MF (cores)', exportStep: 'SolidWorks (STEP)', cupExample: 'Exemplo pronto', exampleButton: 'Exemplo pronto',
     exportButton: 'Exportar STL', importStlButton: 'Importar STL', clearButton: 'Limpar desenho', undoButton: 'Desfazer', redoButton: 'Refazer',
-    pushWallsTool: 'Empurrar / puxar paredes', desenhar3d: 'Desenhar no 3D (SketchUp)',
+    pushWallsTool: 'Empurrar / puxar paredes', espessuraPerfil: 'Espessura da parede', desenhar3d: 'Desenhar no 3D (SketchUp)',
   };
   function partes(b) {
     const ic = b.querySelector('.tool-icon');
@@ -216,7 +216,7 @@
     ] : [
       ids('#newProfile', '#openPart', '#savePart', '#cupExample', '#fotoPartButton', '#narrarButton'),
       [...document.querySelectorAll('#sketchMenu .part-menu-content button')],
-      ids('#cotarPerfil', '#closeProfile', '#undoProfilePoint', '#fitProfileView'),
+      ids('#cotarPerfil', '#espessuraPerfil', '#closeProfile', '#undoProfilePoint', '#fitProfileView'),
       [...document.querySelectorAll('#modelMenu .part-menu-content button')],
       ids('#exportPartStl', '#export3mf', '#exportStep', '🖨️ Prancha', '📚 Histórico'),
     ];

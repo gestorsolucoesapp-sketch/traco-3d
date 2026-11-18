@@ -282,6 +282,12 @@
         ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#ad6749'; ctx.lineWidth = 2; ctx.stroke();
       }
     }
+    if (part.espPrev?.length > 1 && !part.closed && part.profile.length > 1) {
+      const off = part.espPrev, a0 = t.screen(part.profile[0]), b0 = t.screen(part.profile.at(-1));
+      ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = '#286855'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(...b0); off.slice().reverse().forEach((q) => ctx.lineTo(...t.screen(q))); ctx.lineTo(...a0); ctx.stroke();
+      ctx.restore();
+    }
     if (part.shapeDrag) {
       const outline = shapePoints(part.shapeDrag.type, part.shapeDrag.start, part.shapeDrag.end);
       if (outline.length) {
@@ -1110,13 +1116,71 @@
       'Escolha Linha mm ou toque no corte para definir coordenadas.';
     refresh();
   });
+  // ---------- Espessura (offset do SketchUp): dá parede ao contorno aberto e fecha o perfil ----------
+  function offsetLinha(pts, d) {
+    const n = pts.length, nor = [];
+    for (let i = 0; i < n - 1; i++) { const dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1], L = Math.hypot(dx, dz) || 1; nor.push([-dz / L, dx / L]); }
+    return pts.map((p, i) => {
+      const n1 = nor[Math.max(0, i - 1)], n2 = nor[Math.min(nor.length - 1, i)];
+      let mx = n1[0] + n2[0], mz = n1[1] + n2[1]; const ml = Math.hypot(mx, mz);
+      if (ml < 1e-6) { mx = n1[0]; mz = n1[1]; } else { mx /= ml; mz /= ml; }
+      const k = Math.min(4 * Math.abs(d), Math.abs(d / Math.max(.2, mx * n1[0] + mz * n1[1]))) * Math.sign(d);
+      return [Math.max(0, Math.round((p[0] + mx * k) * 100) / 100), Math.max(0, Math.round((p[1] + mz * k) * 100) / 100)];
+    });
+  }
+  const btnEsp = document.createElement('button');
+  btnEsp.id = 'espessuraPerfil'; btnEsp.type = 'button'; btnEsp.className = 'secondary-button'; btnEsp.textContent = '⧉ Espessura';
+  btnEsp.title = 'Dá espessura de parede ao contorno aberto (ex.: pote) e fecha o perfil para a Revolução';
+  const espBox = document.createElement('div'); espBox.className = 'cota-edit'; espBox.hidden = true;
+  espBox.addEventListener('pointerdown', (e) => e.stopPropagation());
+  let espLado = 'dentro';
+  function espCalc() {
+    const t = number(espBox.querySelector('#espT')?.value);
+    if (t == null || t <= 0 || part.profile.length < 2) { part.espPrev = null; render(); return null; }
+    const a = offsetLinha(part.profile, t), b = offsetLinha(part.profile, -t);
+    const media = (q) => q.reduce((s2, p) => s2 + p[0], 0) / q.length;
+    const dentro = media(a) <= media(b) ? a : b, fora = dentro === a ? b : a; // dentro = lado mais perto do eixo
+    part.espPrev = espLado === 'dentro' ? dentro : fora; render(); return part.espPrev;
+  }
+  function abrirEsp() {
+    if (part.mode !== 'custom' || part.closed || part.profile.length < 2) {
+      $('profileHint').textContent = 'A Espessura é para um contorno ABERTO (só a linha de fora do pote). Desenhe a linha e use aqui.'; return;
+    }
+    espBox.innerHTML = `<b>Espessura da parede</b>
+      <label>Espessura <input id="espT" inputmode="decimal" value="${espBox.dataset.t || '2'}" /> mm</label>
+      <div class="esp-lado"><button type="button" data-l="dentro">Para dentro</button><button type="button" data-l="fora">Para fora</button></div>
+      <div><button type="button" class="primary-button" data-e="ok">Aplicar e fechar</button> <button type="button" class="secondary-button" data-e="x">Cancelar</button></div>
+      <small>A linha tracejada mostra a parede. "Para dentro" vai na direção do eixo.</small>`;
+    const pinta = () => espBox.querySelectorAll('[data-l]').forEach((b) => b.classList.toggle('on', b.dataset.l === espLado));
+    espBox.querySelectorAll('[data-l]').forEach((b) => (b.onclick = () => { espLado = b.dataset.l; pinta(); espCalc(); }));
+    espBox.querySelector('#espT').addEventListener('input', espCalc);
+    espBox.querySelector('#espT').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); aplicarEsp(); } if (e.key === 'Escape') fecharEsp(); });
+    espBox.querySelector('[data-e=ok]').onclick = aplicarEsp;
+    espBox.querySelector('[data-e=x]').onclick = fecharEsp;
+    pinta(); espBox.hidden = false; part.drawLine = false; part.solto = false; espCalc();
+    setTimeout(() => espBox.querySelector('#espT')?.select(), 30);
+  }
+  function fecharEsp() { espBox.hidden = true; part.espPrev = null; render(); }
+  function aplicarEsp() {
+    const off = espCalc(); if (!off) { $('profileStatus').textContent = 'Digite a espessura em mm.'; return; }
+    espBox.dataset.t = espBox.querySelector('#espT').value;
+    const antes = part.profile.map((p) => [...p]);
+    part.profile = [...part.profile, ...off.slice().reverse()];
+    part.espPrev = null; espBox.hidden = true; part.closed = false;
+    $('closeProfile').click();
+    if (!part.closed) { part.profile = antes; $('profileHint').textContent = 'Com essa espessura as linhas se cruzam. Tente uma espessura menor ou o outro lado.'; save(); refresh(); return; }
+    if (part.operation !== 'revolve') { $('partOperation').value = 'revolve'; $('partOperation').dispatchEvent(new Event('change')); }
+    $('profileHint').textContent = 'Parede criada e perfil fechado. A peça foi girada (Revolução 360°).';
+  }
+  btnEsp.addEventListener('click', () => (espBox.hidden ? abrirEsp() : fecharEsp()));
+
   // ---------- Cotar: acerta comprimento e ângulo de qualquer linha do perfil ----------
   const btnCotar = document.createElement('button');
   btnCotar.id = 'cotarPerfil'; btnCotar.type = 'button'; btnCotar.className = 'secondary-button'; btnCotar.textContent = '📐 Cotar';
   btnCotar.title = 'Toque numa linha do perfil e digite a medida certa';
   $('fitProfileView').insertAdjacentElement('afterend', btnCotar);
   const cotaBox = document.createElement('div'); cotaBox.className = 'cota-edit'; cotaBox.hidden = true;
-  sketch.parentElement.appendChild(cotaBox);
+  sketch.parentElement.appendChild(cotaBox); sketch.parentElement.appendChild(espBox); btnCotar.insertAdjacentElement('afterend', btnEsp);
   cotaBox.addEventListener('pointerdown', (e) => e.stopPropagation());
   function segsPerfil() { const n = part.profile.length; return part.closed ? n : n - 1; }
   function abrirCota(i) {

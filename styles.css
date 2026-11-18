@@ -337,3 +337,4 @@ body.trilho .discipline-switch{margin:8px 0}
 .caixa-angulo b{font-size:17px;min-width:28px}.caixa-angulo b.vivo{color:#888}
 .caixa-angulo i{font-style:normal;font-weight:800}
 .caixa-angulo small{flex-basis:100%;font-size:10px;color:#555}
+.esp-lado{display:flex;gap:4px}.esp-lado button{flex:1;border:1px solid #dfe3da;background:#fff;border-radius:7px;padding:6px;font-weight:700;font-size:12px;cursor:pointer}.esp-lado button.on{border-color:#D76845;color:#D76845;background:#fbe9e3}
