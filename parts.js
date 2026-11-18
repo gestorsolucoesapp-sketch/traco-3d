@@ -1214,7 +1214,7 @@
     const [lx, ly] = window.tracoLapis?.desvio(event) || [0, 0];
     let [r, z] = t.world([event.clientX + lx - rect.left, event.clientY + ly - rect.top]);
     part.infer = null; part.fecharEm = null; part.lastRaw = [r, z];
-    if (!part.drawLine || event.altKey) return [Math.round(r * 100) / 100, Math.round(z * 100) / 100];
+    if (!part.drawLine || event.altKey || part.livre) return [Math.round(r * 100) / 100, Math.round(z * 100) / 100]; // Alt ou A segurado: solta
     const mmPorPx = t.extent.r / (t.right - t.left);
     const travado = anguloTravado();
     if (travado != null && part.profile.length) return projetarAngulo([r, z], travado, t.extent.r > 120 ? 1 : t.extent.r > 30 ? .5 : .1);
@@ -1314,6 +1314,13 @@
   $('profileAngle').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') { event.preventDefault(); applySegmentLength(); }
   });
+  // Segurar A: a linha fica solta (sem sugestões) para dar o ângulo com o mouse; soltar A sem digitar volta ao normal.
+  window.addEventListener('keydown', (e) => { if ((e.key === 'a' || e.key === 'A') && !$('partsMode').hidden && part.drawLine && !part.closed && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) part.livre = true; });
+  window.addEventListener('keyup', (e) => {
+    if (e.key !== 'a' && e.key !== 'A') return;
+    part.livre = false;
+    if (part.angleTyping && !$('profileAngle').value.trim()) { part.angleTyping = false; $('profileHint').textContent = 'Linha no ângulo que você deixou. Digite os mm e Enter, ou clique.'; render(); }
+  });
   window.addEventListener('keydown', (event) => {
     if ($('partsMode').hidden || !part.drawLine || part.solto || part.closed || !part.profile.length ||
         event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
@@ -1336,7 +1343,7 @@
       render(); return;
     }
     if (event.key === 'a' || event.key === 'A') {
-      event.preventDefault(); part.angleTyping = true; $('profileAngle').value = '';
+      event.preventDefault(); if (event.repeat) return; part.angleTyping = true; $('profileAngle').value = '';
       $('profileHint').textContent = 'Ângulo: _° · digite e Enter (0° = direita, 90° = cima)';
       render(); return;
     }
@@ -1499,7 +1506,7 @@
     if (!part.drawLine || part.mode !== 'custom' || part.closed || !part.profile.length ||
       (part.pending && !part.sketchPointer)) return;
     if (part.solto) { sketchPoint(event); render(); return; } // só mostra a inferência
-    if (part.angleTyping) { const rc = sketch.getBoundingClientRect(), tt = sketchTransform(rc.width, rc.height); part.lastRaw = tt.world([event.clientX - rc.left, event.clientY - rc.top]); return; }
+    if (part.angleTyping && !part.livre) { const rc = sketch.getBoundingClientRect(), tt = sketchTransform(rc.width, rc.height); part.lastRaw = tt.world([event.clientX - rc.left, event.clientY - rc.top]); return; }
     selectPoint(sketchPoint(event));
   });
   sketch.addEventListener('pointerup', (event) => {

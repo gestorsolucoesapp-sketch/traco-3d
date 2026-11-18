@@ -199,6 +199,7 @@ function snapToExisting(point, toleranceCss = 16) {
 }
 
 function snapPoint(point, origin = null, bypass = false, pointerType = 'mouse') {
+  if (state.livreA) bypass = true; // segurando A: linha solta, sem sugestões
   if (bypass) return { point, kind: 'free' };
   const tol = pointerType === 'touch' ? 16 : 10;
   const step = state.pixelsPerMeter / 10;
@@ -961,6 +962,9 @@ window.addEventListener('keyup', (event) => {
     state.lineLock = null; state.lineLockKey = null; refreshMeasure(); requestRender();
   }
 });
+// Segurar A deixa a linha solta (sem pular para sugestões) para dar o ângulo com o mouse.
+window.addEventListener('keydown', (e) => { if ((e.key === 'a' || e.key === 'A') && !$('architectureMode').hidden && state.lineStart && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) state.livreA = true; });
+window.addEventListener('keyup', (e) => { if (e.key === 'a' || e.key === 'A') { state.livreA = false; if (state.angleTyping === '') { state.angleTyping = null; refreshMeasure(); requestRender(); } } });
 window.addEventListener('keydown', (event) => {
   if ($('architectureMode').hidden || state.tool !== 'line' || !state.lineStart ||
       event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
