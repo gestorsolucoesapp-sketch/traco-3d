@@ -404,3 +404,7 @@ body.trilho .pc-lateral:not(.tambor) .faixa,body.trilho .pc-lateral:not(.tambor)
 .tema-fim button{border:0;background:none;color:#555;text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
 /* no escuro, fotos/imagens voltam às cores reais */
 html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
+
+.tema-pop{width:260px}
+.tema-bloco{display:flex;flex-direction:column;gap:8px;padding-bottom:10px;border-bottom:1px solid #eee}
+#architectureMode canvas,#partsMode canvas{filter:var(--filtro-area,none)}

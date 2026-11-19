@@ -1,47 +1,62 @@
-// Modo escuro + barrinha de brilho (clarear / escurecer). Vale para o app todo, inclusive desenho e 3D.
+// Aparência: FUNDO (o app) e ÁREA DE TRABALHO (desenho 2D e 3D) separados — cada um com claro/escuro e brilho.
 (() => {
   const CH = 'traco-tema';
-  let cfg = { escuro: false, brilho: 100 };
+  let cfg = { escuro: false, brilho: 100, areaEscuro: false, areaBrilho: 100 };
   try { Object.assign(cfg, JSON.parse(localStorage.getItem(CH) || '{}')); } catch { /* */ }
+  const INV = 'invert(1) hue-rotate(180deg)';
   const aplica = () => {
-    const f = `${cfg.escuro ? 'invert(1) hue-rotate(180deg) ' : ''}brightness(${cfg.brilho / 100})`;
-    document.documentElement.style.filter = (cfg.escuro || cfg.brilho !== 100) ? f : '';
+    const html = `${cfg.escuro ? INV + ' ' : ''}brightness(${cfg.brilho / 100})`;
+    document.documentElement.style.filter = (cfg.escuro || cfg.brilho !== 100) ? html : '';
+    // área = (efeito desejado) e depois desfaz o filtro do fundo
+    const area = `${cfg.areaEscuro ? INV + ' ' : ''}brightness(${cfg.areaBrilho / 100}) brightness(${100 / cfg.brilho})${cfg.escuro ? ' hue-rotate(-180deg) invert(1)' : ''}`;
+    const neutro = cfg.escuro === cfg.areaEscuro && cfg.brilho === cfg.areaBrilho;
+    document.documentElement.style.setProperty('--filtro-area', neutro ? 'none' : area);
     document.documentElement.classList.toggle('tema-escuro', cfg.escuro);
     try { localStorage.setItem(CH, JSON.stringify(cfg)); } catch { /* */ }
     pinta();
   };
   const bt = document.createElement('button');
-  bt.type = 'button'; bt.className = 'tema-bt'; bt.title = 'Modo escuro e brilho'; bt.setAttribute('aria-label', 'Modo escuro e brilho');
+  bt.type = 'button'; bt.className = 'tema-bt'; bt.title = 'Aparência: fundo e área de trabalho'; bt.setAttribute('aria-label', 'Aparência');
   const pop = document.createElement('div'); pop.className = 'tema-pop'; pop.hidden = true;
-  pop.innerHTML = `<b>Aparência</b>
-    <div class="tema-seg"><button type="button" data-e="0">☀️ Claro</button><button type="button" data-e="1">🌙 Escuro</button></div>
-    <label>Brilho <span class="tema-val"></span><input type="range" min="60" max="140" step="5" /></label>
-    <div class="tema-fim"><button type="button" data-r>Voltar ao normal</button></div>`;
+  const bloco = (id, titulo) => `<div class="tema-bloco"><b>${titulo}</b>
+    <div class="tema-seg"><button type="button" data-${id}="0">☀️ Claro</button><button type="button" data-${id}="1">🌙 Escuro</button></div>
+    <label>Brilho <span class="tema-val" data-v="${id}"></span><input type="range" min="50" max="150" step="5" data-r="${id}" /></label></div>`;
+  pop.innerHTML = `${bloco('f', 'Fundo')}${bloco('a', 'Área de trabalho (desenho e 3D)')}<div class="tema-fim"><button type="button" data-reset>Voltar ao normal</button></div>`;
   document.body.appendChild(pop);
-  const rng = pop.querySelector('input');
+  const chave = { f: ['escuro', 'brilho'], a: ['areaEscuro', 'areaBrilho'] };
   function pinta() {
     bt.textContent = cfg.escuro ? '🌙' : '☀️';
-    pop.querySelectorAll('[data-e]').forEach((b) => b.classList.toggle('on', (b.dataset.e === '1') === cfg.escuro));
-    rng.value = cfg.brilho; pop.querySelector('.tema-val').textContent = `${cfg.brilho}%`;
+    for (const id of ['f', 'a']) {
+      const [e, b] = chave[id];
+      pop.querySelectorAll(`[data-${id}]`).forEach((x) => x.classList.toggle('on', (x.dataset[id] === '1') === cfg[e]));
+      pop.querySelector(`[data-r="${id}"]`).value = cfg[b];
+      pop.querySelector(`[data-v="${id}"]`).textContent = `${cfg[b]}%`;
+    }
+    document.querySelectorAll('.pc-barra .tema-bt').forEach((x) => (x.textContent = bt.textContent));
   }
-  pop.querySelectorAll('[data-e]').forEach((b) => (b.onclick = () => { cfg.escuro = b.dataset.e === '1'; aplica(); }));
-  rng.addEventListener('input', () => { cfg.brilho = +rng.value; aplica(); });
-  pop.querySelector('[data-r]').onclick = () => { cfg = { escuro: false, brilho: 100 }; aplica(); };
+  for (const id of ['f', 'a']) {
+    const [e, b] = chave[id];
+    pop.querySelectorAll(`[data-${id}]`).forEach((x) => (x.onclick = () => {
+      const antes = cfg[e]; cfg[e] = x.dataset[id] === '1';
+      if (id === 'f' && antes !== cfg.escuro && cfg.areaEscuro === antes) cfg.areaEscuro = cfg.escuro; // área acompanha, se estava igual
+      aplica();
+    }));
+    pop.querySelector(`[data-r="${id}"]`).addEventListener('input', (ev) => { cfg[b] = +ev.target.value; aplica(); });
+  }
+  pop.querySelector('[data-reset]').onclick = () => { cfg = { escuro: false, brilho: 100, areaEscuro: false, areaBrilho: 100 }; aplica(); };
   const abre = (ancora) => {
     if (!pop.hidden) { pop.hidden = true; return; }
     const r = ancora.getBoundingClientRect();
-    pop.style.top = `${r.bottom + 8}px`; pop.style.left = `${Math.max(8, Math.min(innerWidth - 250, r.right - 240))}px`;
+    pop.style.top = `${r.bottom + 8}px`; pop.style.left = `${Math.max(8, Math.min(innerWidth - 270, r.right - 260))}px`;
     pop.hidden = false;
   };
   bt.onclick = () => abre(bt);
   document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.tema-bt')) pop.hidden = true; });
   document.querySelector('.topbar-right')?.prepend(bt);
-  // também no Modo PC (barra de cima)
   setInterval(() => {
     const dir = document.querySelector('.pc-barra .pc-dir');
-    if (dir && !dir.querySelector('.tema-bt')) { const b2 = bt.cloneNode(true); b2.onclick = () => abre(b2); dir.prepend(b2); b2.textContent = bt.textContent; }
-    document.querySelectorAll('.pc-barra .tema-bt').forEach((b) => (b.textContent = bt.textContent));
+    if (dir && !dir.querySelector('.tema-bt')) { const b2 = bt.cloneNode(true); b2.onclick = () => abre(b2); dir.prepend(b2); }
   }, 500);
-  window.tracoTema = { abre: () => abre(bt), set: (o) => { Object.assign(cfg, o); aplica(); } };
+  window.tracoTema = { abre: () => abre(bt), set: (o) => { Object.assign(cfg, o); aplica(); }, cfg: () => ({ ...cfg }) };
   aplica();
 })();
