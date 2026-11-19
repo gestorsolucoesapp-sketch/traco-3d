@@ -337,7 +337,7 @@ function tracoNucleoFEA() {
     for (let it = 0; it < (cfg.iter || 30); it++) {
       for (let e = 0; e < M.ne; e++) fat[e] = xmin + (1 - xmin) * x[e] ** pen;
       const A = opElastico(M, el.K, fat), dg = diagElastico(M, el.K, fat);
-      cg(A, F, u, dg, fixo, 1e-4, 2500);
+      cg(A, F, u, dg, fixo, 2e-3, 1200);
       c = 0;
       for (let e = 0; e < M.ne; e++) {
         for (let a = 0; a < 8; a++) { const n = M.conec[e * 8 + a] * 3; loc[3 * a] = u[n]; loc[3 * a + 1] = u[n + 1]; loc[3 * a + 2] = u[n + 2]; }

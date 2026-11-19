@@ -23,7 +23,7 @@
     'Latão': { E: 97, nu: .31, esc: 310, rho: 8500, k: 115 },
   };
   const ESTUDOS = { estatico: '🧱 Tensão estática', modal: '〰️ Frequências naturais (modal)', termico: '🌡️ Térmico', otimizar: '✂️ Otimização de forma' };
-  const MALHAS = { grossa: { estatico: 4000, modal: 1000, termico: 5000, otimizar: 2500 }, media: { estatico: 12000, modal: 2000, termico: 15000, otimizar: 5000 }, fina: { estatico: 30000, modal: 4500, termico: 40000, otimizar: 10000 } };
+  const MALHAS = { grossa: { estatico: 4000, modal: 1000, termico: 5000, otimizar: 2500 }, media: { estatico: 12000, modal: 2000, termico: 15000, otimizar: 4000 }, fina: { estatico: 30000, modal: 4500, termico: 40000, otimizar: 10000 } };
   const CORSEL = { fixo: '#1565C0', carga: '#EF6C00', temp: '#C62828', calor: '#F9A825' };
   const NOMESEL = { fixo: '📌 Faces fixas', carga: '➡️ Faces com carga', temp: '🌡️ Faces com temperatura fixa', calor: '🔥 Faces que recebem calor' };
 
@@ -262,7 +262,7 @@
     const cfg = { alvo: MALHAS[S.malha][e], E: (p.E || 1) * 1000, nu: p.nu, rho: (p.rho || 0) * 1e-12, k: p.k, modos: +S.modos,
       fixo: lista('fixo'), cargas: S.sel.carga.size ? [{ tris: lista('carga'), tipo: S.carga.tipo, valor: num(S.carga.valor), dir: S.carga.tipo === 'pressao' ? 'normal' : d }] : [], gravidade: S.gravidade,
       temps: S.sel.temp.size ? [{ tris: lista('temp'), valor: num(S.tempValor) }] : [], calor: S.sel.calor.size ? [{ tris: lista('calor'), valor: num(S.calorValor) }] : [],
-      hconv: num(S.hconv) || 0, tAmb: num(S.tAmb) ?? 20, manter: (num(S.manter) || 0) / 100, iter: 30 };
+      hconv: num(S.hconv) || 0, tAmb: num(S.tAmb) ?? 20, manter: (num(S.manter) || 0) / 100, iter: 22 };
     try { worker?.terminate(); worker = new Worker('fea-worker.js' + (SRC ? `?${SRC}` : '')); } catch (er) { prog.textContent = 'Este navegador não deixou rodar a simulação: ' + er.message; return; }
     S.rodando = true; S.escolhendo = null; S.res = null; S.anima = false; S.versao++; pinta(); api.render();
     const pg = () => painel.querySelector('#feaProg');
