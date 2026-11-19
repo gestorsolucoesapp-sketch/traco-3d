@@ -65,7 +65,7 @@
     if (r?.estudo === 'otimizar') {
       out = r.casca.map(([a, b, c, n]) => ({ points: [a, b, c], normal: n, cor: '#7FA88E' }));
     } else if (r) {
-      const sz = tamanho(tris);
+      const sz = tamanho(tris), lista = r.tris ? r.tris.map((pts, i) => ({ points: pts, normal: tris[r.pai[i]]?.normal || [0, 0, 1] })) : tris;
       let campo = null, u = null, vmax = 1, vmin = 0, inv = false;
       if (r.estudo === 'estatico') {
         u = r.u;
@@ -80,7 +80,7 @@
         esc = r.estudo === 'modal' ? sz * .08 / umax : S.exagero ? (umax > 0 ? sz * .05 / umax : 0) : 1;
         if (S.anima) esc *= r.estudo === 'modal' ? Math.sin(S.fase * 2 * Math.PI) : (.5 - .5 * Math.cos(S.fase * 2 * Math.PI));
       }
-      out = tris.map((t, i) => {
+      out = lista.map((t, i) => {
         let v = (campo[i * 3] + campo[i * 3 + 1] + campo[i * 3 + 2]) / 3;
         if (inv) v = 1 - Math.min(v, vmax) / vmax; else v = (v - vmin) / ((vmax - vmin) || 1);
         const pts = u && esc ? t.points.map((p, k) => [p[0] + u[(i * 3 + k) * 3] * esc, p[1] + u[(i * 3 + k) * 3 + 1] * esc, p[2] + u[(i * 3 + k) * 3 + 2] * esc]) : t.points;
@@ -131,7 +131,7 @@
   function abrir() {
     const api = API(); if (!api) return;
     if (!api.meshBase().length) return avisa('Feche o desenho (ou narre uma peça) para ter um 3D para simular.');
-    ligarToque();
+    ligarToque(); confereChave();
     S.aberto = !S.aberto || !painel || painel.hidden;
     if (!painel) {
       painel = document.createElement('section'); painel.className = 'fea-painel'; painel.id = 'feaPainel';
