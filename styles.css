@@ -453,3 +453,8 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .fea-legenda .fea-barra{grid-row:2/4;border-radius:4px}
 .fea-legenda span:last-child{align-self:end}
 .canto-3d button.on{background:#e7f2ec;border-color:#6a9479}
+
+.rosca-legenda{position:absolute;left:10px;bottom:56px;z-index:4;display:flex;flex-direction:column;gap:3px;font-size:11px;background:rgba(255,255,255,.9);color:#111;padding:6px 9px;border-radius:10px;border:1px solid #c9d3cf;max-width:190px}
+.rosca-legenda[hidden]{display:none}
+.rosca-legenda span{display:flex;align-items:center;gap:6px}
+.rosca-legenda i{display:inline-block;width:22px;height:9px;border-radius:3px}

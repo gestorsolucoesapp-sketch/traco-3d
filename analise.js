@@ -235,6 +235,16 @@
     mov.textContent = P0?.anim ? (P0.anim.pausa ? '▶' : '⏸') : '⚙️'; mov.classList.toggle('on', !!P0?.anim);
     if (meca) { const txt = P0.narrado.pecas.filter((q) => window.tracoMeca?.eh(q.tipo)).map((q) => window.tracoMeca.info(q)).join(' · ');
       const dim = document.getElementById('partDimensions'); if (dim && !P0.sim && dim.textContent !== txt) dim.textContent = txt; }
+    // Legenda do contato da rosca durante a simulação de montagem
+    { let lg = wrap.querySelector('.rosca-legenda');
+      if (!lg) { lg = document.createElement('div'); lg.className = 'rosca-legenda'; wrap.appendChild(lg); }
+      const ct = window.tracoNarrado?.contato, on = !!(P0?.sim && ct?.n);
+      lg.hidden = !on;
+      if (on) {
+        const f = (v) => v.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+        const pc = (x) => Math.round(x / ct.n * 100);
+        lg.innerHTML = `<b>Rosca</b><span><i style="background:#D32F2F"></i>interfere ${pc(ct.interf)}%</span><span><i style="background:#FF6F00"></i>encosta ${pc(ct.contato)}%</span><span><i style="background:linear-gradient(90deg,#F5D21E,#28BE46,#1E6EDC)"></i>folga 0,03→0,3 mm</span><small>folga mín. ${f(Math.max(0, ct.min))} · máx. ${f(ct.max)} mm${ct.interf ? ' · <b style="color:#D32F2F">aperta demais</b>' : ''}</small>`;
+      } }
     const s = document.getElementById('simularMontagem');
     sim.hidden = !s || s.hidden; sim.textContent = window.tracoPeca?.part?.sim ? '⏹' : '▶';
     sim.classList.toggle('on', !!window.tracoPeca?.part?.sim);

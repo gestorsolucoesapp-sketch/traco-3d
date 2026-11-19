@@ -862,6 +862,7 @@
 
   function corFace(triangle, light) {
     const shade = Math.round(135 + 73 * light);
+    if (triangle.vidro) { const h = triangle.vidro.replace('#', ''), k = .55 + .5 * light; const c = [0, 2, 4].map((i) => Math.min(255, Math.round(parseInt(h.slice(i, i + 2), 16) * k))); return `rgba(${c[0]},${c[1]},${c[2]},.38)`; }
     if (triangle.ghost) return `rgba(${Math.round(shade * .62)},${Math.round(shade * .78)},${Math.round(shade * .9)},.16)`;
     if (triangle.cor) {
       const h = triangle.cor.replace('#', ''), k = .5 + .55 * light;

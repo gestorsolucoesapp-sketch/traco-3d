@@ -267,14 +267,75 @@
       const z = topo ? zPonta + (m.k + m.L - q[2]) : zPonta - (m.k + m.L - q[2]);
       return [x, topo ? -y : y, z];
     };
-    const tris = corpo.map((t) => ({ ...t, ghost: true }));
+    const tris = corpo.map((t) => ({ ...t, vidro: '#3F7FBF' }));
+    const G = gradeContato(spec, corpo, m.passo), stats = { n: 0, contato: 0, interf: 0, min: Infinity, max: 0 };
     for (const t of paraf) {
       const pts = t.points.map(mov);
       const n = topo ? [t.normal[0] * c - t.normal[1] * sn, -(t.normal[0] * sn + t.normal[1] * c), -t.normal[2]] :
         [t.normal[0] * c - t.normal[1] * sn, t.normal[0] * sn + t.normal[1] * c, t.normal[2]];
-      tris.push({ points: pts, normal: n });
+      const tri = { points: pts, normal: n };
+      // Folga até a rosca da porca: só onde o parafuso está dentro da porca
+      const cc = [(pts[0][0] + pts[1][0] + pts[2][0]) / 3, (pts[0][1] + pts[1][1] + pts[2][1]) / 3, (pts[0][2] + pts[1][2] + pts[2][2]) / 3];
+      if (cc[2] > G.z0 && cc[2] < G.z1) {
+        const d = G.folga(cc);
+        if (d != null && d < G.lim) {
+          tri.cor = corFolga(d); stats.n++;
+          if (d < 0) stats.interf++; else if (d < .03) stats.contato++;
+          stats.min = Math.min(stats.min, d); stats.max = Math.max(stats.max, d);
+        }
+      }
+      tris.push(tri);
     }
-    return { tris, ...m };
+    window.tracoNarrado.contato = stats;
+    return { tris, ...m, contato: stats };
+  }
+
+  // ---------- Contato da rosca: folga de cada ponto do parafuso até a superfície da porca ----------
+  let cacheG = { k: '', g: null };
+  function gradeContato(spec, corpo, passo) {
+    const k = JSON.stringify(spec); if (cacheG.k === k) return cacheG.g;
+    const cel = Math.max(passo * .5, .25), mapa = new Map(), chave = (i, j, l) => i + ',' + j + ',' + l;
+    let z0 = Infinity, z1 = -Infinity;
+    corpo.forEach((t, ti) => {
+      const b = [0, 1, 2].map((q) => [Math.min(t.points[0][q], t.points[1][q], t.points[2][q]), Math.max(t.points[0][q], t.points[1][q], t.points[2][q])]);
+      z0 = Math.min(z0, b[2][0]); z1 = Math.max(z1, b[2][1]);
+      for (let i = Math.floor(b[0][0] / cel); i <= Math.floor(b[0][1] / cel); i++) for (let j = Math.floor(b[1][0] / cel); j <= Math.floor(b[1][1] / cel); j++) for (let l = Math.floor(b[2][0] / cel); l <= Math.floor(b[2][1] / cel); l++) {
+        const kk = chave(i, j, l); let a = mapa.get(kk); if (!a) mapa.set(kk, a = []); a.push(ti); }
+    });
+    const lim = Math.max(passo * .6, .4), alcance = Math.ceil(lim / cel);
+    const folga = (p) => {
+      const i0 = Math.floor(p[0] / cel), j0 = Math.floor(p[1] / cel), l0 = Math.floor(p[2] / cel), vistos = new Set();
+      let best = Infinity, bt = null, bq = null;
+      for (let i = i0 - alcance; i <= i0 + alcance; i++) for (let j = j0 - alcance; j <= j0 + alcance; j++) for (let l = l0 - alcance; l <= l0 + alcance; l++) {
+        const a = mapa.get(chave(i, j, l)); if (!a) continue;
+        for (const ti of a) { if (vistos.has(ti)) continue; vistos.add(ti); const q = pontoTri(p, corpo[ti].points), d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); if (d < best) { best = d; bt = corpo[ti]; bq = q; } }
+      }
+      if (!bt) return null;
+      const n = bt.normal, lado = (p[0] - bq[0]) * n[0] + (p[1] - bq[1]) * n[1] + (p[2] - bq[2]) * n[2];
+      return lado < -1e-6 ? -best : best; // dentro do material da porca = interferência
+    };
+    cacheG = { k, g: { folga, z0: z0 + passo * .25, z1: z1 - passo * .25, lim } };
+    return cacheG.g;
+  }
+  function pontoTri(p, [a, b, c]) {
+    const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]], dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a), d1 = dot(ab, ap), d2 = dot(ac, ap);
+    const mix = (s2, t) => [a[0] + ab[0] * s2 + ac[0] * t, a[1] + ab[1] * s2 + ac[1] * t, a[2] + ab[2] * s2 + ac[2] * t];
+    if (d1 <= 0 && d2 <= 0) return a;
+    const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp); if (d3 >= 0 && d4 <= d3) return b;
+    const vc = d1 * d4 - d3 * d2; if (vc <= 0 && d1 >= 0 && d3 <= 0) return mix(d1 / (d1 - d3), 0);
+    const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp); if (d6 >= 0 && d5 <= d6) return c;
+    const vb = d5 * d2 - d1 * d6; if (vb <= 0 && d2 >= 0 && d6 <= 0) return mix(0, d2 / (d2 - d6));
+    const va = d3 * d6 - d5 * d4; if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return [b[0] + (c[0] - b[0]) * w, b[1] + (c[1] - b[1]) * w, b[2] + (c[2] - b[2]) * w]; }
+    const den = 1 / (va + vb + vc); return mix(vb * den, vc * den);
+  }
+  // vermelho = interferência · laranja = encosta (< 0,03 mm) · amarelo → verde → azul = folga crescendo até 0,3 mm
+  function corFolga(d) {
+    if (d < 0) return '#D32F2F';
+    if (d < .03) return '#FF6F00';
+    const v = Math.min(1, (d - .03) / .27), st = [[245, 210, 30], [40, 190, 70], [30, 110, 220]];
+    const i = v < .5 ? 0 : 1, t = v < .5 ? v * 2 : (v - .5) * 2;
+    return '#' + st[i].map((x, k) => Math.round(x + (st[i + 1][k] - x) * t).toString(16).padStart(2, '0')).join('');
   }
   window.tracoNarrado = { montar, corte, parMontagem, montagem, porcaAltura: (d) => PORCA[d]?.[1], temMeca: (spec) => !!spec?.pecas?.some(ehMeca) };
   // Editar peça narrada: abre o formulário já preenchido, com a peça tocada em destaque.
