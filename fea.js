@@ -79,7 +79,7 @@
       else if (r.estudo === 'termico') { campo = r.T; vmin = r.tmin; vmax = r.tmax;
         const kP = r.T0 && S.potencia != null ? S.potencia / r.P0 : 1;
         const qi = S.anima && r.quadros?.length ? Math.min(r.quadros.length - 1, Math.floor(S.fase * (r.quadros.length + 4))) : S.tempo != null && r.quadros?.length ? S.tempo : null;
-        if (qi != null) { const f1 = r.quadros[qi].f, f0 = r.quadros0?.[qi]?.f; quadro = f0 && kP !== 1 ? f1.map((v, i) => f0[i] + (v - f0[i]) * kP) : f1; }
+        if (qi != null) { const q0 = r.quadros0 || [], f1 = r.quadros[qi].f, f0 = q0.length ? q0[Math.min(qi, q0.length - 1)].f : null; quadro = f0 && kP !== 1 ? f1.map((v, i) => f0[i] + (v - f0[i]) * kP) : f1; }
         else if (kP !== 1) campo = r.T.map((v, i) => r.T0[i] + (v - r.T0[i]) * kP);
         if (kP !== 1 || qi != null) { let a = Infinity, b = -Infinity; for (const v of (quadro || campo)) { a = Math.min(a, v); b = Math.max(b, v); } S.agoraT = [a, b]; vmin = Math.min(vmin, a); vmax = Math.max(vmax, b); S.faixaT = [vmin, vmax]; } else { S.faixaT = null; S.agoraT = null; } }
       let esc = 0;
