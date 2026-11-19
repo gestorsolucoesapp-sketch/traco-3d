@@ -389,3 +389,18 @@ body.trilho .pc-lateral:not(.tambor) .pc-ferr{opacity:1;color:#111;min-height:42
 body.trilho .pc-lateral:not(.tambor) .pc-ic{font-size:21px;filter:saturate(1.15) contrast(1.1)}
 body.trilho .pc-lateral:not(.tambor) .pc-ferr:hover{background:#efe9e2}
 body.trilho .pc-lateral:not(.tambor) .faixa,body.trilho .pc-lateral:not(.tambor) .tambor-faixa{display:none}
+
+/* Modo escuro e brilho */
+.tema-bt{border:1px solid #d9dccf;background:#fff;border-radius:999px;width:36px;height:36px;font-size:17px;cursor:pointer;margin-right:8px;display:inline-grid;place-items:center;padding:0}
+.pc-barra .tema-bt{width:30px;height:30px;font-size:15px;margin:0}
+.tema-pop{position:fixed;z-index:120;width:240px;background:#fff;border:1px solid #d8dad1;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.18);padding:12px;display:flex;flex-direction:column;gap:10px;color:#111;font-size:13px}
+.tema-pop[hidden]{display:none}
+.tema-seg{display:flex;background:#eef0ea;border-radius:9px;padding:3px}
+.tema-seg button{flex:1;border:0;background:none;border-radius:7px;padding:7px;font-weight:700;cursor:pointer;color:#111}
+.tema-seg button.on{background:#fff;color:#D76845;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.tema-pop label{display:flex;flex-direction:column;gap:6px;font-weight:700}
+.tema-pop label span{font-weight:800;color:#D76845;align-self:flex-end;margin-top:-20px}
+.tema-pop input[type=range]{width:100%;accent-color:#D76845}
+.tema-fim button{border:0;background:none;color:#555;text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
+/* no escuro, fotos/imagens voltam às cores reais */
+html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
