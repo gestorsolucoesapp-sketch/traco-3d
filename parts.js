@@ -213,19 +213,27 @@
   let secaoKey = '', secaoCache = null;
   function secaoNarrado() {
     if (part.operation !== 'narrado' || !part.narrado) return null;
-    const key = JSON.stringify(part.narrado); if (key === secaoKey) return secaoCache;
-    const tris = window.tracoNarrado.montar(part.narrado).tris, Y = 1e-4, segs = [];
+    const tempo = part.anim?.t || 0, key = JSON.stringify(part.narrado) + '@' + tempo.toFixed(3); if (key === secaoKey) return secaoCache;
+    const tris = window.tracoNarrado.montar(part.narrado, tempo).tris, segs = [];
+    // mecanismo (deitado no plano XY): corte horizontal no meio da espessura = vista de cima
+    const meca = window.tracoNarrado.temMeca?.(part.narrado);
+    let eixo = 1, Y = 1e-4, ox = 0, oy = 2;
+    if (meca) { let z0 = Infinity, z1 = -Infinity; for (const t of tris) for (const q of t.points) { z0 = Math.min(z0, q[2]); z1 = Math.max(z1, q[2]); } eixo = 2; Y = (z0 + z1) / 2 + 1e-4; ox = 0; oy = 1; }
     for (const t of tris) {
       const pts = [];
       for (let k = 0; k < 3; k++) {
-        const a = t.points[k], b = t.points[(k + 1) % 3], ya = a[1] - Y, yb = b[1] - Y;
-        if ((ya < 0) !== (yb < 0)) { const u = ya / (ya - yb); pts.push([a[0] + (b[0] - a[0]) * u, a[2] + (b[2] - a[2]) * u]); }
+        const a = t.points[k], b = t.points[(k + 1) % 3], ya = a[eixo] - Y, yb = b[eixo] - Y;
+        if ((ya < 0) !== (yb < 0)) { const u = ya / (ya - yb); pts.push([a[ox] + (b[ox] - a[ox]) * u, a[oy] + (b[oy] - a[oy]) * u]); }
       }
       if (pts.length === 2) segs.push(pts);
     }
     let mx = Infinity, Mx = -Infinity, mz = Infinity, Mz = -Infinity;
     for (const sg of segs) for (const [x, z] of sg) { mx = Math.min(mx, x); Mx = Math.max(Mx, x); mz = Math.min(mz, z); Mz = Math.max(Mz, z); }
     if (!segs.length) return null;
+    if (meca) { // referência fixa (pose inicial), para o desenho não pular enquanto anima
+      mx = Infinity; Mx = -Infinity; mz = Infinity; Mz = -Infinity;
+      for (const t of window.tracoNarrado.montar(part.narrado, 0).tris) for (const q of t.points) { mx = Math.min(mx, q[ox]); Mx = Math.max(Mx, q[ox]); mz = Math.min(mz, q[oy]); Mz = Math.max(Mz, q[oy]); }
+    }
     const off = 1 - mx; // deixa uma folga de 1 mm do eixo
     // junta os pedacinhos em contornos fechados
     const k = ([x, z]) => `${Math.round(x * 1e4)},${Math.round(z * 1e4)}`, mapa = new Map();
@@ -614,7 +622,7 @@
     if (part.operation === 'narrado') {
       try {
         if (part.sim) return window.tracoNarrado.montagem(part.narrado, part.sim.s)?.tris || [];
-        return window.tracoNarrado?.montar(part.narrado).tris || [];
+        return window.tracoNarrado?.montar(part.narrado, part.anim?.t || 0).tris || [];
       } catch { return []; }
     }
     if (!part.closed || part.profile.length < 3) return [];

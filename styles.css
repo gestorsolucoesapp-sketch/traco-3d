@@ -434,3 +434,4 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .canto-3d button[hidden]{display:none}
 .canto-3d button.on{background:#2e4b3f;color:#fff}
 .canto-3d button[data-a=sim]{background:#D76845;color:#fff;border-color:#D76845}
+.canto-3d button[data-a=mov]{font-size:18px}

@@ -146,6 +146,7 @@
         <small>densidade ${fmt(MAT[cfg.mat], 2)} g/cm³ · massa considera ${cfg.preench}% de material</small></div>
       <h4>Massa, centro de massa e balanço</h4>
       <div class="an-tab"><table><tr><th>Peça</th><th>Volume</th><th>Massa</th><th>Centro de massa (a partir do canto)</th><th>Desbalanceamento (CM fora do eixo)</th><th>Em pé</th><th>Caixa (mm)</th></tr>${linhas}</table></div>
+      ${spec && window.tracoNarrado?.temMeca?.(spec) ? `<h4>Mecanismo</h4>${spec.pecas.filter((q) => window.tracoMeca.eh(q.tipo)).map((q) => `<div class="an-card bom"><b>${window.tracoMeca.NOMES[q.tipo]}</b><p>${window.tracoMeca.info(q)}</p></div>`).join('')}` : ''}
       <h4>Encaixe da rosca</h4>${encHtml}
       <h4>Paredes finas (pontos fracos de impressão)</h4>
       <div class="an-linha"><label>Avisar abaixo de <span><input data-c="minParede" inputmode="decimal" value="${cfg.minParede}" /> mm</span></label><button type="button" class="secondary-button" data-x="paredes">Procurar paredes finas</button></div>
@@ -211,13 +212,29 @@
   const wrap = document.querySelector('.part-model-wrap'); if (!wrap) return;
   const so = (b, ic) => { if (!b || b.dataset.icone) return; b.title = b.title || b.textContent.trim(); b.dataset.icone = ic; };
   const lado = document.createElement('div'); lado.className = 'canto-3d';
-  lado.innerHTML = '<button type="button" data-a="sim" title="Simular montagem">▶</button><button type="button" data-a="an" title="Análise de engenharia">🔬</button>';
+  lado.innerHTML = '<button type="button" data-a="mov" title="Movimentar o mecanismo">⚙️</button><button type="button" data-a="sim" title="Simular montagem">▶</button><button type="button" data-a="an" title="Análise de engenharia">🔬</button>';
   wrap.appendChild(lado);
   lado.addEventListener('pointerdown', (e) => e.stopPropagation());
   const sim = lado.querySelector('[data-a=sim]');
   sim.onclick = () => document.getElementById('simularMontagem')?.click();
   lado.querySelector('[data-a=an]').onclick = () => window.tracoAnalise?.abrir();
+  // ⚙️ anima o mecanismo narrado (engrenagens, cremalheira, biela, came, dobradiça, polias)
+  const mov = lado.querySelector('[data-a=mov]'); let laco = 0, t0 = 0;
+  const parar = () => { const p = window.tracoPeca?.part; if (p) p.anim = null; cancelAnimationFrame(laco); window.tracoPeca?.render(); };
+  mov.onclick = () => {
+    const api = window.tracoPeca, p = api?.part; if (!p) return;
+    if (p.anim) { p.anim.pausa = !p.anim.pausa; t0 = performance.now() / 1000 - p.anim.t; return; }
+    p.anim = { t: 0, pausa: false }; t0 = performance.now() / 1000;
+    const passo = () => { const q = api.part; if (!q.anim || q.operation !== 'narrado') return parar();
+      if (!q.anim.pausa) { q.anim.t = performance.now() / 1000 - t0; api.render(); } laco = requestAnimationFrame(passo); };
+    laco = requestAnimationFrame(passo);
+  };
   setInterval(() => {
+    const P0 = window.tracoPeca?.part, meca = P0?.operation === 'narrado' && window.tracoNarrado?.temMeca?.(P0.narrado);
+    mov.hidden = !meca; if (!meca && P0?.anim) parar();
+    mov.textContent = P0?.anim ? (P0.anim.pausa ? '▶' : '⏸') : '⚙️'; mov.classList.toggle('on', !!P0?.anim);
+    if (meca) { const txt = P0.narrado.pecas.filter((q) => window.tracoMeca?.eh(q.tipo)).map((q) => window.tracoMeca.info(q)).join(' · ');
+      const dim = document.getElementById('partDimensions'); if (dim && !P0.sim && dim.textContent !== txt) dim.textContent = txt; }
     const s = document.getElementById('simularMontagem');
     sim.hidden = !s || s.hidden; sim.textContent = window.tracoPeca?.part?.sim ? '⏹' : '▶';
     sim.classList.toggle('on', !!window.tracoPeca?.part?.sim);

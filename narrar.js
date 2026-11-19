@@ -175,12 +175,23 @@
   }
   let cacheKey = '', cache = null;
   // Monta todas as peças lado a lado (em x). Devolve {tris, pecas:[{nome,tris}]}.
-  function montar(spec) {
-    const key = JSON.stringify(spec);
+  const M = () => window.tracoMeca;
+  const ehMeca = (pc) => !!M()?.eh(pc.tipo);
+  function montar(spec, tempo = 0) {
+    const temMeca = spec.pecas.some(ehMeca), key = JSON.stringify(spec) + (temMeca ? '@' + tempo.toFixed(3) : '');
     if (key === cacheKey) return cache;
     const pecas = [], tris = [];
     let x = 0;
     for (const pc of spec.pecas) {
+      if (ehMeca(pc)) { // mecanismo: várias peças já montadas, o grupo fica parado no lugar enquanto anima
+        const sub0 = M().pecas(pc, 0), b = caixa(sub0.flatMap((q) => q.tris)), dx = x - b[0];
+        const subs = tempo ? M().pecas(pc, tempo) : sub0;
+        for (const q of subs) {
+          pecas.push({ nome: q.nome, tris: q.tris, meca: true });
+          tris.push(...q.tris.map((tr) => ({ ...tr, points: tr.points.map(([a, c, z]) => [a + dx, c, z]) })));
+        }
+        x += (b[3] - b[0]) + 6; continue;
+      }
       const t = malhaPeca(pc, spec.folga || 0), b = caixa(t);
       const dx = x - b[0];
       const mov = t.map((tr) => ({ normal: tr.normal, points: tr.points.map(([a, c, z]) => [a + dx, c, z]) }));
@@ -193,6 +204,7 @@
   }
   // Corte axial nominal da 1ª peça, para o quadro 2D.
   function corte(pc) {
+    if (ehMeca(pc)) { const b = caixa(M().pecas(pc, 0).flatMap((q) => q.tris)); return [[0, 0], [b[3] - b[0], 0], [b[3] - b[0], b[4] - b[1]], [0, b[4] - b[1]]]; }
     if (pc.tipo === 'parafuso') {
       const d = pc.diametro, L = pc.comprimento;
       const [w, k] = pc.cabeca === 'sextavada' ? [SEXT[d][0] / 2, SEXT[d][1]] : pc.cabeca === 'allen' ? [ALLEN[d][0] / 2, ALLEN[d][1]] : [d / 2, 0];
@@ -264,7 +276,7 @@
     }
     return { tris, ...m };
   }
-  window.tracoNarrado = { montar, corte, parMontagem, montagem, porcaAltura: (d) => PORCA[d]?.[1] };
+  window.tracoNarrado = { montar, corte, parMontagem, montagem, porcaAltura: (d) => PORCA[d]?.[1], temMeca: (spec) => !!spec?.pecas?.some(ehMeca) };
   // Editar peça narrada: abre o formulário já preenchido, com a peça tocada em destaque.
   window.tracoNarrarEditar = (i = 0) => {
     const atual = window.tracoPeca?.part?.narrado; if (!atual) return;
@@ -284,6 +296,7 @@
     mola: [['diametro', 'Diâmetro externo'], ['fio', 'Diâmetro do arame'], ['espiras', 'Espiras (voltas)'], ['passo', 'Passo entre voltas']],
   };
   const NOMES = { cilindro: 'Cilindro', bloco: 'Bloco', parafuso: 'Parafuso', porca: 'Porca', mola: 'Mola' };
+  if (window.tracoMeca) { Object.assign(CAMPOS, window.tracoMeca.CAMPOS); Object.assign(NOMES, window.tracoMeca.NOMES); }
   let spec = null; // { pecas:[], folga, avisos:[] }
 
   function normalizar(j) {
@@ -332,6 +345,7 @@
     const out = [];
     for (const pc of spec.pecas) {
       const nome = pc.nome || NOMES[pc.tipo];
+      if (ehMeca(pc)) { out.push(...M().conflitos(pc)); continue; }
       if (pc.tipo === 'cilindro' || pc.tipo === 'bloco') {
         const minR = pc.tipo === 'bloco' ? Math.min(pc.largura, pc.comprimento) / 2 : pc.diametro / 2;
         let soma = 0;
@@ -410,7 +424,7 @@
   }
 
   function campo(path, valor, rot, auto) {
-    const un = /espiras$/.test(path) ? 'voltas' : 'mm';
+    const k = path.split('.').pop(), un = /espiras$/.test(path) ? 'voltas' : (window.tracoMeca?.UNID?.[k] || 'mm');
     return `<label class="${valor == null ? 'falta' : ''}">${rot}<span><input data-p="${path}" inputmode="decimal" value="${fmt(valor)}" placeholder="falta" /> ${un}</span>${auto ? '<small>ISO</small>' : ''}</label>`;
   }
   function formulario() {

@@ -66,6 +66,12 @@ TIPOS SUPORTADOS
 - "parafuso": rosca, diametro, passo, comprimento (só a parte roscada, sem a cabeça), cabeca ("sextavada" | "allen" | "sem_cabeca" | null)
 - "porca": rosca, diametro, passo
 - "mola": diametro (diâmetro EXTERNO), fio (diâmetro do arame), espiras (número de voltas), passo (distância entre voltas). "15 espiras"/"15 voltas" → espiras 15. "mola M8" ou "mola para M8" → diametro 8 e um aviso "Mola: usei 8 mm (de M8) como diâmetro externo — confira." Arame e passo só se forem ditos.
+- "engrenagens" (par de engrenagens retas): modulo, dentes1, dentes2, espessura
+- "cremalheira" (pinhão e cremalheira): modulo, dentes (do pinhão), comprimento (da cremalheira), espessura
+- "biela_manivela": manivela (raio da manivela), biela (comprimento entre centros), pistao (diâmetro do pistão), espessura
+- "came" (came excêntrico com seguidor): raio (do came), excentricidade, espessura, haste (diâmetro da haste do seguidor)
+- "dobradica": comprimento, largura (de cada aba), espessura (da aba), pino (diâmetro do pino), abertura (graus)
+- "polias" (duas polias com correia): diametro1, diametro2, distancia (entre centros), largura
 - furo (sempre no centro da face): { "face": "topo" | "base", "diametro", "rosca" (ex. "M6" ou null se for furo liso), "passo", "profundidade", "passante" }
 
 FORMATO (só o JSON)
