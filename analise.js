@@ -62,6 +62,8 @@
   }
   async function paredes(tris, ini, prog) {
     const n = tris.length, passo = Math.max(1, Math.floor(n / 900)), res = [];
+    const kv = (q) => `${q[0].toFixed(4)},${q[1].toFixed(4)},${q[2].toFixed(4)}`;
+    const chaves = tris.map((t) => t.points.map(kv));
     const caixas = tris.map((t) => { const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity]; for (const q of t.points) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], q[k]); b[k + 3] = Math.max(b[k + 3], q[k]); } return b; });
     for (let i = 0, cont = 0; i < n; i += passo, cont++) {
       const t = tris[i], c = [0, 1, 2].map((k) => (t.points[0][k] + t.points[1][k] + t.points[2][k]) / 3), d = t.normal.map((x) => -x);
@@ -69,6 +71,7 @@
       let best = Infinity;
       for (let j = 0; j < n; j++) {
         if (j === i) continue; const B = caixas[j];
+        if (chaves[j].some((k) => chaves[i].includes(k))) continue; // vizinho colado (ponta de canto), não é parede
         // corte rápido: a caixa precisa estar no caminho do raio até a melhor distância achada
         let tmin = 0, tmax = best;
         for (let k = 0; k < 3 && tmin <= tmax; k++) {
@@ -168,8 +171,10 @@
       const finas = todas.filter((r) => r.e < lim);
       const min = todas.reduce((a, r) => (r.e < a.e ? r : a), { e: Infinity });
       api.part.realce = new Set(finas.map((r) => r.idx)); api.render();
-      msg.innerHTML = finas.length ? `<span class="ruim">${finas.length} trechos com parede abaixo de ${fmt(lim, 1)} mm</span> (mais fina: ${fmt(min.e, 2)} mm em ${min.nome}). Ficaram vermelhos no 3D.`
-        : `Nenhuma parede abaixo de ${fmt(lim, 1)} mm. A mais fina medida: ${fmt(min.e, 2)} mm${min.nome ? ` (${min.nome})` : ''}.`;
+      const temRosca = (spec?.pecas || []).some((pc) => pc.tipo === 'parafuso' || pc.tipo === 'porca' || (pc.furos || []).some((h) => h.rosca));
+      const notaRosca = temRosca ? '<br><small>Nas roscas os dentes são naturalmente finos (cerca de metade do passo). Isso é normal; para impressão, use camada fina e folga na rosca.</small>' : '';
+      msg.innerHTML = notaRosca + (finas.length ? `<span class="ruim">${finas.length} trechos com parede abaixo de ${fmt(lim, 1)} mm</span> (mais fina: ${fmt(min.e, 2)} mm em ${min.nome}). Ficaram vermelhos no 3D.`
+        : `Nenhuma parede abaixo de ${fmt(lim, 1)} mm. A mais fina medida: ${fmt(min.e, 2)} mm${min.nome ? ` (${min.nome})` : ''}.`);
     };
     resist();
     if (!dlg.open) dlg.showModal();
