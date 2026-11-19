@@ -163,8 +163,13 @@
   }
 
   function sketchTransform(width, height) {
-    const extent = part.view;
     const left = 42, right = width - 24, top = 26, bottom = height - 35;
+    // Mesma escala nos dois eixos (1 mm na horizontal = 1 mm na vertical), como papel milimetrado.
+    if (right - left > 20 && bottom - top > 20 && part.view?.r > 0 && part.view?.z > 0) {
+      const W = right - left, H = bottom - top, k = Math.max(part.view.r / W, part.view.z / H);
+      if (Math.abs(part.view.r - k * W) > 1e-9 || Math.abs(part.view.z - k * H) > 1e-9) { part.view.r = k * W; part.view.z = k * H; }
+    }
+    const extent = part.view;
     return {
       extent,
       screen: ([r, z]) => [left + (r - (extent.r0 || 0)) / extent.r * (right - left),
