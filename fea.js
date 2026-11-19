@@ -81,7 +81,7 @@
         const qi = S.anima && r.quadros?.length ? Math.min(r.quadros.length - 1, Math.floor(S.fase * (r.quadros.length + 4))) : S.tempo != null && r.quadros?.length ? S.tempo : null;
         if (qi != null) { const f1 = r.quadros[qi].f, f0 = r.quadros0?.[qi]?.f; quadro = f0 && kP !== 1 ? f1.map((v, i) => f0[i] + (v - f0[i]) * kP) : f1; }
         else if (kP !== 1) campo = r.T.map((v, i) => r.T0[i] + (v - r.T0[i]) * kP);
-        if (kP > 1 || qi != null) { let a = Infinity, b = -Infinity; for (const v of (quadro || campo)) { a = Math.min(a, v); b = Math.max(b, v); } vmin = Math.min(vmin, a); vmax = Math.max(vmax, b); S.faixaT = [vmin, vmax]; } else S.faixaT = null; }
+        if (kP !== 1 || qi != null) { let a = Infinity, b = -Infinity; for (const v of (quadro || campo)) { a = Math.min(a, v); b = Math.max(b, v); } S.agoraT = [a, b]; vmin = Math.min(vmin, a); vmax = Math.max(vmax, b); S.faixaT = [vmin, vmax]; } else { S.faixaT = null; S.agoraT = null; } }
       let esc = 0;
       if (u) {
         const umax = r.estudo === 'estatico' ? r.maxU : 1;
@@ -300,7 +300,7 @@
     return h ? `<h4>🎚️ Simulação livre</h4><div class="fea-livre">${h}<p class="an-sub" id="feaLivreRes">${livreTermTxt(r)}</p></div>` : '';
   }
   function livreTermTxt(r) {
-    const [a, b] = S.faixaT || [r.tmin, r.tmax];
+    const [a, b] = S.agoraT || [r.tmin, r.tmax];
     return `Agora: mínima <b>${fmt(a, 1)} °C</b> · máxima <b>${fmt(b, 1)} °C</b>`;
   }
   function livre(el) {
