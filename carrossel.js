@@ -9,7 +9,7 @@
   const modo = () => (document.getElementById('architectureMode')?.hidden ? 'pecas' : 'arq');
   let pos = 0, alvo = 0, itens = [], ultimoAtivo = -1, ultimoModo = '', arrasto = null, arrastou = false, tNome = 0;
   try { const s = JSON.parse(localStorage.getItem('traco-tambor') || '{}'); pos = alvo = s[modo()] || 0; } catch { /* */ }
-  const passo = () => 0.32; // ângulo entre ícones
+  const passo = () => 52 / Math.max(120, lat.clientHeight * .44); // ~52 px entre ícones no meio
 
   function lista() { itens = [...lat.querySelectorAll('.pc-ferr')]; }
   function mostraNome(txt) {
