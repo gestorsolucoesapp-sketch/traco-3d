@@ -199,6 +199,41 @@
     });
   }
 
+  // Peça narrada: corte de verdade da malha no plano do eixo (y = 0), como se tivesse sido desenhada.
+  let secaoKey = '', secaoCache = null;
+  function secaoNarrado() {
+    if (part.operation !== 'narrado' || !part.narrado) return null;
+    const key = JSON.stringify(part.narrado); if (key === secaoKey) return secaoCache;
+    const tris = window.tracoNarrado.montar(part.narrado).tris, Y = 1e-4, segs = [];
+    for (const t of tris) {
+      const pts = [];
+      for (let k = 0; k < 3; k++) {
+        const a = t.points[k], b = t.points[(k + 1) % 3], ya = a[1] - Y, yb = b[1] - Y;
+        if ((ya < 0) !== (yb < 0)) { const u = ya / (ya - yb); pts.push([a[0] + (b[0] - a[0]) * u, a[2] + (b[2] - a[2]) * u]); }
+      }
+      if (pts.length === 2) segs.push(pts);
+    }
+    let mx = Infinity, Mx = -Infinity, mz = Infinity, Mz = -Infinity;
+    for (const sg of segs) for (const [x, z] of sg) { mx = Math.min(mx, x); Mx = Math.max(Mx, x); mz = Math.min(mz, z); Mz = Math.max(Mz, z); }
+    if (!segs.length) return null;
+    const off = 1 - mx; // deixa uma folga de 1 mm do eixo
+    // junta os pedacinhos em contornos fechados
+    const k = ([x, z]) => `${Math.round(x * 1e4)},${Math.round(z * 1e4)}`, mapa = new Map();
+    segs.forEach((sg, i) => sg.forEach((p) => { const kk = k(p); if (!mapa.has(kk)) mapa.set(kk, []); mapa.get(kk).push(i); }));
+    const usado = new Uint8Array(segs.length), laços = [];
+    for (let i = 0; i < segs.length; i++) {
+      if (usado[i]) continue; usado[i] = 1;
+      const laço = [segs[i][0], segs[i][1]]; let fim = segs[i][1];
+      for (let guarda = 0; guarda < segs.length; guarda++) {
+        const prox = (mapa.get(k(fim)) || []).find((j) => !usado[j]); if (prox == null) break;
+        usado[prox] = 1; const sg = segs[prox]; fim = k(sg[0]) === k(fim) ? sg[1] : sg[0]; laço.push(fim);
+      }
+      laços.push(laço.map(([x, z]) => [x + off, z - mz]));
+    }
+    secaoKey = key; secaoCache = { laços, largura: Mx - mx + 2, altura: Mz - mz };
+    return secaoCache;
+  }
+  window.tracoSecaoNarrado = () => secaoNarrado();
   function drawSketch() {
     const { width, height, ratio } = resize(sketch);
     if (width < 2) return;
@@ -251,6 +286,14 @@
       ctx.fillStyle = '#111111'; ctx.textAlign = 'left';
       ctx.fillText(`${display(diameter)} mm · ${turns} voltas · passo ${display(pitch)} mm`,
         t.left + 5, t.top + 27);
+    } else if (secaoNarrado()) {
+      const sc = secaoNarrado();
+      ctx.beginPath();
+      for (const l of sc.laços) { l.forEach((q, i) => { const p = t.screen(q); i ? ctx.lineTo(...p) : ctx.moveTo(...p); }); ctx.closePath(); }
+      ctx.fillStyle = '#c8795555'; ctx.fill('evenodd');
+      ctx.strokeStyle = '#c57650'; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.fillStyle = '#111111'; ctx.textAlign = 'left';
+      ctx.fillText('Corte no eixo · ' + part.narrado.pecas.map((pc) => pc.nome).join(' + '), t.left + 5, t.top + 27);
     } else if (part.profile.length) {
       part.cotaRects = [];
       ctx.beginPath();
@@ -1230,6 +1273,7 @@
   });
   sketch.addEventListener('pointerdown', (event) => {
     if (part.mode !== 'custom' || part.profile.length < 2) return;
+    if (part.operation === 'narrado') return; // peça narrada: edita pela narração (toque no 3D)
     if (!part.cotando) { // toque direto na medida de uma linha abre a edição
       const rect0 = sketch.getBoundingClientRect(), x0 = event.clientX - rect0.left, y0 = event.clientY - rect0.top;
       const hit = (part.cotaRects || []).find((r) => x0 >= r.x && x0 <= r.x + r.w && y0 >= r.y && y0 <= r.y + r.h);
@@ -1729,6 +1773,7 @@
     if (!window.tracoNarrado.montar(spec).tris.length) throw new Error('nenhuma geometria');
     part.sim = null; part.mode = 'custom'; part.operation = 'narrado'; part.narrado = spec;
     part.profile = window.tracoNarrado.corte(spec.pecas[0]).map(([x, z]) => [Math.max(0, x), Math.max(0, z)]);
+    { const sc = (part.narrado = spec, secaoNarrado()); if (sc) part.profile = [[0, 0], [sc.largura, 0], [sc.largura, sc.altura], [0, sc.altura]]; }
     part.closed = true; part.shapeType = null; part.holeDiameter = 0; part.shapeTool = null;
     part.drawLine = false; part.freehand = false; part.pending = false; part.showHoleControls = false;
     part.selected = [...part.profile.at(-1)]; part.zoom = 1;
