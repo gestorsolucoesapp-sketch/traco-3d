@@ -483,9 +483,7 @@
     if (!window.TRACO_LER_URL) { $('narrarMsg').textContent = 'A IA ainda não está ligada (faltam os segredos no GitHub). Use "Montar sem IA" por enquanto.'; return; }
     $('narrarMsg').textContent = 'Interpretando…';
     try {
-      const r = await fetch(window.TRACO_LER_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ texto }) });
-      const j = await r.json().catch(() => ({ erro: 'Resposta inválida do servidor.' }));
-      if (!r.ok || j.erro) throw new Error(j.erro || `Erro ${r.status}`);
+      const j = await window.tracoChamarIA({ texto });
       spec = normalizar({ ...j, _texto: texto }); normas(); formulario();
     } catch (e) { $('narrarMsg').textContent = String(e.message || e); }
   }

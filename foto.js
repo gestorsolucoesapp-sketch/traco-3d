@@ -62,10 +62,7 @@
     abrir(`<h3>Lendo o desenho…</h3><img class="foto-previa" src="${foto.dataUrl}" alt="Foto enviada" />
       <p class="foto-sub">A IA está lendo as medidas escritas. Leva alguns segundos.</p>`);
     try {
-      const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ imagem: foto.dataUrl, midia: 'image/jpeg', tipo: tipoPedido }) });
-      const j = await r.json().catch(() => ({ erro: 'Resposta inválida do servidor.' }));
-      if (!r.ok || j.erro) throw new Error(j.erro || `Erro ${r.status}`);
+      const j = await window.tracoChamarIA({ imagem: foto.dataUrl, midia: 'image/jpeg', tipo: tipoPedido });
       leitura = normalizar(j, foto.dataUrl);
       conferir();
     } catch (e) {
