@@ -24,7 +24,7 @@
     drawProfileTool: '／', freehandProfileTool: '✎', rectangleTool: '▭', circleTool: '◯', addProfilePoint: '⌖',
     extrudeTool: '⬆', revolveTool: '⟳', pushPullTool: '⇕', holeTool: '◎', threadTool: '🔩', springTool: '〰',
     doorTool: '🚪', windowTool: '🪟', undoButton: '↶', redoButton: '↷', clearButton: '🗑',
-    newProfile: '📄', undoProfilePoint: '↶', closeProfile: '⬠', fitProfileView: '⤢', cotarPerfil: '📐', espessuraPerfil: '⧉',
+    newProfile: '📄', undoProfilePoint: '↶', closeProfile: '⬠', fitProfileView: '⤢', cotarPerfil: '📐', analisePeca: '🔬', simularMontagem: '▶', espessuraPerfil: '⧉',
     openPart: '📂', savePart: '💾', cupExample: '⭐', exportPartStl: '⬇️', export3mf: '🌈', exportStep: '🧩',
     novoProjeto: '📄', openButton: '📂', saveButton: '💾', exampleButton: '⭐', importStlButton: '📥', exportButton: '⬇️',
     pushWallsTool: '⇕', desenhar3d: '🧊', narrarButton: '🎙️', fotoArchButton: '📷', fotoPartButton: '📷',
@@ -93,7 +93,7 @@
         ['Simular montagem', arq ? '' : '#simularMontagem'],
       ]],
       ['Desenhar', null, 'desenho', arq ? null : [['Plano Frontal (XZ)', '#planoFrontal'], ['Plano Superior (XY · chão)', '#planoSuperior'], ['Plano Direito (YZ)', '#planoDireito']]],
-      arq ? ['Ferramentas', null, 'ferramentas'] : ['Ferramentas', [['📐 Cotar', '#cotarPerfil'], ['🎙️ Narrar peça', '🎙️ Narrar'], ['📷 Foto do desenho', '#fotoPartButton'], ['Simular montagem', '#simularMontagem']]],
+      arq ? ['Ferramentas', null, 'ferramentas'] : ['Ferramentas', [['📐 Cotar', '#cotarPerfil'], ['🎙️ Narrar peça', '🎙️ Narrar'], ['📷 Foto do desenho', '#fotoPartButton'], ['Simular montagem', '#simularMontagem'], ['🔬 Análise de engenharia', '#analisePeca']]],
       ['Modelar', arq ? [['↑ Empurrar / puxar paredes', '#pushWallsTool'], ['🪑 Objetos', '🪑 Objetos']] : null, arq ? null : 'modelo'],
       ['Janela', [
         ['🏠 Arquitetura · ambientes', '#architectureTab'],
@@ -218,7 +218,7 @@
       [...document.querySelectorAll('#sketchMenu .part-menu-content button')],
       ids('#cotarPerfil', '#espessuraPerfil', '#closeProfile', '#undoProfilePoint', '#fitProfileView'),
       [...document.querySelectorAll('#modelMenu .part-menu-content button')],
-      ids('#exportPartStl', '#export3mf', '#exportStep', '🖨️ Prancha', '📚 Histórico'),
+      ids('#analisePeca', '#simularMontagem', '#exportPartStl', '#export3mf', '#exportStep', '🖨️ Prancha', '📚 Histórico'),
     ];
   }
   const NOMES_GRUPO = { arq: ['Arquivo', 'Desenhar', 'Modelar', 'Editar', 'Exportar'], pecas: ['Arquivo', 'Desenhar', 'Ajustar', 'Modelar', 'Exportar'] };

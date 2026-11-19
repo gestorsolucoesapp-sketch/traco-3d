@@ -264,7 +264,7 @@
     }
     return { tris, ...m };
   }
-  window.tracoNarrado = { montar, corte, parMontagem, montagem };
+  window.tracoNarrado = { montar, corte, parMontagem, montagem, porcaAltura: (d) => PORCA[d]?.[1] };
   // Editar peça narrada: abre o formulário já preenchido, com a peça tocada em destaque.
   window.tracoNarrarEditar = (i = 0) => {
     const atual = window.tracoPeca?.part?.narrado; if (!atual) return;

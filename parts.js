@@ -744,7 +744,7 @@
         if (culling && project([nx, ny, nz], width, height, unitN, 0).depth - d0 < -1e-9) return;
         const corners = triangle.points.map((q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz));
         const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
-        facesN.push({ idx, corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3, color: corFace(triangle, light) });
+        facesN.push({ idx, corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3, color: part.realce?.has(idx) ? `rgb(${Math.round(150 + 95 * light)},${Math.round(30 + 30 * light)},${Math.round(30 + 30 * light)})` : corFace(triangle, light) });
       });
       facesN.sort((a, c) => a.depth - c.depth);
       part.lastFaces = facesN;
@@ -1767,7 +1767,7 @@
     },
     projeto() { return JSON.stringify({ version: 1, kind: 'rotational-part', mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
       operation: part.operation, extrudeDepth: part.extrudeDepth, shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint, plano: part.plano }); },
-    abrir(raw) { part.sim = null; openProject(raw); save(); refresh(); },
+    abrir(raw) { part.sim = null; part.realce = null; openProject(raw); save(); refresh(); },
   };
   // Simulação de montagem: o parafuso desce girando pelo furo; o corpo fica transparente.
   function pararSim() { part.sim = null; refresh(); }

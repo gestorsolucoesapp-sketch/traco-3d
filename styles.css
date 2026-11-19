@@ -409,3 +409,28 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .tema-bloco{display:flex;flex-direction:column;gap:8px;padding-bottom:10px;border-bottom:1px solid #eee}
 #architectureMode canvas,#partsMode canvas{filter:var(--filtro-area,none)}
 .tema-pop{max-height:calc(100vh - 80px);overflow:auto}
+
+/* Análise */
+.analise-dlg{max-width:min(980px,96vw)}
+.analise-dlg h4{margin:16px 0 6px;font-size:14px}
+.an-linha{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end}
+.an-linha label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700}
+.an-linha label span{display:flex;align-items:center;gap:4px}
+.an-linha input,.an-linha select{width:110px;padding:7px 8px;border:1px solid #d9dccf;border-radius:8px;font:inherit}
+.an-linha small{font-size:11px;color:#555;flex-basis:100%}
+.an-tab{overflow:auto}.an-tab table{border-collapse:collapse;width:100%;font-size:12.5px}
+.an-tab th,.an-tab td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left;white-space:nowrap}
+.an-card{border:1px solid #e1e4dc;border-left:5px solid #999;border-radius:10px;padding:9px 12px;margin:6px 0;font-size:13px}
+.an-card p{margin:4px 0}.an-card small{display:block;color:#444;margin-top:3px}
+.an-card.bom{border-left-color:#2e8b57}.an-card.atencao{border-left-color:#e0a100}.an-card.ruim{border-left-color:#c62828}
+.an-sub{font-size:13px;color:#222;line-height:1.5}
+.bom{color:#2e7d32}.atencao{color:#b26a00}.ruim{color:#c62828;font-weight:800}
+/* 3D: botões só com ícone nos cantos */
+.part-model-wrap .cota-bar{top:10px!important;left:10px!important;flex-direction:column;gap:6px}
+.part-model-wrap .paint-bar{left:10px!important;bottom:10px!important}
+.ic-canto{min-width:36px;height:36px;padding:0 8px!important;font-size:16px!important;border-radius:10px!important;display:inline-grid;place-items:center}
+.canto-3d{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:6px;z-index:4}
+.canto-3d button{width:38px;height:38px;border-radius:10px;border:1px solid #c9d3cf;background:#fff;font-size:17px;cursor:pointer;color:#111;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.canto-3d button[hidden]{display:none}
+.canto-3d button.on{background:#2e4b3f;color:#fff}
+.canto-3d button[data-a=sim]{background:#D76845;color:#fff;border-color:#D76845}
