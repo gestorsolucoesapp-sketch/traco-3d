@@ -93,7 +93,7 @@
 
   // botão redondo: segurar e arrastar, ou tocar
   fab.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); fab.setPointerCapture(e.pointerId);
+    e.preventDefault(); try { fab.setPointerCapture(e.pointerId); } catch { /* */ }
     segurando = true; moveu = false;
     abre(innerWidth / 2, innerHeight / 2);
   });
