@@ -43,6 +43,13 @@ self.onmessage = (ev) => {
       // quadros do aquecimento: média por triângulo
       res.quadros = (r.quadros || []).map((q) => { const v = amostra(q.T, 1), f = new Float32Array(nt); for (let t = 0; t < nt; t++) f[t] = (v[t * 3] + v[t * 3 + 1] + v[t * 3 + 2]) / 3; tr.push(f.buffer); return { t: q.t, f }; });
       for (const q of r.quadros || []) for (const v of q.T) { res.tmin = Math.min(res.tmin, v); res.tmax = Math.max(res.tmax, v); }
+      // sem calor (0 W): permite mudar a potência ao vivo, sem recalcular (o calor é linear)
+      if ((c.calor || []).length) {
+        const r0 = N.termico(tris, { ...c, calor: c.calor.map((k) => ({ ...k, valor: 0 })) }, (p) => prog({ ...p, fase: 'Base sem calor: ' + p.fase }));
+        const am0 = (campo) => { const out = new Float32Array(nt * 3); for (let t = 0; t < nt; t++) for (let v = 0; v < 3; v++) { const s2 = N.amostrar(r0.M, campo, 1, trisS[t][v], nrm[t]); if (s2) out[t * 3 + v] = s2[0]; } return out; };
+        res.T0 = am0(r0.T); res.P0 = c.calor.reduce((a, k) => a + k.valor, 0); tr.push(res.T0.buffer);
+        res.quadros0 = (r0.quadros || []).map((q) => { const v = am0(q.T), f = new Float32Array(nt); for (let t = 0; t < nt; t++) f[t] = (v[t * 3] + v[t * 3 + 1] + v[t * 3 + 2]) / 3; tr.push(f.buffer); return { t: q.t, f }; });
+      }
     } else if (estudo === 'otimizar') {
       // evolução: algumas fotos do material sendo retirado
       const idx = r.fotos.length <= 8 ? r.fotos.map((_, i) => i) : Array.from({ length: 8 }, (_, i) => Math.round(i * (r.fotos.length - 1) / 7));

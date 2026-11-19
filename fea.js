@@ -71,18 +71,22 @@
       let campo = null, u = null, vmax = 1, vmin = 0, inv = false;
       let rampa = 1, quadro = null;
       if (r.estudo === 'estatico') {
-        u = r.u; rampa = S.anima ? Math.min(1, S.fase / .7) : 1; // a carga sobe de 0 a 100% (linear: tudo escala junto)
-        if (S.vista === 'vm') { campo = r.vm.map((x) => x * rampa); vmax = r.maxVM; }
-        else if (S.vista === 'u') { campo = mag(r.u).map((x) => x * rampa); vmax = r.maxU; }
+        u = r.u; rampa = S.anima ? Math.min(1, S.fase / .7) : (S.livre ?? 1); // a carga sobe de 0 a 100% (linear: tudo escala junto)
+        if (S.vista === 'vm') { campo = r.vm.map((x) => x * rampa); vmax = S.livre != null ? S.props.esc : r.maxVM; }
+        else if (S.vista === 'u') { campo = mag(r.u).map((x) => x * rampa); vmax = r.maxU * Math.max(1, rampa); }
         else { campo = r.vm.map((x) => S.props.esc / Math.max(x * rampa, 1e-9)); vmin = 0; vmax = 3; inv = true; }
       } else if (r.estudo === 'modal') { const m = r.modos[S.modo] || r.modos[0]; u = m.u; campo = mag(m.u); vmax = 1; }
       else if (r.estudo === 'termico') { campo = r.T; vmin = r.tmin; vmax = r.tmax;
-        if (S.anima && r.quadros?.length) { const q = r.quadros; quadro = q[Math.min(q.length - 1, Math.floor(S.fase * (q.length + 4)))].f; } }
+        const kP = r.T0 && S.potencia != null ? S.potencia / r.P0 : 1;
+        const qi = S.anima && r.quadros?.length ? Math.min(r.quadros.length - 1, Math.floor(S.fase * (r.quadros.length + 4))) : S.tempo != null && r.quadros?.length ? S.tempo : null;
+        if (qi != null) { const f1 = r.quadros[qi].f, f0 = r.quadros0?.[qi]?.f; quadro = f0 && kP !== 1 ? f1.map((v, i) => f0[i] + (v - f0[i]) * kP) : f1; }
+        else if (kP !== 1) campo = r.T.map((v, i) => r.T0[i] + (v - r.T0[i]) * kP);
+        if (kP > 1 || qi != null) { let a = Infinity, b = -Infinity; for (const v of (quadro || campo)) { a = Math.min(a, v); b = Math.max(b, v); } vmin = Math.min(vmin, a); vmax = Math.max(vmax, b); S.faixaT = [vmin, vmax]; } else S.faixaT = null; }
       let esc = 0;
       if (u) {
         const umax = r.estudo === 'estatico' ? r.maxU : 1;
         esc = r.estudo === 'modal' ? sz * .08 / umax : S.exagero ? (umax > 0 ? sz * .05 / umax : 0) : 1;
-        if (S.anima) esc *= r.estudo === 'modal' ? Math.sin(S.fase * 2 * Math.PI) : rampa;
+        if (S.anima || r.estudo === 'estatico') esc *= r.estudo === 'modal' ? Math.sin(S.fase * 2 * Math.PI) : rampa;
       }
       out = lista.map((t, i) => {
         let v = quadro ? quadro[i] : (campo[i * 3] + campo[i * 3 + 1] + campo[i * 3 + 2]) / 3;
@@ -147,7 +151,7 @@
     if ((e === 'estatico' || e === 'otimizar') && S.sel.carga.size) {
       const pr = S.carga.tipo === 'pressao', v = num(S.carga.valor); let pos = null;
       for (const { c, n } of amostras(S.sel.carga, tris, pr ? 9 : 6)) { const d = pr || S.carga.dir === 'normal' ? n.map((x) => -x) : DIR[S.carga.dir]; const a = seta(ctx, proj, c, d, L, '#EF6C00', off); if (!pos || a.y < pos.y) pos = a; }
-      if (pos && v) { const f = S.anima && S.res?.estudo === 'estatico' ? Math.min(1, S.fase / .7) : 1; etiqueta(ctx, pos.x, pos.y - 4, `${fmt(v * f, 1)} ${pr ? 'MPa' : 'N'}`, '#EF6C00'); }
+      if (pos && v) { const f = S.anima && S.res?.estudo === 'estatico' ? Math.min(1, S.fase / .7) : S.res?.estudo === 'estatico' ? (S.livre ?? 1) : 1; etiqueta(ctx, pos.x, pos.y - 4, `${fmt(v * f, 1)} ${pr ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N'}`, '#EF6C00'); }
     }
     if (S.gravidade && e !== 'termico') { const c = centro(tris); const a = seta(ctx, proj, c, [0, 0, -1], L * .8, '#6D4C41', off); etiqueta(ctx, a.x, a.y - 4, 'peso', '#6D4C41'); }
     // térmico: faces quentes/frias, calor entrando e o ar em volta
@@ -216,7 +220,7 @@
       document.querySelector('.part-model-wrap')?.insertAdjacentElement('afterend', painel);
       legenda = document.createElement('div'); legenda.className = 'fea-legenda'; legenda.hidden = true;
       document.querySelector('.part-model-wrap')?.appendChild(legenda);
-      painel.addEventListener('click', clique); painel.addEventListener('change', muda); painel.addEventListener('input', (e) => { if (e.target.matches('[data-v]')) muda(e); });
+      painel.addEventListener('click', clique); painel.addEventListener('change', muda); painel.addEventListener('input', (e) => { if (e.target.matches('[data-livre]')) return livre(e.target); if (e.target.matches('[data-v]')) muda(e); });
     }
     painel.hidden = !S.aberto;
     if (!S.aberto) { S.escolhendo = null; S.anima = false; legenda.hidden = true; }
@@ -225,7 +229,7 @@
   }
   function selBloco(k) {
     const n = S.sel[k].size, on = S.escolhendo === k;
-    return `<div class="fea-sel"><span class="fea-bola" style="background:${CORSEL[k]}"></span><b>${NOMESEL[k]}</b><span class="fea-n">${n ? `${n} triângulos` : 'nenhuma'}</span>
+    return `<div class="fea-sel" data-k="${k}"><span class="fea-bola" style="background:${CORSEL[k]}"></span><b>${NOMESEL[k]}</b><span class="fea-n">${n ? `${n} triângulos` : 'nenhuma'}</span>
       <button type="button" class="${on ? 'primary-button' : 'secondary-button'}" data-x="esc-${k}">${on ? '✓ Pronto' : 'Escolher no 3D'}</button>${n ? `<button type="button" class="secondary-button" data-x="limpa-${k}">Limpar</button>` : ''}</div>`;
   }
   function pinta() {
@@ -245,9 +249,9 @@
         <h4>Troca de calor com o ar (resto da peça)</h4><div class="an-linha">${campo('hconv', 'Coeficiente h', 'W/m²·K', 'ar parado ≈ 5 a 25')}${campo('tAmb', 'Temperatura do ar', '°C')}</div>`;
     } else {
       h += selBloco('fixo');
-      if (e !== 'modal') h += selBloco('carga') + `<div class="an-linha"><label>Tipo<select data-v="carga.tipo"><option value="forca"${S.carga.tipo === 'forca' ? ' selected' : ''}>Força total</option><option value="pressao"${S.carga.tipo === 'pressao' ? ' selected' : ''}>Pressão</option></select></label>
-        ${campo('carga.valor', S.carga.tipo === 'pressao' ? 'Pressão' : 'Força', S.carga.tipo === 'pressao' ? 'MPa' : 'N')}
-        ${S.carga.tipo === 'forca' ? `<label>Direção<select data-v="carga.dir">${[['normal', 'empurrando a face'], ['-z', '↓ para baixo (−Z)'], ['z', '↑ para cima (+Z)'], ['x', '→ +X'], ['-x', '← −X'], ['y', '+Y'], ['-y', '−Y']].map(([k, t]) => `<option value="${k}"${S.carga.dir === k ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : ''}
+      if (e !== 'modal') h += selBloco('carga') + `<div class="an-linha"><label>Tipo<select data-v="carga.tipo"><option value="forca"${S.carga.tipo === 'forca' ? ' selected' : ''}>Força total</option><option value="pressao"${S.carga.tipo === 'pressao' ? ' selected' : ''}>Pressão</option><option value="massa"${S.carga.tipo === 'massa' ? ' selected' : ''}>Peso em cima (kg)</option></select></label>
+        ${campo('carga.valor', S.carga.tipo === 'pressao' ? 'Pressão' : S.carga.tipo === 'massa' ? 'Peso' : 'Força', S.carga.tipo === 'pressao' ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N')}
+        ${S.carga.tipo !== 'pressao' ? `<label>Direção<select data-v="carga.dir">${[['normal', 'empurrando a face'], ['-z', '↓ para baixo (−Z)'], ['z', '↑ para cima (+Z)'], ['x', '→ +X'], ['-x', '← −X'], ['y', '+Y'], ['-y', '−Y']].map(([k, t]) => `<option value="${k}"${S.carga.dir === k ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : ''}
         <label class="fea-chk"><span><input type="checkbox" data-v="gravidade"${S.gravidade ? ' checked' : ''}/> somar o peso da peça</span></label></div>`;
       if (e === 'modal') h += `<div class="an-linha"><label>Quantos modos<select data-v="modos">${[1, 2, 3, 4, 5, 6].map((n) => `<option${n === +S.modos ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
       if (e === 'otimizar') h += `<div class="an-linha">${campo('manter', 'Manter do material', '%', 'ex.: 40')}</div><p class="an-sub">As faces fixas e as da carga ficam inteiras. O resto é retirado onde quase não trabalha.</p>`;
@@ -255,7 +259,7 @@
     h += `<div class="foto-acoes"><span id="feaProg" class="an-sub" style="flex:1"></span><button type="button" class="primary-button" data-x="rodar"${S.rodando ? ' disabled' : ''}>${S.rodando ? 'Calculando…' : '▶ Rodar simulação'}</button></div><div id="feaRes">${resultadoHtml()}</div>
       <p class="an-sub">Cálculo linear (material elástico, deformação pequena) numa malha de cubinhos: cantos vivos e roscas finas ficam aproximados. Ainda não faz: não linear, impacto/queda, flambagem, injeção e resfriamento de eletrônicos.</p>`;
     painel.innerHTML = h;
-    legendaPinta();
+    legendaPinta(); marcaFalta();
   }
   function resultadoHtml() {
     const r = S.res; if (!r) return '';
@@ -265,43 +269,83 @@
       const fs = S.props.esc / r.maxVM, cl = fs >= 2 ? 'bom' : fs >= 1 ? 'atencao' : 'ruim';
       return `<h4>Resultado</h4><div class="fea-abas">${[['vm', 'Tensão (von Mises)'], ['u', 'Deslocamento'], ['fs', 'Coef. de segurança']].map(([k, t]) => `<button type="button" class="${S.vista === k ? 'primary-button' : 'secondary-button'}" data-x="vista-${k}">${t}</button>`).join('')}</div>
         <p class="an-sub">Tensão máxima: <b>${fmt(r.maxVM, 2)} MPa</b> · deslocamento máximo: <b>${fmt(r.maxU, 4)} mm</b><br>Coeficiente de segurança mínimo: <b class="${cl}">${fmt(fs, 2)}</b> ${fs < 1 ? '— passa do limite do material: deforma de vez ou quebra.' : fs < 2 ? '— aguenta, mas no limite.' : '— folgado.'}${r.convergiu ? '' : '<br><span class="atencao">O cálculo não convergiu totalmente: use malha mais grossa ou confira se a peça está bem presa.</span>'}</p>
-        <div class="foto-acoes"><label class="fea-chk"><span><input type="checkbox" data-v="exagero"${S.exagero ? ' checked' : ''}/> deformação exagerada para ver</span></label><span style="flex:1"></span>${anim}<button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
+        ${livreEst(r)}<div class="foto-acoes"><label class="fea-chk"><span><input type="checkbox" data-v="exagero"${S.exagero ? ' checked' : ''}/> deformação exagerada para ver</span></label><span style="flex:1"></span>${anim}<button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
     }
     if (r.estudo === 'modal') return `<h4>Frequências naturais</h4><div class="fea-abas">${r.modos.map((q, i) => `<button type="button" class="${S.modo === i ? 'primary-button' : 'secondary-button'}" data-x="modo-${i}">Modo ${i + 1}: ${fmt(q.f, 1)} Hz</button>`).join('')}</div>
       <p class="an-sub">Se a peça trabalhar perto dessas frequências (motor, vibração), ela entra em ressonância. As cores mostram onde ela mais se mexe nesse modo.</p><div class="foto-acoes"><span style="flex:1"></span>${anim}<button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
-    if (r.estudo === 'termico') return `<h4>Resultado térmico</h4><p class="an-sub">Temperatura mínima <b>${fmt(r.tmin, 1)} °C</b> · máxima <b>${fmt(r.tmax, 1)} °C</b> (regime permanente).${r.quadros?.length ? ` A animação mostra a peça aquecendo do início até estabilizar (~${fmtT(r.quadros.at(-1).t)}).` : ' Para ver aquecendo no tempo, preencha o calor específico.'}</p><div class="foto-acoes"><span style="flex:1"></span>${r.quadros?.length ? anim : ''}<button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
+    if (r.estudo === 'termico') return `<h4>Resultado térmico</h4><p class="an-sub">Temperatura mínima <b>${fmt(r.tmin, 1)} °C</b> · máxima <b>${fmt(r.tmax, 1)} °C</b> (regime permanente).${r.quadros?.length ? ` A animação mostra a peça aquecendo do início até estabilizar (~${fmtT(r.quadros.at(-1).t)}).` : ' Para ver aquecendo no tempo, preencha o calor específico.'}</p>${livreTerm(r)}<div class="foto-acoes"><span style="flex:1"></span>${r.quadros?.length ? anim : ''}<button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
     if (r.estudo === 'otimizar') { const rho = S.props.rho * 1e-6; // g/mm³
       return `<h4>Forma otimizada</h4><p class="an-sub">Ficou <b>${fmt(r.volFica / r.volTotal * 100, 0)}%</b> do material: de <b>${fmt(r.volTotal * rho, 1)} g</b> para <b>${fmt(r.volFica * rho, 1)} g</b>. Use como guia para redesenhar (a forma sai em cubinhos).</p>
       <div class="foto-acoes"><span style="flex:1"></span>${anim}<button type="button" class="secondary-button" data-x="stlOtim">⬇️ STL da forma otimizada</button><button type="button" class="secondary-button" data-x="limparRes">Voltar à peça</button></div>${m}`; }
     return '';
   }
   function fmtT(t) { return t < 60 ? `${fmt(t, t < 10 ? 1 : 0)} s` : t < 3600 ? `${fmt(t / 60, 1)} min` : `${fmt(t / 3600, 1)} h`; }
+  // ---------- simulação livre: mexe na carga / potência / tempo e vê na hora (sem recalcular) ----------
+  function livreEst(r) {
+    const a = r.aplicado || { v: 0, un: 'N' }; if (!a.v) return '';
+    const atual = a.v * (S.livre ?? 1);
+    return `<h4>🎚️ Simulação livre</h4><div class="fea-livre"><label>${a.un === 'kg' ? 'Peso em cima' : a.un === 'MPa' ? 'Pressão' : 'Força'}: <b id="feaLivreTxt">${fmt(atual, 1)} ${a.un}</b>
+      <input type="range" data-livre="carga" min="0" max="${a.v * 4}" step="${a.v / 100}" value="${atual}" /></label><p class="an-sub" id="feaLivreRes">${livreEstTxt(r)}</p></div>`;
+  }
+  function livreEstTxt(r) {
+    const a = r.aplicado, f = S.livre ?? 1, sg = r.maxVM * f, fs = sg > 0 ? S.props.esc / sg : Infinity, lim = a.v * S.props.esc / r.maxVM;
+    return `Tensão máx. <b>${fmt(sg, 1)} MPa</b> · deslocamento <b>${fmt(r.maxU * f, 4)} mm</b> · segurança <b class="${fs >= 2 ? 'bom' : fs >= 1 ? 'atencao' : 'ruim'}">${fs === Infinity ? '—' : fmt(fs, 2)}</b><br>`
+      + (fs < 1 ? `<span class="ruim">❌ Passou do limite: com isso a peça escoa (deforma de vez) ou quebra.</span> ` : '')
+      + `Aguenta até cerca de <b>${fmt(lim, 1)} ${a.un}</b> (coeficiente 1). <small>Cálculo linear: perto e acima do limite o real é pior.</small>`;
+  }
+  function livreTerm(r) {
+    let h = '';
+    if (r.T0) h += `<label>Potência de calor: <b id="feaPotTxt">${fmt(S.potencia ?? r.P0, 1)} W</b><input type="range" data-livre="pot" min="0" max="${r.P0 * 4}" step="${r.P0 / 100}" value="${S.potencia ?? r.P0}" /></label>`;
+    if (r.quadros?.length) { const i = S.tempo ?? r.quadros.length - 1; h += `<label>Tempo: <b id="feaTempoTxt">${fmtT(r.quadros[i].t)}</b><input type="range" data-livre="tempo" min="0" max="${r.quadros.length - 1}" step="1" value="${i}" /></label>`; }
+    return h ? `<h4>🎚️ Simulação livre</h4><div class="fea-livre">${h}<p class="an-sub" id="feaLivreRes">${livreTermTxt(r)}</p></div>` : '';
+  }
+  function livreTermTxt(r) {
+    const [a, b] = S.faixaT || [r.tmin, r.tmax];
+    return `Agora: mínima <b>${fmt(a, 1)} °C</b> · máxima <b>${fmt(b, 1)} °C</b>`;
+  }
+  function livre(el) {
+    const r = S.res; if (!r) return; S.anima = false; const v = +el.value;
+    if (el.dataset.livre === 'carga') { S.livre = v / r.aplicado.v; painel.querySelector('#feaLivreTxt').textContent = `${fmt(v, 1)} ${r.aplicado.un}`; }
+    if (el.dataset.livre === 'pot') { S.potencia = v; painel.querySelector('#feaPotTxt').textContent = `${fmt(v, 1)} W`; }
+    if (el.dataset.livre === 'tempo') { S.tempo = v; painel.querySelector('#feaTempoTxt').textContent = v === r.quadros.length - 1 ? `${fmtT(r.quadros[v].t)} (estável)` : fmtT(r.quadros[v].t); }
+    S.versao++; API().render();
+    requestAnimationFrame(() => requestAnimationFrame(() => { const q = painel.querySelector('#feaLivreRes'); if (q) q.innerHTML = r.estudo === 'estatico' ? livreEstTxt(r) : livreTermTxt(r); legendaPinta(); }));
+    const an = painel.querySelector('[data-x=anima]'); if (an) an.textContent = '▶ Animar';
+  }
+  function marcaFalta() {
+    if (!painel) return;
+    painel.querySelectorAll('.fea-falta').forEach((el) => el.classList.remove('fea-falta'));
+    for (const q of S.falta || []) { const el = painel.querySelector(q); (el?.closest('label') || el)?.classList.add('fea-falta'); }
+  }
   function legendaPinta() {
     if (!legenda) return;
     const r = S.res; if (!S.aberto || !r || r.estudo === 'otimizar') { legenda.hidden = true; return; }
     let tit = '', a = '', b = '';
-    if (r.estudo === 'estatico') { if (S.vista === 'vm') { tit = 'Tensão MPa'; a = fmt(r.maxVM, 1); b = '0'; } else if (S.vista === 'u') { tit = 'Desloc. mm'; a = fmt(r.maxU, 3); b = '0'; } else { tit = 'Segurança'; a = '0'; b = '≥ 3'; } }
+    if (r.estudo === 'estatico') { if (S.vista === 'vm') { tit = 'Tensão MPa'; a = S.livre != null ? `${fmt(S.props.esc, 0)} limite` : fmt(r.maxVM, 1); b = '0'; } else if (S.vista === 'u') { tit = 'Desloc. mm'; a = fmt(r.maxU * Math.max(1, S.livre ?? 1), 3); b = '0'; } else { tit = 'Segurança'; a = '0'; b = '≥ 3'; } }
     else if (r.estudo === 'modal') { tit = `${fmt(r.modos[S.modo].f, 1)} Hz`; a = 'mexe mais'; b = 'parado'; }
-    else { tit = '°C'; a = fmt(r.tmax, 1); b = fmt(r.tmin, 1); }
+    else { const [lo, hi] = S.faixaT || [r.tmin, r.tmax]; tit = '°C'; a = fmt(hi, 1); b = fmt(lo, 1); }
     const grad = S.vista === 'fs' && r.estudo === 'estatico' ? 'linear-gradient(to bottom,#dc281e,#f5d21e,#28be46,#00aae6,#1e3cc8)' : 'linear-gradient(to bottom,#dc281e,#f5d21e,#28be46,#00aae6,#1e3cc8)';
     legenda.innerHTML = `<b>${tit}</b><div class="fea-barra" style="background:${grad}"></div><span>${a}</span><span>${b}</span>`;
     legenda.hidden = false;
   }
 
   function muda(ev) {
+    if (ev.target.dataset.livre) return;
     const el = ev.target, v = el.dataset.v; if (!v) return;
+    if (S.falta?.length) { S.falta = S.falta.filter((q) => q !== `[data-v="${v}"]`); el.closest('label')?.classList.remove('fea-falta'); }
     const val = el.type === 'checkbox' ? el.checked : el.value;
     if (v === 'mat') { S.mat = val; if (MATS[val]) S.props = { ...MATS[val] }; salva(); pinta(); return; }
     if (v.startsWith('props.')) { const k = v.slice(6); S.props[k] = num(val); S.mat = Object.entries(MATS).find(([, m]) => Object.keys(m).every((q) => m[q] === S.props[q]))?.[0] || 'Personalizado'; salva(); if (ev.type === 'change') pinta(); if (S.res) { S.versao++; API().render(); } return; }
     const pth = v.split('.'); let o = S; for (const k of pth.slice(0, -1)) o = o[k]; o[pth.at(-1)] = val;
     if (v === 'estudo' || v === 'malha') { S.res = null; S.anima = false; S.escolhendo = null; salva(); }
+    if (v === 'carga.tipo' && val === 'massa') S.carga.dir = '-z';
     if (['estudo', 'malha', 'carga.tipo', 'exagero', 'modoSel', 'modos'].includes(v)) { S.versao++; pinta(); API().render(); }
   }
   function clique(ev) {
     const x = ev.target.closest('[data-x]')?.dataset.x; if (!x) return;
     const api = API();
     if (x === 'fechar') return abrir();
-    if (x.startsWith('esc-')) { const k = x.slice(4); S.escolhendo = S.escolhendo === k ? null : k; S.res = null; S.anima = false; S.versao++; pinta(); api.render(); if (S.escolhendo) avisa('Toque nas faces da peça no 3D. Arraste para girar.'); return; }
+    if (x.startsWith('esc-')) { const k = x.slice(4); if (S.falta) S.falta = S.falta.filter((q) => !q.includes(`"${k}"`)); S.escolhendo = S.escolhendo === k ? null : k; S.res = null; S.anima = false; S.versao++; pinta(); api.render(); if (S.escolhendo) avisa('Toque nas faces da peça no 3D. Arraste para girar.'); return; }
     if (x.startsWith('limpa-')) { S.sel[x.slice(6)].clear(); S.res = null; S.versao++; pinta(); api.render(); return; }
     if (x.startsWith('vista-')) { S.vista = x.slice(6); S.versao++; pinta(); api.render(); return; }
     if (x.startsWith('modo-')) { S.modo = +x.slice(5); S.versao++; pinta(); api.render(); return; }
@@ -318,29 +362,31 @@
   let worker = null;
   function rodar() {
     const api = API(), tris = base(), e = S.estudo, p = S.props;
-    const falta = [];
+    const falta = [], alvo = [];
+    const F = (txt, sel) => { falta.push(txt); alvo.push(sel); };
     const lista = (k) => [...S.sel[k]];
     if (e !== 'termico') {
-      if (!p.E) falta.push('o módulo de elasticidade'); if (p.nu == null || p.nu <= 0 || p.nu >= .5) falta.push('o coeficiente de Poisson (entre 0 e 0,5)');
-      if (!S.sel.fixo.size) falta.push('as faces fixas (📌)');
-      if (e === 'estatico' && !p.esc) falta.push('o limite de escoamento');
-      if (e !== 'modal' && !S.sel.carga.size && !S.gravidade) falta.push('as faces da carga (➡️)');
-      if (e !== 'modal' && S.sel.carga.size && !num(S.carga.valor)) falta.push(S.carga.tipo === 'pressao' ? 'o valor da pressão' : 'o valor da força');
-      if ((e === 'modal' || S.gravidade) && !p.rho) falta.push('a densidade');
-      if (e === 'otimizar' && !(num(S.manter) > 0 && num(S.manter) < 100)) falta.push('quanto % do material manter');
+      if (!p.E) F('o módulo de elasticidade', '[data-v="props.E"]'); if (p.nu == null || p.nu <= 0 || p.nu >= .5) F('o coeficiente de Poisson (entre 0 e 0,5)', '[data-v="props.nu"]');
+      if (!S.sel.fixo.size) F('as faces fixas (📌)', '.fea-sel[data-k="fixo"]');
+      if (e === 'estatico' && !p.esc) F('o limite de escoamento', '[data-v="props.esc"]');
+      if (e !== 'modal' && !S.sel.carga.size && !S.gravidade) F('as faces da carga (➡️)', '.fea-sel[data-k="carga"]');
+      if (e !== 'modal' && S.sel.carga.size && !num(S.carga.valor)) F(S.carga.tipo === 'pressao' ? 'o valor da pressão' : S.carga.tipo === 'massa' ? 'o peso (kg)' : 'o valor da força', '[data-v="carga.valor"]');
+      if ((e === 'modal' || S.gravidade) && !p.rho) F('a densidade', '[data-v="props.rho"]');
+      if (e === 'otimizar' && !(num(S.manter) > 0 && num(S.manter) < 100)) F('quanto % do material manter', '[data-v="manter"]');
     } else {
-      if (!p.k) falta.push('a condutividade do material');
-      if (S.sel.temp.size && num(S.tempValor) == null) falta.push('a temperatura das faces 🌡️');
-      if (S.sel.calor.size && num(S.calorValor) == null) falta.push('a potência de calor (W)');
-      if (!S.sel.temp.size && !num(S.hconv)) falta.push('uma face com temperatura fixa ou o coeficiente h de troca com o ar');
-      if (num(S.hconv) && num(S.tAmb) == null) falta.push('a temperatura do ar');
-      if (!S.sel.temp.size && !S.sel.calor.size) falta.push('de onde vem o calor (faces 🌡️ ou 🔥)');
+      if (!p.k) F('a condutividade do material', '[data-v="props.k"]');
+      if (S.sel.temp.size && num(S.tempValor) == null) F('a temperatura das faces 🌡️', '[data-v="tempValor"]');
+      if (S.sel.calor.size && num(S.calorValor) == null) F('a potência de calor (W)', '[data-v="calorValor"]');
+      if (!S.sel.temp.size && !num(S.hconv)) F('uma face com temperatura fixa ou o coeficiente h de troca com o ar', '[data-v="hconv"]');
+      if (num(S.hconv) && num(S.tAmb) == null) F('a temperatura do ar', '[data-v="tAmb"]');
+      if (!S.sel.temp.size && !S.sel.calor.size) F('de onde vem o calor (faces 🌡️ ou 🔥)', '.fea-sel[data-k="calor"]');
     }
     const prog = painel.querySelector('#feaProg');
-    if (falta.length) { prog.innerHTML = `<span class="atencao">Falta: ${falta.join(', ')}.</span>`; return; }
+    S.falta = alvo; marcaFalta();
+    if (falta.length) { prog.innerHTML = `<span class="atencao">Falta: ${falta.join(', ')}. (marquei com um círculo vermelho)</span>`; painel.querySelector('.fea-falta')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     const d = { normal: 'normal', z: [0, 0, 1], '-z': [0, 0, -1], x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0] }[S.carga.dir];
     const cfg = { alvo: MALHAS[S.malha][e], E: (p.E || 1) * 1000, nu: p.nu, rho: (p.rho || 0) * 1e-12, rhoKg: p.rho || 0, cp: p.cp || 0, k: p.k, modos: +S.modos,
-      fixo: lista('fixo'), cargas: S.sel.carga.size ? [{ tris: lista('carga'), tipo: S.carga.tipo, valor: num(S.carga.valor), dir: S.carga.tipo === 'pressao' ? 'normal' : d }] : [], gravidade: S.gravidade,
+      fixo: lista('fixo'), cargas: S.sel.carga.size ? [{ tris: lista('carga'), tipo: S.carga.tipo === 'pressao' ? 'pressao' : 'forca', valor: num(S.carga.valor) * (S.carga.tipo === 'massa' ? 9.81 : 1), dir: S.carga.tipo === 'pressao' ? 'normal' : d }] : [], gravidade: S.gravidade,
       temps: S.sel.temp.size ? [{ tris: lista('temp'), valor: num(S.tempValor) }] : [], calor: S.sel.calor.size ? [{ tris: lista('calor'), valor: num(S.calorValor) }] : [],
       hconv: num(S.hconv) || 0, tAmb: num(S.tAmb) ?? 20, manter: (num(S.manter) || 0) / 100, iter: 22 };
     try { worker?.terminate(); worker = new Worker('fea-worker.js' + (SRC ? `?${SRC}` : '')); } catch (er) { prog.textContent = 'Este navegador não deixou rodar a simulação: ' + er.message; return; }
@@ -351,7 +397,7 @@
       if (d2.prog) { const q = pg(); if (q) q.textContent = `${d2.prog.fase}${d2.prog.it ? ` · ${d2.prog.it}` : ''}…`; return; }
       S.rodando = false; worker.terminate(); worker = null;
       if (d2.erro) { pinta(); pg().innerHTML = `<span class="ruim">Não deu: ${esc(d2.erro)}.</span>`; return; }
-      S.res = d2.fim; S.vista = 'vm'; S.modo = 0; if (S.res.estudo !== 'termico' || S.res.quadros?.length) { S.anima = true; laco(); }
+      S.res = d2.fim; S.vista = 'vm'; S.modo = 0; S.livre = null; S.potencia = null; S.tempo = null; S.res.aplicado = { v: num(S.carga.valor) || 0, un: S.carga.tipo === 'pressao' ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N' }; if (S.res.estudo !== 'termico' || S.res.quadros?.length) { S.anima = true; laco(); }
       S.versao++; pinta(); api.render();
     };
     worker.onerror = (er) => { S.rodando = false; pinta(); pg().innerHTML = `<span class="ruim">Erro na simulação: ${esc(er.message || 'falhou')}.</span>`; };

@@ -458,3 +458,9 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .rosca-legenda[hidden]{display:none}
 .rosca-legenda span{display:flex;align-items:center;gap:6px}
 .rosca-legenda i{display:inline-block;width:22px;height:9px;border-radius:3px}
+
+.fea-falta{outline:3px solid #E53935;outline-offset:4px;border-radius:12px;animation:feaPulso 1.1s ease-in-out infinite}
+@keyframes feaPulso{0%,100%{outline-color:rgba(229,57,53,1)}50%{outline-color:rgba(229,57,53,.25)}}
+.fea-livre{display:flex;flex-direction:column;gap:10px}
+.fea-livre label{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.fea-livre input[type=range]{width:100%;accent-color:#EF6C00;height:28px}
