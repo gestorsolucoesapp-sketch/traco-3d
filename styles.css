@@ -338,3 +338,32 @@ body.trilho .discipline-switch{margin:8px 0}
 .caixa-angulo i{font-style:normal;font-weight:800}
 .caixa-angulo small{flex-basis:100%;font-size:10px;color:#555}
 .esp-lado{display:flex;gap:4px}.esp-lado button{flex:1;border:1px solid #dfe3da;background:#fff;border-radius:7px;padding:6px;font-weight:700;font-size:12px;cursor:pointer}.esp-lado button.on{border-color:#D76845;color:#D76845;background:#fbe9e3}
+
+/* ---------- Roda de ferramentas (estilo GTA) ---------- */
+.roda-fab{position:fixed;z-index:85;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:50%;border:0;cursor:pointer;
+  background:radial-gradient(circle at 35% 30%,#ef8a64,#D76845 55%,#a9492c);box-shadow:0 8px 22px rgba(160,70,40,.45),inset 0 1px 0 rgba(255,255,255,.35);touch-action:none;display:grid;place-items:center}
+.roda-fab span{width:30px;height:30px;border-radius:50%;border:3px solid #fff;position:relative}
+.roda-fab span::before,.roda-fab span::after{content:'';position:absolute;background:#fff;border-radius:2px}
+.roda-fab span::before{left:50%;top:-7px;bottom:-7px;width:3px;transform:translateX(-50%)}
+.roda-fab span::after{top:50%;left:-7px;right:-7px;height:3px;transform:translateY(-50%)}
+body.modo-pc .roda-fab{bottom:38px}
+body.tela-cheia .roda-fab{bottom:18px}
+.roda-ov{position:fixed;inset:0;z-index:95;background:rgba(10,16,14,.0);backdrop-filter:blur(0);transition:background .18s,backdrop-filter .18s;touch-action:none}
+.roda-ov.on{background:rgba(10,16,14,.42);backdrop-filter:blur(3px)}
+.roda-ov[hidden]{display:none}
+.roda{position:absolute;transform:scale(.6);opacity:0;transition:transform .2s cubic-bezier(.2,1.4,.4,1),opacity .15s}
+.roda-ov.on .roda{transform:scale(1);opacity:1}
+.roda-fatias{position:absolute;inset:0}
+.roda-anel{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.roda-anel path{fill:rgba(20,28,25,.78);stroke:rgba(255,255,255,.14);stroke-width:1.2;transition:fill .12s}
+.roda-anel path.on{fill:rgba(215,104,69,.92);stroke:#fff}
+.roda-item{position:absolute;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;border:0;background:transparent;color:#fff;font-size:24px;line-height:48px;text-align:center;cursor:pointer;transition:transform .12s;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.roda-item.on{transform:scale(1.32)}
+.roda-item.ativo::after{content:'';position:absolute;left:50%;bottom:-2px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#ffd2c2}
+.roda-centro{position:absolute;left:50%;top:50%;width:40%;height:40%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#fdfbf7,#ece7df);box-shadow:0 0 0 3px rgba(255,255,255,.25),0 6px 18px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;gap:0}
+.roda-txt{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;min-width:0;padding:0 2px}
+.roda-txt small{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#D76845}
+.roda-txt b{font-size:13px;line-height:1.15;color:#111;margin:3px 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.roda-txt i{display:flex;gap:3px}.roda-txt i span{width:5px;height:5px;border-radius:50%;background:#cfc9c0}.roda-txt i span.on{background:#D76845}
+.roda-seta{border:0;background:none;font-size:22px;font-weight:800;color:#555;width:20px;cursor:pointer;padding:0}
+@media print{.roda-fab,.roda-ov{display:none!important}}

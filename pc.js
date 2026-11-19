@@ -204,10 +204,10 @@
     for (const b of document.querySelectorAll('#modelMenu .part-menu-content button')) out.push({ b, g: 'm' });
     return out;
   }
-  function trilhoItens() {
+  function listaGrupos() {
     const arq = modo() === 'arq';
     const ids = (...l) => l.map((a) => acha(a)).filter(Boolean);
-    const grupos = arq ? [
+    return arq ? [
       ids('#novoProjeto', '#openButton', '#saveButton', '#exampleButton', '#fotoArchButton', '#importStlButton'),
       botoesLateral().filter((x) => x && x.g !== 'e').map((x) => x.b),
       ids('#desenhar3d', '#pushWallsTool'),
@@ -220,6 +220,16 @@
       [...document.querySelectorAll('#modelMenu .part-menu-content button')],
       ids('#exportPartStl', '#export3mf', '#exportStep', '🖨️ Prancha', '📚 Histórico'),
     ];
+  }
+  const NOMES_GRUPO = { arq: ['Arquivo', 'Desenhar', 'Modelar', 'Editar', 'Exportar'], pecas: ['Arquivo', 'Desenhar', 'Ajustar', 'Modelar', 'Exportar'] };
+  // Para a roda de ferramentas (roda.js): grupos com ícone e nome de cada ferramenta.
+  window.tracoRodaGrupos = () => listaGrupos().map((g, i) => ({
+    nome: NOMES_GRUPO[modo()][i],
+    itens: g.filter((b) => !b.hidden).map((b) => { const pt = partes(b);
+      return { b, icone: ICONES[b.id] || pt.icone, nome: NOMES[b.id] || pt.txt.replace(/[↗↵]/g, '').replace(/^[^\p{L}\p{N}]+/u, '').trim(), ativo: ativo(b) }; }),
+  })).filter((g) => g.itens.length);
+  function trilhoItens() {
+    const grupos = listaGrupos();
     const out = [];
     for (const g of grupos) { if (!g.length) continue; if (out.length) out.push(null); for (const b of g) out.push({ b }); }
     return out;
