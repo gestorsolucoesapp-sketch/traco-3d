@@ -155,6 +155,11 @@
     };
     if (part.mode === 'custom' && part.profile.length < 2)
       part.view = { r: 60, z: 140 };
+    if (part.operation === 'narrado') { // mesma escala nos dois eixos: o corte fica com a proporção real
+      const rc = sketch.getBoundingClientRect(), W = Math.max(50, rc.width - 66), H = Math.max(50, rc.height - 61);
+      const k = Math.max(part.view.r / W, part.view.z / H);
+      part.view = { r: k * W, z: k * H };
+    }
   }
 
   function sketchTransform(width, height) {
