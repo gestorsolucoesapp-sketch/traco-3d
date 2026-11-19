@@ -3,7 +3,16 @@
 // Tocar num ícone escolhe a ferramenta e ele vem para o meio.
 (() => {
   const lat = document.querySelector('.pc-lateral'); if (!lat) return;
-  lat.classList.add('tambor');
+  // Carrossel só no celular/tablet (toque). No computador a coluna fica inteira, com todos os ícones nítidos.
+  const usar = () => matchMedia('(pointer: coarse)').matches || innerWidth < 900;
+  let ligado = usar();
+  function aplica() {
+    ligado = usar();
+    lat.classList.toggle('tambor', ligado);
+    if (!ligado) { lat.querySelectorAll('.pc-ferr').forEach((el) => { el.style.cssText = ''; el.classList.remove('centro'); }); }
+  }
+  addEventListener('resize', aplica);
+  lat.classList.toggle('tambor', ligado);
   const nome = document.createElement('div'); nome.className = 'tambor-nome'; document.body.appendChild(nome);
   const faixa = document.createElement('div'); faixa.className = 'tambor-faixa'; lat.appendChild(faixa);
   const modo = () => (document.getElementById('architectureMode')?.hidden ? 'pecas' : 'arq');
@@ -34,6 +43,7 @@
     faixa.style.top = `${c}px`;
   }
   function anima() {
+    if (!ligado) { nome.classList.remove('on'); requestAnimationFrame(anima); return; }
     if (!arrasto) { const d = alvo - pos; pos += Math.abs(d) < .002 ? d : d * .22; }
     desenha();
     if (nome.classList.contains('on') && !arrasto && performance.now() - tNome > 1300) nome.classList.remove('on');
@@ -48,6 +58,7 @@
 
   // arrastar para girar
   lat.addEventListener('pointerdown', (e) => {
+    if (!ligado) return;
     arrasto = { y: e.clientY, pos, id: e.pointerId }; arrastou = false;
   });
   addEventListener('pointermove', (e) => {
@@ -67,10 +78,11 @@
   // depois de arrastar não conta como toque; tocar num ícone o traz para o meio
   lat.addEventListener('click', (e) => {
     const b = e.target.closest('.pc-ferr');
+    if (!ligado) return;
     if (arrastou) { e.stopPropagation(); e.preventDefault(); arrastou = false; return; }
     if (b) vaiPara(itens.indexOf(b));
   }, true);
-  lat.addEventListener('wheel', (e) => { e.preventDefault(); vaiPara(Math.round(alvo) + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+  lat.addEventListener('wheel', (e) => { if (!ligado) return; e.preventDefault(); vaiPara(Math.round(alvo) + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
 
   // a coluna é refeita quando muda de aba: reorganiza e mostra a ferramenta em uso no meio
   new MutationObserver(() => { if (!faixa.isConnected) lat.appendChild(faixa); lista(); if (modo() !== ultimoModo) { ultimoModo = modo(); ultimoAtivo = -1; } }).observe(lat, { childList: true });

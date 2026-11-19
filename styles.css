@@ -383,3 +383,9 @@ body.tela-cheia .roda-fab{bottom:18px}
 body.trilho .pc-dica{display:none}
 .narrar-peca.destaque{outline:2px solid #D76845;outline-offset:3px;border-radius:10px}
 .mola-calc{margin:8px 2px 0;font-size:14px;color:#111}.mola-calc b{color:#286855}.mola-calc b.erro{color:#b3261e}
+
+/* Coluna no computador: ícones inteiros, nítidos e maiores */
+body.trilho .pc-lateral:not(.tambor) .pc-ferr{opacity:1;color:#111;min-height:42px}
+body.trilho .pc-lateral:not(.tambor) .pc-ic{font-size:21px;filter:saturate(1.15) contrast(1.1)}
+body.trilho .pc-lateral:not(.tambor) .pc-ferr:hover{background:#efe9e2}
+body.trilho .pc-lateral:not(.tambor) .faixa,body.trilho .pc-lateral:not(.tambor) .tambor-faixa{display:none}
