@@ -12,10 +12,15 @@ self.onmessage = (ev) => {
     const M = r.M;
     // subdivide a superfície para as cores saírem suaves (arestas até ~1,5 cubinho)
     const fino = [], pai = []; let areaT = 0; for (const [a, b, c] of tris) { const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]; areaT += Math.hypot(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]) / 2; }
-    const lim = Math.max(1.5 * M.h, Math.sqrt(areaT / 9000) * 1.6), teto = 30000;
+    const lim = Math.max(1.5 * M.h, Math.sqrt(areaT / 12000) * 1.6), teto = 40000;
     const meio = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-    const divide = (t, i, n) => { const [a, b, c] = t; if (n > 6 || fino.length > teto || Math.max(d(a, b), d(b, c), d(c, a)) <= lim) { fino.push(t); pai.push(i); return; }
-      const ab = meio(a, b), bc = meio(b, c), ca = meio(c, a); divide([a, ab, ca], i, n + 1); divide([ab, b, bc], i, n + 1); divide([ca, bc, c], i, n + 1); divide([ab, bc, ca], i, n + 1); };
+    const divide = (t, i, n) => { // corta pela aresta mais comprida (não explode em triângulos finos e compridos)
+      const [a, b, c] = t, l0 = d(a, b), l1 = d(b, c), l2 = d(c, a), mx = Math.max(l0, l1, l2);
+      if (n > 24 || fino.length > teto || mx <= lim) { fino.push(t); pai.push(i); return; }
+      if (mx === l0) { const m = meio(a, b); divide([a, m, c], i, n + 1); divide([m, b, c], i, n + 1); }
+      else if (mx === l1) { const m = meio(b, c); divide([a, b, m], i, n + 1); divide([a, m, c], i, n + 1); }
+      else { const m = meio(c, a); divide([a, b, m], i, n + 1); divide([m, b, c], i, n + 1); }
+    };
     if (estudo !== 'otimizar') tris.forEach((t, i) => divide(t, i, 0));
     const T0 = tris; const trisS = estudo !== 'otimizar' ? fino : tris, nt = trisS.length;
     let vol = 0; for (const [a, b, d] of T0) vol += a[0] * (b[1] * d[2] - b[2] * d[1]) - a[1] * (b[0] * d[2] - b[2] * d[0]) + a[2] * (b[0] * d[1] - b[1] * d[0]);
