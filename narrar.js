@@ -214,7 +214,18 @@
   // (avança 1 passo por volta) pelo eixo do furo. s = quanto já entrou (mm).
   function parMontagem(spec) {
     const corpoI = spec.pecas.findIndex((pc) => (pc.furos || []).some((f) => f.rosca));
-    if (corpoI < 0) return null;
+    if (corpoI < 0) { // parafuso + porca: a porca faz o papel do corpo (furo passante roscado)
+      const nI = spec.pecas.findIndex((pc) => pc.tipo === 'porca' && PORCA[pc.diametro]);
+      if (nI < 0) return null;
+      const nut = spec.pecas[nI], pI = spec.pecas.findIndex((pc) => pc.tipo === 'parafuso' && Math.abs(pc.diametro - nut.diametro) < 1e-6);
+      if (pI < 0) return null;
+      const pf = spec.pecas[pI], m = PORCA[nut.diametro][1];
+      const k = pf.cabeca === 'sextavada' ? SEXT[pf.diametro][1] : pf.cabeca === 'allen' ? ALLEN[pf.diametro][1] : 0;
+      const msgs = [];
+      if (Math.abs(pf.passo - nut.passo) > 1e-6) msgs.push(`Passos diferentes: porca ${fmt(nut.passo)} mm × parafuso ${fmt(pf.passo)} mm — não rosqueia.`);
+      else msgs.push(pf.comprimento > m ? `A porca (${fmt(m)} mm) corre ${fmt(pf.comprimento - m)} mm até encostar na cabeça.` : `O parafuso (${fmt(pf.comprimento)} mm) é mais curto que a porca (${fmt(m)} mm).`);
+      return { corpoI: nI, parI: pI, furo: { face: 'topo', passante: true, diametro: nut.diametro, passo: nut.passo }, k, L: pf.comprimento, H: m, curso: Math.max(.5, pf.comprimento), passo: pf.passo, msgs };
+    }
     const furo = spec.pecas[corpoI].furos.find((f) => f.rosca);
     const parI = spec.pecas.findIndex((pc) => pc.tipo === 'parafuso' && Math.abs(pc.diametro - furo.diametro) < 1e-6);
     if (parI < 0) return null;

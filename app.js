@@ -1040,17 +1040,20 @@ function drawSketch() {
   context.clearRect(0, 0, sketchCanvas.width, sketchCanvas.height);
   { const sx = sketchCanvas.width / DESIGN_WIDTH * sketchView.k, sy = sketchCanvas.height / DESIGN_HEIGHT * sketchView.k;
     context.setTransform(sx, 0, 0, sy, -sketchView.ox * sx, -sketchView.oy * sy); }
-  const gridStep = state.pixelsPerMeter / 2;
+  const G = window.tracoGrade || { mostrar: true, forca: 100, tam: 'medio' };
+  const gridStep = state.pixelsPerMeter * ({ fino: .1, medio: .5, grosso: 1 }[G.tam] || .5);
+  const forte = Math.round(1 / ({ fino: .1, medio: .5, grosso: 1 }[G.tam] || .5)) * 2 || 4; // linha forte a cada 2 m
+  const cor = (maior) => `rgba(60,80,62,${Math.min(.9, (maior ? .2 : .085) * G.forca / 100)})`;
   context.lineWidth = 1 / vk();
-  for (let x = DESIGN_WIDTH / 2 % gridStep; x <= DESIGN_WIDTH; x += gridStep) {
-    context.beginPath(); context.moveTo(x, 0); context.lineTo(x, DESIGN_HEIGHT);
-    context.strokeStyle = Math.abs((x - DESIGN_WIDTH / 2) / gridStep % 4) < .001 ? '#d1d8cf' : '#e9eae4';
-    context.stroke();
-  }
-  for (let y = DESIGN_HEIGHT / 2 % gridStep; y <= DESIGN_HEIGHT; y += gridStep) {
-    context.beginPath(); context.moveTo(0, y); context.lineTo(DESIGN_WIDTH, y);
-    context.strokeStyle = Math.abs((y - DESIGN_HEIGHT / 2) / gridStep % 4) < .001 ? '#d1d8cf' : '#e9eae4';
-    context.stroke();
+  if (G.mostrar) {
+    for (let x = DESIGN_WIDTH / 2 % gridStep; x <= DESIGN_WIDTH; x += gridStep) {
+      context.beginPath(); context.moveTo(x, 0); context.lineTo(x, DESIGN_HEIGHT);
+      context.strokeStyle = cor(Math.abs(Math.round((x - DESIGN_WIDTH / 2) / gridStep) % forte) === 0); context.stroke();
+    }
+    for (let y = DESIGN_HEIGHT / 2 % gridStep; y <= DESIGN_HEIGHT; y += gridStep) {
+      context.beginPath(); context.moveTo(0, y); context.lineTo(DESIGN_WIDTH, y);
+      context.strokeStyle = cor(Math.abs(Math.round((y - DESIGN_HEIGHT / 2) / gridStep) % forte) === 0); context.stroke();
+    }
   }
   const floor = floorOutline();
   if (floor) {
@@ -1417,14 +1420,15 @@ function drawModel() {
 
   // A faint ground grid keeps the orientation visible before the first wall.
   context.lineWidth = 1;
-  for (let offset = -8; offset <= 8; offset++) {
+  const G3 = window.tracoGrade || { mostrar: true, forca: 100 };
+  if (G3.mostrar) for (let offset = -8; offset <= 8; offset++) {
     for (const line of [
       [[-8, offset, -.025], [8, offset, -.025]],
       [[offset, -8, -.025], [offset, 8, -.025]],
     ]) {
       const a = toScreen(line[0]), b = toScreen(line[1]);
       context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y);
-      context.strokeStyle = offset === 0 ? '#cbd7ca' : '#dce5db'; context.stroke();
+      context.strokeStyle = `rgba(60,90,62,${Math.min(.9, (offset === 0 ? .22 : .14) * G3.forca / 100)})`; context.stroke();
     }
   }
   try { window.tracoEixosFundo?.(context, toScreen, unit); } catch { /* opcional */ }

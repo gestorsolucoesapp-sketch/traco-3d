@@ -254,12 +254,23 @@
     ctx.save();
     ctx.font = '11px DM Sans, Arial, sans-serif';
     ctx.lineWidth = 1;
+    const G = window.tracoGrade || { mostrar: true, forca: 100, tam: 'medio' };
+    const sub = { fino: 5, medio: 2, grosso: 1 }[G.tam] || 2;
+    if (G.mostrar && sub > 1) { // linhas finas entre as principais
+      ctx.strokeStyle = `rgba(60,80,62,${Math.min(.8, .07 * G.forca / 100)})`;
+      for (let j = 1; j < 5 * sub; j++) { if (j % sub === 0) continue;
+        const x = t.left + (t.right - t.left) * j / (5 * sub), y = t.bottom - (t.bottom - t.top) * j / (5 * sub);
+        ctx.beginPath(); ctx.moveTo(x, t.top); ctx.lineTo(x, t.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(t.left, y); ctx.lineTo(t.right, y); ctx.stroke(); }
+    }
     for (let i = 0; i <= 5; i++) {
       const x = t.left + (t.right - t.left) * i / 5;
       const y = t.bottom - (t.bottom - t.top) * i / 5;
-      ctx.strokeStyle = i === 0 ? '#96b39f' : '#e1e8df';
-      ctx.beginPath(); ctx.moveTo(x, t.top); ctx.lineTo(x, t.bottom); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(t.left, y); ctx.lineTo(t.right, y); ctx.stroke();
+      ctx.strokeStyle = i === 0 ? '#96b39f' : `rgba(60,80,62,${Math.min(.9, .16 * G.forca / 100)})`;
+      if (G.mostrar || i === 0) {
+        ctx.beginPath(); ctx.moveTo(x, t.top); ctx.lineTo(x, t.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(t.left, y); ctx.lineTo(t.right, y); ctx.stroke();
+      }
       ctx.fillStyle = '#111111';
       ctx.textAlign = 'center'; ctx.fillText(display((t.extent.r0 || 0) + t.extent.r * i / 5), x, t.bottom + 17);
       ctx.textAlign = 'right'; ctx.fillText(display((t.extent.z0 || 0) + t.extent.z * i / 5), t.left - 6, y + 4);
