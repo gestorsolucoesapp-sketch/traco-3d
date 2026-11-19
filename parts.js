@@ -607,6 +607,7 @@
     return JSON.stringify([part.mode, part.operation, part.profile, part.closed, part.extrudeDepth, part.holeDiameter, part.shapeType, part.helix, part.cup, part.narrado]);
   }
   function mesh() {
+    if (!part.sim) { const fe = window.tracoFEA?.malha?.(); if (fe) return fe; }
     const tris = meshBase();
     if (part.sim || !part.paint || part.paint.key !== geomKey()) return tris;
     const cores = part.paint.cores;
