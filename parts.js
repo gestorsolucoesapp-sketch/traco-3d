@@ -169,6 +169,11 @@
       const W = right - left, H = bottom - top, k = Math.max(part.view.r / W, part.view.z / H);
       if (Math.abs(part.view.r - k * W) > 1e-9 || Math.abs(part.view.z - k * H) > 1e-9) { part.view.r = k * W; part.view.z = k * H; }
     }
+    // Estilo SketchUp (desenhar no chão): a origem fica para dentro da tela, como no SketchUp.
+    if (window.tracoPlano?.estilo === 'sketchup' && part.view?.r > 0) {
+      if (!(part.view.r0 < 0)) { if (!part.view.r0) part.view.r0 = -.1 * part.view.r; }
+      if (!(part.view.z0 < 0)) { if (!part.view.z0) part.view.z0 = -.1 * part.view.z; }
+    }
     const extent = part.view;
     return {
       extent,
@@ -284,8 +289,20 @@
       ctx.textAlign = 'right'; ctx.fillText(display((t.extent.z0 || 0) + t.extent.z * i / 5), t.left - 6, y + 4);
     }
     ctx.beginPath(); ctx.rect(t.left - 8, t.top - 8, t.right - t.left + 16, t.bottom - t.top + 16); ctx.clip();
+    if (window.tracoPlano?.estilo === 'sketchup') { // eixos do SketchUp: X vermelho, Y verde; tracejado no lado negativo
+      const [ox, oy] = t.screen([0, 0]);
+      const eixo = (cor, x1, y1, x2, y2, trac) => { ctx.save(); ctx.strokeStyle = cor; ctx.lineWidth = trac ? 1.2 : 2; ctx.setLineDash(trac ? [5, 4] : []); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); };
+      eixo('#D32F2F', ox, oy, t.right + 8, oy, false); eixo('#D32F2F', t.left - 8, oy, ox, oy, true);
+      eixo('#2E9E44', ox, oy, ox, t.top - 8, false); eixo('#2E9E44', ox, t.bottom + 8, ox, oy, true);
+      ctx.save(); ctx.font = 'bold 12px DM Sans, Arial, sans-serif';
+      ctx.fillStyle = '#D32F2F'; ctx.textAlign = 'right'; ctx.fillText('X', t.right + 4, oy - 6);
+      ctx.fillStyle = '#2E9E44'; ctx.textAlign = 'left'; ctx.fillText('Y', ox + 6, t.top + 4);
+      ctx.fillStyle = '#1E5BD8'; ctx.beginPath(); ctx.arc(ox, oy, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.font = '10px DM Sans, Arial, sans-serif'; ctx.textAlign = 'right'; ctx.fillText('0,0,0', ox - 5, oy + 13);
+      ctx.restore();
+    }
     ctx.fillStyle = '#111111';
-    ctx.textAlign = 'left'; ctx.fillText(part.operation === 'extrude' && part.mode === 'custom' ?
+    ctx.textAlign = 'left'; if (window.tracoPlano?.estilo !== 'sketchup') ctx.fillText(part.operation === 'extrude' && part.mode === 'custom' ?
       'PLANO' : 'EIXO', t.left + 5, t.top + 12);
     const generated = part.operation === 'spring' || part.operation === 'thread';
     if (generated) {

@@ -47,6 +47,7 @@
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.e) {
       estilo = b.dataset.e; P.estilo = estilo;
+      { const v = window.tracoPeca?.part?.view; if (v && estilo !== 'sketchup') { v.r0 = Math.max(0, v.r0 || 0); v.z0 = Math.max(0, v.z0 || 0); } window.tracoPeca?.render(); }
       try { localStorage.setItem('traco-estilo-desenho', estilo); } catch { /* */ }
       if (estilo === 'sketchup') { P.set('superior'); msg('Estilo SketchUp: desenhe no chão e use Extrusão / Empurrar-puxar para subir.'); }
       else msg('Estilo SolidWorks: escolha o plano aqui ou toque no nome do plano no 3D.');
