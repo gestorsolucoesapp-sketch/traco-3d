@@ -309,7 +309,8 @@
     if (el.dataset.livre === 'pot') { S.potencia = v; painel.querySelector('#feaPotTxt').textContent = `${fmt(v, 1)} W`; }
     if (el.dataset.livre === 'tempo') { S.tempo = v; painel.querySelector('#feaTempoTxt').textContent = v === r.quadros.length - 1 ? `${fmtT(r.quadros[v].t)} (estável)` : fmtT(r.quadros[v].t); }
     S.versao++; API().render();
-    requestAnimationFrame(() => requestAnimationFrame(() => { const q = painel.querySelector('#feaLivreRes'); if (q) q.innerHTML = r.estudo === 'estatico' ? livreEstTxt(r) : livreTermTxt(r); legendaPinta(); }));
+    if (r.estudo !== 'estatico') malha(); // calcula a faixa de temperatura agora
+    { const q = painel.querySelector('#feaLivreRes'); if (q) q.innerHTML = r.estudo === 'estatico' ? livreEstTxt(r) : livreTermTxt(r); legendaPinta(); }
     const an = painel.querySelector('[data-x=anima]'); if (an) an.textContent = '▶ Animar';
   }
   function marcaFalta() {
