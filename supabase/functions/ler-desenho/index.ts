@@ -65,6 +65,7 @@ TIPOS SUPORTADOS
 - "bloco": largura, comprimento, altura, furos[]
 - "parafuso": rosca, diametro, passo, comprimento (só a parte roscada, sem a cabeça), cabeca ("sextavada" | "allen" | "sem_cabeca" | null)
 - "porca": rosca, diametro, passo
+- "mola": diametro (diâmetro EXTERNO), fio (diâmetro do arame), espiras (número de voltas), passo (distância entre voltas). "15 espiras"/"15 voltas" → espiras 15. "mola M8" ou "mola para M8" → diametro 8 e um aviso "Mola: usei 8 mm (de M8) como diâmetro externo — confira." Arame e passo só se forem ditos.
 - furo (sempre no centro da face): { "face": "topo" | "base", "diametro", "rosca" (ex. "M6" ou null se for furo liso), "passo", "profundidade", "passante" }
 
 FORMATO (só o JSON)

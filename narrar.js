@@ -133,7 +133,37 @@
     return o;
   }
 
+  // Mola helicoidal: tubo redondo (arame) varrido ao longo de uma hélice.
+  function mola(pc) {
+    const D = pc.diametro, d = pc.fio, voltas = pc.espiras, p = pc.passo;
+    const Rc = D / 2 - d / 2, rf = d / 2, PV = 36, NS = 12, passos = Math.max(8, Math.round(voltas * PV));
+    const anel = (k) => { // pontos da seção do arame no passo k
+      const th = k / passos * voltas * TAU, z = rf + k / passos * voltas * p;
+      const c = [Rc * Math.cos(th), Rc * Math.sin(th), z];
+      const tg = [-Rc * Math.sin(th), Rc * Math.cos(th), p / TAU]; const tl = Math.hypot(...tg); tg.forEach((v, i) => (tg[i] = v / tl));
+      const n1 = [Math.cos(th), Math.sin(th), 0];
+      const n2 = [tg[1] * n1[2] - tg[2] * n1[1], tg[2] * n1[0] - tg[0] * n1[2], tg[0] * n1[1] - tg[1] * n1[0]];
+      return { c, pts: Array.from({ length: NS }, (_, j) => { const a = j / NS * TAU, ca = Math.cos(a) * rf, sa = Math.sin(a) * rf;
+        return [c[0] + n1[0] * ca + n2[0] * sa, c[1] + n1[1] * ca + n2[1] * sa, c[2] + n1[2] * ca + n2[2] * sa]; }) };
+    };
+    const o = [], push = (a, b, c) => { const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+      const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]], l = Math.hypot(...n) || 1;
+      o.push({ normal: n.map((x) => x / l), points: [a, b, c] }); };
+    let prev = anel(0); const primeiro = prev;
+    for (let k = 1; k <= passos; k++) {
+      const cur = anel(k);
+      for (let j = 0; j < NS; j++) { const j2 = (j + 1) % NS;
+        push(prev.pts[j], cur.pts[j], cur.pts[j2]); push(prev.pts[j], cur.pts[j2], prev.pts[j2]); }
+      prev = cur;
+    }
+    for (let j = 0; j < NS; j++) { const j2 = (j + 1) % NS; push(primeiro.c, primeiro.pts[j2], primeiro.pts[j]); push(prev.c, prev.pts[j], prev.pts[j2]); }
+    // garante faces para fora (volume positivo)
+    let vol = 0; for (const t of o) { const [a, b, c] = t.points; vol += a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]); }
+    if (vol < 0) for (const t of o) { t.points.reverse(); t.normal = t.normal.map((x) => -x); }
+    return o;
+  }
   function malhaPeca(pc, folga) {
+    if (pc.tipo === 'mola') return mola(pc);
     if (pc.tipo === 'parafuso') return parafuso(pc, folga);
     if (pc.tipo === 'porca') return porca(pc, folga);
     return corpo(pc, folga);
@@ -168,6 +198,7 @@
       const [w, k] = pc.cabeca === 'sextavada' ? [SEXT[d][0] / 2, SEXT[d][1]] : pc.cabeca === 'allen' ? [ALLEN[d][0] / 2, ALLEN[d][1]] : [d / 2, 0];
       return k ? [[0, 0], [w, 0], [w, k], [d / 2, k], [d / 2, k + L], [0, k + L]] : [[0, 0], [d / 2, 0], [d / 2, L], [0, L]];
     }
+    if (pc.tipo === 'mola') { const a = pc.diametro / 2 - pc.fio, b = pc.diametro / 2, H = pc.espiras * pc.passo + pc.fio; return [[a, 0], [b, 0], [b, H], [a, H]]; }
     if (pc.tipo === 'porca') { const [s, m] = PORCA[pc.diametro]; return [[pc.diametro / 2, 0], [s / 2, 0], [s / 2, m], [pc.diametro / 2, m]]; }
     const R = pc.tipo === 'bloco' ? pc.largura / 2 : pc.diametro / 2, H = pc.altura;
     const ft = (pc.furos || []).find((f) => f.face === 'topo'), fb = (pc.furos || []).find((f) => f.face === 'base');
@@ -230,8 +261,9 @@
     bloco: [['largura', 'Largura'], ['comprimento', 'Comprimento'], ['altura', 'Altura']],
     parafuso: [['diametro', 'Rosca M (diâmetro)'], ['passo', 'Passo'], ['comprimento', 'Comprimento roscado']],
     porca: [['diametro', 'Rosca M (diâmetro)'], ['passo', 'Passo']],
+    mola: [['diametro', 'Diâmetro externo'], ['fio', 'Diâmetro do arame'], ['espiras', 'Espiras (voltas)'], ['passo', 'Passo entre voltas']],
   };
-  const NOMES = { cilindro: 'Cilindro', bloco: 'Bloco', parafuso: 'Parafuso', porca: 'Porca' };
+  const NOMES = { cilindro: 'Cilindro', bloco: 'Bloco', parafuso: 'Parafuso', porca: 'Porca', mola: 'Mola' };
   let spec = null; // { pecas:[], folga, avisos:[] }
 
   function normalizar(j) {
@@ -290,6 +322,11 @@
         if (soma >= pc.altura) out.push(`${nome}: a profundidade dos furos passa da altura (${fmt(pc.altura)} mm).`);
         if ((pc.furos || []).filter((f) => f.passante).length && (pc.furos || []).length > 1) out.push(`${nome}: com furo passante, use só um furo.`);
         if (new Set((pc.furos || []).map((f) => f.face)).size < (pc.furos || []).length) out.push(`${nome}: dois furos na mesma face.`);
+      }
+      if (pc.tipo === 'mola') {
+        if (pc.fio && pc.diametro && pc.fio * 2 >= pc.diametro) out.push(`${nome}: o arame é grosso demais para esse diâmetro.`);
+        if (pc.fio && pc.passo && pc.passo <= pc.fio) out.push(`${nome}: o passo precisa ser maior que o arame (${fmt(pc.fio)} mm), senão as voltas se encostam.`);
+        continue;
       }
       for (const o of [pc, ...(pc.furos || [])]) if (o.passo && o.diametro && o.passo > o.diametro / 2) out.push(`${nome}: passo grande demais para o diâmetro.`);
     }
