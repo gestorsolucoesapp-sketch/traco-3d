@@ -85,7 +85,7 @@
     }
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(o.x, o.y, 3.6, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(o.x, o.y, 1.6, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#111'; ctx.textAlign = 'left'; ctx.font = '700 10px DM Sans, Arial, sans-serif'; ctx.fillText('0,0,0', o.x + 7, o.y + 10);
+    
     ctx.restore();
   };
   try { window.requestRender?.(); } catch { /* */ }

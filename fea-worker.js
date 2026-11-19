@@ -35,7 +35,13 @@ self.onmessage = (ev) => {
       res.modos = r.modos.map((m) => { const u = amostra(m.u, 3); tr.push(u.buffer); return { f: m.f, u }; });
     } else if (estudo === 'termico') {
       res.T = amostra(r.T, 1); res.tmin = r.tmin; res.tmax = r.tmax; tr.push(res.T.buffer);
+      // quadros do aquecimento: média por triângulo
+      res.quadros = (r.quadros || []).map((q) => { const v = amostra(q.T, 1), f = new Float32Array(nt); for (let t = 0; t < nt; t++) f[t] = (v[t * 3] + v[t * 3 + 1] + v[t * 3 + 2]) / 3; tr.push(f.buffer); return { t: q.t, f }; });
+      for (const q of r.quadros || []) for (const v of q.T) { res.tmin = Math.min(res.tmin, v); res.tmax = Math.max(res.tmax, v); }
     } else if (estudo === 'otimizar') {
+      // evolução: algumas fotos do material sendo retirado
+      const idx = r.fotos.length <= 8 ? r.fotos.map((_, i) => i) : Array.from({ length: 8 }, (_, i) => Math.round(i * (r.fotos.length - 1) / 7));
+      res.evolucao = idx.map((i) => N.casca(M, Array.from(r.fotos[i], (x) => x > .5)).map(([a, b, d, n]) => [a, b, d, n]));
       const manter = Array.from(r.x, (x) => x > .5);
       const casca = N.casca(M, manter);
       res.casca = casca.map(([a, b, d, n]) => [a, b, d, n]);

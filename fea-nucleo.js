@@ -315,7 +315,28 @@ function tracoNucleoFEA() {
     const dg = new Float64Array(n); for (let e = 0; e < M.ne; e++) for (let a = 0; a < 8; a++) dg[M.conec[e * 8 + a]] += el.Kt[a * 9] * k * h * M.cheio[e]; for (let i = 0; i < n; i++) dg[i] += conv[i];
     const r = cg(A, b, T, dg, fixo, 1e-8, 8000, (it, res) => prog?.({ fase: 'Resolvendo calor', it, res }));
     let tmin = Infinity, tmax = -Infinity; for (const v of T) { tmin = Math.min(tmin, v); tmax = Math.max(tmax, v); }
-    return { tipo: 'termico', malha: resumo(M), T, tmin, tmax, it: r.it, M };
+    // Transiente (aquecendo com o tempo): Euler implícito, passos que crescem até chegar no regime permanente.
+    const quadros = [];
+    if (cfg.cp && cfg.rhoKg) {
+      const C = new Float64Array(n), ce = cfg.rhoKg * 1e-9 * cfg.cp * h ** 3 / 8; // J/K por nó
+      for (let e = 0; e < M.ne; e++) for (let a = 0; a < 8; a++) C[M.conec[e * 8 + a]] += ce * M.cheio[e];
+      const L = Math.max(M.nx, M.ny, M.nz) * h, alfa = k / (cfg.rhoKg * 1e-9 * cfg.cp); // mm²/s
+      const tau = L * L / alfa;
+      const Tt = new Float64Array(n).fill(cfg.tAmb ?? 20); for (let i = 0; i < n; i++) if (fixo[i]) Tt[i] = T[i];
+      quadros.push({ t: 0, T: Tt.slice() });
+      let t = 0; const N = 30, t0 = tau / 400, t1 = tau * 2;
+      const rhs = new Float64Array(n), dgt = new Float64Array(n);
+      for (let q = 1; q <= N; q++) {
+        const tn = t0 * Math.pow(t1 / t0, (q - 1) / (N - 1)), dt = tn - t;
+        const At = (x, y) => { A(x, y); for (let i = 0; i < n; i++) y[i] += C[i] / dt * x[i]; };
+        for (let i = 0; i < n; i++) { rhs[i] = b[i] + C[i] / dt * Tt[i]; dgt[i] = dg[i] + C[i] / dt; }
+        cg(At, rhs, Tt, dgt, fixo, 1e-7, 4000);
+        t = tn; quadros.push({ t, T: Tt.slice() });
+        prog?.({ fase: `Aquecendo no tempo — ${q} de ${N}`, it: q, res: 0 });
+        let dif = 0; for (let i = 0; i < n; i++) dif = Math.max(dif, Math.abs(Tt[i] - T[i])); if (dif < (tmax - tmin) * .01 + 1e-3) break;
+      }
+    }
+    return { tipo: 'termico', malha: resumo(M), T, tmin, tmax, it: r.it, M, quadros };
   }
 
   // Otimização de forma (topologia SIMP): tira material onde quase não trabalha, mantendo a rigidez.
@@ -333,7 +354,7 @@ function tracoNucleoFEA() {
         const i = e.i + di, j = e.j + dj, k = e.k + dk; if (i < 0 || j < 0 || k < 0 || i >= M.nx || j >= M.ny || k >= M.nz) continue;
         const o = M.elIdx[i + M.nx * (j + M.ny * k)]; if (o >= 0) l.push(o, 1.5 - Math.hypot(di, dj, dk)); }
       viz.push(l); }
-    const u = new Float64Array(M.nn * 3), loc = new Float64Array(24); let c = 0, hist = [];
+    const u = new Float64Array(M.nn * 3), loc = new Float64Array(24); let c = 0, hist = [], fotos = [new Float64Array(M.ne).fill(1)];
     for (let it = 0; it < (cfg.iter || 30); it++) {
       for (let e = 0; e < M.ne; e++) fat[e] = xmin + (1 - xmin) * x[e] ** pen;
       const A = opElastico(M, el.K, fat), dg = diagElastico(M, el.K, fat);
@@ -353,10 +374,10 @@ function tracoNucleoFEA() {
         if (vol > vf * M.ne) l1 = lm; else l2 = lm;
       }
       let mud = 0; for (let e = 0; e < M.ne; e++) { mud = Math.max(mud, Math.abs(xn[e] - x[e])); x[e] = xn[e]; }
-      hist.push(c); prog?.({ fase: `Otimizando — passo ${it + 1}`, it, res: mud });
+      hist.push(c); fotos.push(x.slice()); prog?.({ fase: `Otimizando — passo ${it + 1}`, it, res: mud });
       if (it > 6 && mud < .01) break;
     }
-    return { tipo: 'otimizacao', malha: resumo(M), x, M, flex: c };
+    return { tipo: 'otimizacao', malha: resumo(M), x, M, flex: c, fotos };
   }
 
   function resumo(M) { return { ne: M.ne, nn: M.nn, h: M.h }; }

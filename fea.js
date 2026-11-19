@@ -11,16 +11,16 @@
 
   // Valores típicos de tabela (troque pelos do fornecedor se tiver o datasheet).
   const MATS = {
-    PLA: { E: 3.5, nu: .36, esc: 50, rho: 1240, k: .13 },
-    PETG: { E: 2.1, nu: .38, esc: 50, rho: 1270, k: .2 },
-    ABS: { E: 2.2, nu: .35, esc: 40, rho: 1050, k: .17 },
-    'Nylon PA12': { E: 1.7, nu: .4, esc: 48, rho: 1010, k: .25 },
-    'Polipropileno (PP)': { E: 1.5, nu: .42, esc: 30, rho: 905, k: .22 },
-    'Poliestireno (PS)': { E: 3.2, nu: .34, esc: 40, rho: 1050, k: .15 },
-    'Aço 1020': { E: 205, nu: .29, esc: 350, rho: 7870, k: 51.9 },
-    'Aço inox 304': { E: 193, nu: .29, esc: 215, rho: 8000, k: 16.2 },
-    'Alumínio 6061-T6': { E: 68.9, nu: .33, esc: 276, rho: 2700, k: 167 },
-    'Latão': { E: 97, nu: .31, esc: 310, rho: 8500, k: 115 },
+    PLA: { E: 3.5, nu: .36, esc: 50, rho: 1240, k: .13, cp: 1800 },
+    PETG: { E: 2.1, nu: .38, esc: 50, rho: 1270, k: .2, cp: 1200 },
+    ABS: { E: 2.2, nu: .35, esc: 40, rho: 1050, k: .17, cp: 1400 },
+    'Nylon PA12': { E: 1.7, nu: .4, esc: 48, rho: 1010, k: .25, cp: 1700 },
+    'Polipropileno (PP)': { E: 1.5, nu: .42, esc: 30, rho: 905, k: .22, cp: 1900 },
+    'Poliestireno (PS)': { E: 3.2, nu: .34, esc: 40, rho: 1050, k: .15, cp: 1300 },
+    'Aço 1020': { E: 205, nu: .29, esc: 350, rho: 7870, k: 51.9, cp: 486 },
+    'Aço inox 304': { E: 193, nu: .29, esc: 215, rho: 8000, k: 16.2, cp: 500 },
+    'Alumínio 6061-T6': { E: 68.9, nu: .33, esc: 276, rho: 2700, k: 167, cp: 896 },
+    'Latão': { E: 97, nu: .31, esc: 310, rho: 8500, k: 115, cp: 380 },
   };
   const ESTUDOS = { estatico: '🧱 Tensão estática', modal: '〰️ Frequências naturais (modal)', termico: '🌡️ Térmico', otimizar: '✂️ Otimização de forma' };
   const MALHAS = { grossa: { estatico: 4000, modal: 1000, termico: 5000, otimizar: 2500 }, media: { estatico: 12000, modal: 2000, termico: 15000, otimizar: 4000 }, fina: { estatico: 30000, modal: 4500, termico: 40000, otimizar: 10000 } };
@@ -34,8 +34,9 @@
     carga: { tipo: 'forca', valor: '', dir: 'normal' }, gravidade: false, tempValor: '', calorValor: '', hconv: '', tAmb: '', manter: '', modos: 3,
     res: null, vista: 'vm', exagero: true, modo: 0, anima: false, fase: 0, rodando: false, versao: 0,
   };
+  if (S.props && S.props.cp == null && MATS[S.mat]) S.props.cp = MATS[S.mat].cp;
   const salva = () => { try { localStorage.setItem('traco-fea', JSON.stringify({ estudo: S.estudo, mat: S.mat, props: S.props, malha: S.malha })); } catch { /* */ } };
-  window.tracoFEA = { S, malha, abrir: () => abrir() };
+  window.tracoFEA = { S, malha, abrir: () => abrir(), desenhar: (c, p) => desenhar(c, p) };
 
   // ---------- cores ----------
   function arco(v) { // azul → ciano → verde → amarelo → vermelho
@@ -51,7 +52,7 @@
   function base() { const api = API(); return api.meshBase(); }
   function confereChave() {
     const k = API().geomKey();
-    if (S.key !== k) { S.key = k; for (const s of Object.values(S.sel)) s.clear(); S.res = null; S.versao++; }
+    if (S.key !== k) { S.key = k; for (const s of Object.values(S.sel)) s.clear(); for (const q in amCache) delete amCache[q]; S.res = null; S.versao++; }
   }
   function malha() {
     if (!S.aberto) return null;
@@ -63,25 +64,28 @@
     let out;
     const r = S.res;
     if (r?.estudo === 'otimizar') {
-      out = r.casca.map(([a, b, c, n]) => ({ points: [a, b, c], normal: n, cor: '#7FA88E' }));
+      const ev = r.evolucao || [], fr = S.anima && ev.length ? ev[Math.min(ev.length - 1, Math.floor(S.fase * (ev.length + 2)))] : r.casca;
+      out = fr.map(([a, b, c, n]) => ({ points: [a, b, c], normal: n, cor: '#7FA88E' }));
     } else if (r) {
       const sz = tamanho(tris), lista = r.tris ? r.tris.map((pts, i) => ({ points: pts, normal: tris[r.pai[i]]?.normal || [0, 0, 1] })) : tris;
       let campo = null, u = null, vmax = 1, vmin = 0, inv = false;
+      let rampa = 1, quadro = null;
       if (r.estudo === 'estatico') {
-        u = r.u;
-        if (S.vista === 'vm') { campo = r.vm; vmax = r.maxVM; }
-        else if (S.vista === 'u') { campo = mag(r.u); vmax = r.maxU; }
-        else { campo = r.vm.map((x) => S.props.esc / Math.max(x, 1e-9)); vmin = 0; vmax = 3; inv = true; }
+        u = r.u; rampa = S.anima ? Math.min(1, S.fase / .7) : 1; // a carga sobe de 0 a 100% (linear: tudo escala junto)
+        if (S.vista === 'vm') { campo = r.vm.map((x) => x * rampa); vmax = r.maxVM; }
+        else if (S.vista === 'u') { campo = mag(r.u).map((x) => x * rampa); vmax = r.maxU; }
+        else { campo = r.vm.map((x) => S.props.esc / Math.max(x * rampa, 1e-9)); vmin = 0; vmax = 3; inv = true; }
       } else if (r.estudo === 'modal') { const m = r.modos[S.modo] || r.modos[0]; u = m.u; campo = mag(m.u); vmax = 1; }
-      else if (r.estudo === 'termico') { campo = r.T; vmin = r.tmin; vmax = r.tmax; }
+      else if (r.estudo === 'termico') { campo = r.T; vmin = r.tmin; vmax = r.tmax;
+        if (S.anima && r.quadros?.length) { const q = r.quadros; quadro = q[Math.min(q.length - 1, Math.floor(S.fase * (q.length + 4)))].f; } }
       let esc = 0;
       if (u) {
         const umax = r.estudo === 'estatico' ? r.maxU : 1;
         esc = r.estudo === 'modal' ? sz * .08 / umax : S.exagero ? (umax > 0 ? sz * .05 / umax : 0) : 1;
-        if (S.anima) esc *= r.estudo === 'modal' ? Math.sin(S.fase * 2 * Math.PI) : (.5 - .5 * Math.cos(S.fase * 2 * Math.PI));
+        if (S.anima) esc *= r.estudo === 'modal' ? Math.sin(S.fase * 2 * Math.PI) : rampa;
       }
       out = lista.map((t, i) => {
-        let v = (campo[i * 3] + campo[i * 3 + 1] + campo[i * 3 + 2]) / 3;
+        let v = quadro ? quadro[i] : (campo[i * 3] + campo[i * 3 + 1] + campo[i * 3 + 2]) / 3;
         if (inv) v = 1 - Math.min(v, vmax) / vmax; else v = (v - vmin) / ((vmax - vmin) || 1);
         const pts = u && esc ? t.points.map((p, k) => [p[0] + u[(i * 3 + k) * 3] * esc, p[1] + u[(i * 3 + k) * 3 + 1] * esc, p[2] + u[(i * 3 + k) * 3 + 2] * esc]) : t.points;
         return { ...t, points: pts, cor: arco(v) };
@@ -96,6 +100,80 @@
   }
   function mag(u) { const o = new Float32Array(u.length / 3); for (let i = 0; i < o.length; i++) o[i] = Math.hypot(u[3 * i], u[3 * i + 1], u[3 * i + 2]); return o; }
   function tamanho(tris) { const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity]; for (const t of tris) for (const q of t.points) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], q[k]); b[k + 3] = Math.max(b[k + 3], q[k]); } return Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2]); }
+
+
+  // ---------- setas e símbolos: de onde vem a força, o calor, o ar; onde está preso ----------
+  const amCache = {};
+  function amostras(set, tris, k) {
+    const chave = S.key + '|' + [...set].slice(0, 50).join(',') + '|' + set.size + '|' + k;
+    if (amCache[chave]) return amCache[chave];
+    const it = [...set].map((i) => { const p = tris[i].points; return { c: [0, 1, 2].map((q) => (p[0][q] + p[1][q] + p[2][q]) / 3), n: tris[i].normal }; });
+    if (!it.length) return [];
+    const out = [it[0]], dmin = it.map((a) => Math.hypot(a.c[0] - it[0].c[0], a.c[1] - it[0].c[1], a.c[2] - it[0].c[2]));
+    while (out.length < Math.min(k, it.length)) { let b = 0; for (let i = 1; i < it.length; i++) if (dmin[i] > dmin[b]) b = i; if (dmin[b] < 1e-6) break; out.push(it[b]);
+      for (let i = 0; i < it.length; i++) dmin[i] = Math.min(dmin[i], Math.hypot(it[i].c[0] - it[b].c[0], it[i].c[1] - it[b].c[1], it[i].c[2] - it[b].c[2])); }
+    amCache[chave] = out; return out;
+  }
+  function seta(ctx, proj, c, d, L, cor, off) {
+    const fim = [c[0] - d[0] * L * off, c[1] - d[1] * L * off, c[2] - d[2] * L * off], ini = [fim[0] - d[0] * L, fim[1] - d[1] * L, fim[2] - d[2] * L];
+    const a = proj(ini), b = proj(fim), ang = Math.atan2(b.y - a.y, b.x - a.x), cab = 9;
+    ctx.strokeStyle = cor; ctx.fillStyle = cor; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x - Math.cos(ang) * cab * .7, b.y - Math.sin(ang) * cab * .7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x - Math.cos(ang - .42) * cab, b.y - Math.sin(ang - .42) * cab); ctx.lineTo(b.x - Math.cos(ang + .42) * cab, b.y - Math.sin(ang + .42) * cab); ctx.closePath(); ctx.fill();
+    return a;
+  }
+  function etiqueta(ctx, x, y, txt, cor) {
+    ctx.font = '700 11px DM Sans, Arial, sans-serif'; const w = ctx.measureText(txt).width + 10;
+    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.strokeStyle = cor; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 18, w, 16, 5) : ctx.rect(x - w / 2, y - 18, w, 16); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = cor; ctx.textAlign = 'center'; ctx.fillText(txt, x, y - 6);
+  }
+  function desenhar(ctx, proj) {
+    if (!S.aberto || !proj || S.res?.estudo === 'otimizar' && S.anima) return;
+    const tris = base(); if (!tris.length) return;
+    const sz = tamanho(tris), L = sz * .16, e = S.estudo;
+    const off = S.anima ? .05 + .35 * (1 - ((performance.now() / 900) % 1)) : .05; // setas chegando na face
+    ctx.save(); ctx.setLineDash([]);
+    const DIR = { z: [0, 0, 1], '-z': [0, 0, -1], x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0] };
+    // apoios (faces fixas): triângulo azul com hachura, como no desenho técnico
+    if (e !== 'termico') for (const { c, n } of amostras(S.sel.fixo, tris, 8)) {
+      const p = proj(c), q = proj([c[0] + n[0] * L * .3, c[1] + n[1] * L * .3, c[2] + n[2] * L * .3]);
+      let dx = q.x - p.x, dy = q.y - p.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l; const px = -dy, py = dx, h = 11;
+      ctx.fillStyle = 'rgba(21,101,192,.9)'; ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + dx * h + px * h * .7, p.y + dy * h + py * h * .7); ctx.lineTo(p.x + dx * h - px * h * .7, p.y + dy * h - py * h * .7); ctx.closePath(); ctx.fill();
+      for (let k = -1; k <= 1; k++) { const bx = p.x + dx * (h + 2) + px * k * 6, by = p.y + dy * (h + 2) + py * k * 6; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + dx * 5 - px * 4, by + dy * 5 - py * 4); ctx.stroke(); }
+    }
+    // cargas
+    if ((e === 'estatico' || e === 'otimizar') && S.sel.carga.size) {
+      const pr = S.carga.tipo === 'pressao', v = num(S.carga.valor); let pos = null;
+      for (const { c, n } of amostras(S.sel.carga, tris, pr ? 9 : 6)) { const d = pr || S.carga.dir === 'normal' ? n.map((x) => -x) : DIR[S.carga.dir]; const a = seta(ctx, proj, c, d, L, '#EF6C00', off); if (!pos || a.y < pos.y) pos = a; }
+      if (pos && v) { const f = S.anima && S.res?.estudo === 'estatico' ? Math.min(1, S.fase / .7) : 1; etiqueta(ctx, pos.x, pos.y - 4, `${fmt(v * f, 1)} ${pr ? 'MPa' : 'N'}`, '#EF6C00'); }
+    }
+    if (S.gravidade && e !== 'termico') { const c = centro(tris); const a = seta(ctx, proj, c, [0, 0, -1], L * .8, '#6D4C41', off); etiqueta(ctx, a.x, a.y - 4, 'peso', '#6D4C41'); }
+    // térmico: faces quentes/frias, calor entrando e o ar em volta
+    if (e === 'termico') {
+      for (const { c, n } of amostras(S.sel.calor, tris, 5)) seta(ctx, proj, c, n.map((x) => -x), L * .8, '#E65100', off);
+      { const am = amostras(S.sel.calor, tris, 1)[0]; if (am && num(S.calorValor) != null) { const p = proj(am.c); etiqueta(ctx, p.x, p.y - 26, `🔥 ${fmt(num(S.calorValor), 1)} W`, '#E65100'); } }
+      for (const { c } of amostras(S.sel.temp, tris, 6)) { const p = proj(c); ctx.fillStyle = '#C62828'; ctx.beginPath(); ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2); ctx.fill(); }
+      { const am = amostras(S.sel.temp, tris, 1)[0]; if (am && num(S.tempValor) != null) { const p = proj(am.c); etiqueta(ctx, p.x, p.y - 8, `🌡️ ${fmt(num(S.tempValor), 1)} °C`, '#C62828'); } }
+      if (num(S.hconv)) { // ar soprando dos lados
+        const b = caixa(tris), cz = (b[2] + b[5]) / 2, m = sz * .35, cx = (b[0] + b[3]) / 2, cy = (b[1] + b[4]) / 2;
+        const lados = [[[b[0] - m * .2, cy, cz], [1, 0, 0]], [[b[3] + m * .2, cy, cz], [-1, 0, 0]], [[cx, b[1] - m * .2, cz], [0, 1, 0]], [[cx, b[4] + m * .2, cz], [0, -1, 0]]];
+        ctx.setLineDash([5, 4]); let pos = null;
+        for (const [c, d] of lados) { const a = seta(ctx, proj, c, d, L * .9, '#4FA3E0', off); if (!pos || a.y < pos.y) pos = a; }
+        ctx.setLineDash([]);
+        if (pos) etiqueta(ctx, pos.x, pos.y - 4, `ar ${fmt(num(S.tAmb) ?? 20, 0)} °C`, '#2C7BB6');
+      }
+    }
+    // relógio da animação
+    const r = S.res; let txt = '';
+    if (S.anima && r?.estudo === 'estatico') txt = `Carga ${Math.round(Math.min(1, S.fase / .7) * 100)}%`;
+    if (S.anima && r?.estudo === 'termico' && r.quadros?.length) { const q = r.quadros, i = Math.min(q.length - 1, Math.floor(S.fase * (q.length + 4))); txt = `t = ${fmtT(q[i].t)}`; }
+    if (txt) { const W = ctx.canvas.width / (window.devicePixelRatio || 1); etiqueta(ctx, W / 2, ctx.canvas.height / (window.devicePixelRatio || 1) - 12, txt, '#111'); }
+    ctx.restore();
+  }
+  function caixa(tris) { const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity]; for (const t of tris) for (const q of t.points) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], q[k]); b[k + 3] = Math.max(b[k + 3], q[k]); } return b; }
+  function centro(tris) { const b = caixa(tris); return [(b[0] + b[3]) / 2, (b[1] + b[4]) / 2, (b[2] + b[5]) / 2]; }
 
   // ---------- escolher faces tocando no 3D ----------
   let viz = { key: '', mapa: null };
@@ -159,7 +237,7 @@
       <label>Malha<select data-v="malha">${['grossa', 'media', 'fina'].map((k) => `<option value="${k}"${k === S.malha ? ' selected' : ''}>${{ grossa: 'Grossa (rápida)', media: 'Média', fina: 'Fina (mais precisa)' }[k]}</option>`).join('')}</select></label></div>
       <h4>Material</h4>
       <div class="an-linha"><label>Material<select data-v="mat">${[...Object.keys(MATS), 'Personalizado'].map((k) => `<option${k === S.mat ? ' selected' : ''}>${k}</option>`).join('')}</select></label>
-      ${campo('props.E', 'Módulo de elasticidade', 'GPa')}${campo('props.nu', 'Poisson', '')}${e !== 'termico' ? campo('props.esc', 'Limite de escoamento', 'MPa') : ''}${campo('props.rho', 'Densidade', 'kg/m³')}${e === 'termico' ? campo('props.k', 'Condutividade', 'W/m·K') : ''}</div>
+      ${campo('props.E', 'Módulo de elasticidade', 'GPa')}${campo('props.nu', 'Poisson', '')}${e !== 'termico' ? campo('props.esc', 'Limite de escoamento', 'MPa') : ''}${campo('props.rho', 'Densidade', 'kg/m³')}${e === 'termico' ? campo('props.k', 'Condutividade', 'W/m·K') + campo('props.cp', 'Calor específico', 'J/kg·K') : ''}</div>
       <p class="an-sub">Valores típicos de tabela — se tiver o datasheet do fornecedor, troque. Peça impressa: o cálculo considera 100% de preenchimento.</p>
       <h4>Seleção no 3D</h4><div class="an-linha"><label>Ao tocar, pega<select data-v="modoSel"><option value="plana"${S.modoSel === 'plana' ? ' selected' : ''}>a face plana</option><option value="continua"${S.modoSel === 'continua' ? ' selected' : ''}>a superfície contínua (furo, cilindro)</option></select></label></div>`;
     if (e === 'termico') {
@@ -191,12 +269,13 @@
     }
     if (r.estudo === 'modal') return `<h4>Frequências naturais</h4><div class="fea-abas">${r.modos.map((q, i) => `<button type="button" class="${S.modo === i ? 'primary-button' : 'secondary-button'}" data-x="modo-${i}">Modo ${i + 1}: ${fmt(q.f, 1)} Hz</button>`).join('')}</div>
       <p class="an-sub">Se a peça trabalhar perto dessas frequências (motor, vibração), ela entra em ressonância. As cores mostram onde ela mais se mexe nesse modo.</p><div class="foto-acoes"><span style="flex:1"></span>${anim}<button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
-    if (r.estudo === 'termico') return `<h4>Resultado térmico</h4><p class="an-sub">Temperatura mínima <b>${fmt(r.tmin, 1)} °C</b> · máxima <b>${fmt(r.tmax, 1)} °C</b> (regime permanente).</p><div class="foto-acoes"><span style="flex:1"></span><button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
+    if (r.estudo === 'termico') return `<h4>Resultado térmico</h4><p class="an-sub">Temperatura mínima <b>${fmt(r.tmin, 1)} °C</b> · máxima <b>${fmt(r.tmax, 1)} °C</b> (regime permanente).${r.quadros?.length ? ` A animação mostra a peça aquecendo do início até estabilizar (~${fmtT(r.quadros.at(-1).t)}).` : ' Para ver aquecendo no tempo, preencha o calor específico.'}</p><div class="foto-acoes"><span style="flex:1"></span>${r.quadros?.length ? anim : ''}<button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
     if (r.estudo === 'otimizar') { const rho = S.props.rho * 1e-6; // g/mm³
       return `<h4>Forma otimizada</h4><p class="an-sub">Ficou <b>${fmt(r.volFica / r.volTotal * 100, 0)}%</b> do material: de <b>${fmt(r.volTotal * rho, 1)} g</b> para <b>${fmt(r.volFica * rho, 1)} g</b>. Use como guia para redesenhar (a forma sai em cubinhos).</p>
-      <div class="foto-acoes"><span style="flex:1"></span><button type="button" class="secondary-button" data-x="stlOtim">⬇️ STL da forma otimizada</button><button type="button" class="secondary-button" data-x="limparRes">Voltar à peça</button></div>${m}`; }
+      <div class="foto-acoes"><span style="flex:1"></span>${anim}<button type="button" class="secondary-button" data-x="stlOtim">⬇️ STL da forma otimizada</button><button type="button" class="secondary-button" data-x="limparRes">Voltar à peça</button></div>${m}`; }
     return '';
   }
+  function fmtT(t) { return t < 60 ? `${fmt(t, t < 10 ? 1 : 0)} s` : t < 3600 ? `${fmt(t / 60, 1)} min` : `${fmt(t / 3600, 1)} h`; }
   function legendaPinta() {
     if (!legenda) return;
     const r = S.res; if (!S.aberto || !r || r.estudo === 'otimizar') { legenda.hidden = true; return; }
@@ -232,7 +311,8 @@
     if (x === 'rodar') return rodar();
   }
   let t0a = 0;
-  function laco() { t0a = performance.now(); const passo = () => { if (!S.anima || !S.aberto) return; S.fase = ((performance.now() - t0a) / 1600) % 1; S.versao++; API().render(); requestAnimationFrame(passo); }; requestAnimationFrame(passo); }
+  const PERIODO = { estatico: 2600, modal: 1600, termico: 7000, otimizar: 5000 };
+  function laco() { t0a = performance.now(); const passo = () => { if (!S.anima || !S.aberto) return; S.fase = ((performance.now() - t0a) / (PERIODO[S.res?.estudo] || 2000)) % 1; S.versao++; API().render(); requestAnimationFrame(passo); }; requestAnimationFrame(passo); }
 
   // ---------- rodar ----------
   let worker = null;
@@ -259,7 +339,7 @@
     const prog = painel.querySelector('#feaProg');
     if (falta.length) { prog.innerHTML = `<span class="atencao">Falta: ${falta.join(', ')}.</span>`; return; }
     const d = { normal: 'normal', z: [0, 0, 1], '-z': [0, 0, -1], x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0] }[S.carga.dir];
-    const cfg = { alvo: MALHAS[S.malha][e], E: (p.E || 1) * 1000, nu: p.nu, rho: (p.rho || 0) * 1e-12, k: p.k, modos: +S.modos,
+    const cfg = { alvo: MALHAS[S.malha][e], E: (p.E || 1) * 1000, nu: p.nu, rho: (p.rho || 0) * 1e-12, rhoKg: p.rho || 0, cp: p.cp || 0, k: p.k, modos: +S.modos,
       fixo: lista('fixo'), cargas: S.sel.carga.size ? [{ tris: lista('carga'), tipo: S.carga.tipo, valor: num(S.carga.valor), dir: S.carga.tipo === 'pressao' ? 'normal' : d }] : [], gravidade: S.gravidade,
       temps: S.sel.temp.size ? [{ tris: lista('temp'), valor: num(S.tempValor) }] : [], calor: S.sel.calor.size ? [{ tris: lista('calor'), valor: num(S.calorValor) }] : [],
       hconv: num(S.hconv) || 0, tAmb: num(S.tAmb) ?? 20, manter: (num(S.manter) || 0) / 100, iter: 22 };
@@ -271,7 +351,7 @@
       if (d2.prog) { const q = pg(); if (q) q.textContent = `${d2.prog.fase}${d2.prog.it ? ` · ${d2.prog.it}` : ''}…`; return; }
       S.rodando = false; worker.terminate(); worker = null;
       if (d2.erro) { pinta(); pg().innerHTML = `<span class="ruim">Não deu: ${esc(d2.erro)}.</span>`; return; }
-      S.res = d2.fim; S.vista = 'vm'; S.modo = 0; if (S.res.estudo === 'modal') { S.anima = true; laco(); }
+      S.res = d2.fim; S.vista = 'vm'; S.modo = 0; if (S.res.estudo !== 'termico' || S.res.quadros?.length) { S.anima = true; laco(); }
       S.versao++; pinta(); api.render();
     };
     worker.onerror = (er) => { S.rodando = false; pinta(); pg().innerHTML = `<span class="ruim">Erro na simulação: ${esc(er.message || 'falhou')}.</span>`; };

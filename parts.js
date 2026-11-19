@@ -298,7 +298,6 @@
       ctx.fillStyle = '#D32F2F'; ctx.textAlign = 'right'; ctx.fillText('X', t.right + 4, oy - 6);
       ctx.fillStyle = '#2E9E44'; ctx.textAlign = 'left'; ctx.fillText('Y', ox + 6, t.top + 4);
       ctx.fillStyle = '#1E5BD8'; ctx.beginPath(); ctx.arc(ox, oy, 3.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#111'; ctx.font = '10px DM Sans, Arial, sans-serif'; ctx.textAlign = 'right'; ctx.fillText('0,0,0', ox - 5, oy + 13);
       ctx.restore();
     }
     ctx.fillStyle = '#111111';
@@ -750,7 +749,6 @@
       }
       { const u0 = Math.min(width, height) / (60 * 1.65) * part.zoom; referencia(ctx, deslocado([0, 0, 0], width, height, u0), 30, u0); }
       ctx.fillStyle = '#111111'; ctx.font = '13px DM Sans, Arial, sans-serif';
-      ctx.textAlign = 'center'; ctx.fillText('Feche o perfil 2D para gerar o 3D', width / 2, height / 2);
       return;
     }
     {
@@ -785,6 +783,7 @@
       }
       referencia(ctx, part.lastProj, caixa * .75, unitN, 'eixos');
       try { window.tracoCotas?.desenhar(ctx, part.lastProj, width, height); } catch { /* opcional */ }
+      try { window.tracoFEA?.desenhar?.(ctx, part.lastProj); } catch { /* opcional */ }
       return;
     }
     const extruded = part.mode === 'custom' && part.operation === 'extrude';
@@ -865,7 +864,7 @@
       }
       ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(o.x, o.y, 3.6, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(o.x, o.y, 1.6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#111'; ctx.textAlign = 'left'; ctx.font = '700 10px DM Sans, Arial, sans-serif'; ctx.fillText('0,0,0', o.x + 7, o.y + 10);
+      
       ctx.restore();
     }
   }
