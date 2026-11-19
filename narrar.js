@@ -261,7 +261,7 @@
     const topo = m.furo.face !== 'base';
     // Pose pela descida D: o giro acompanha a descida (movimento helicoidal de verdade, a rosca nunca "pula").
     const pose = (D) => {
-      const ang = -(D - folga) / m.passo * TAU, c = Math.cos(ang), sn = Math.sin(ang);
+      const ang = (-m.curso + (D - folga - m.curso)) / m.passo * TAU, c = Math.cos(ang), sn = Math.sin(ang);
       const zPonta = topo ? m.H + folga - D : -folga + D;
       return {
         p: (q) => { const x = q[0] * c - q[1] * sn, y = q[0] * sn + q[1] * c; const z = topo ? zPonta + (m.k + m.L - q[2]) : zPonta - (m.k + m.L - q[2]); return [x, topo ? -y : y, z]; },
