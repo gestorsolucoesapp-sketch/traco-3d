@@ -254,6 +254,15 @@
     return { tris, ...m };
   }
   window.tracoNarrado = { montar, corte, parMontagem, montagem };
+  // Editar peça narrada: abre o formulário já preenchido, com a peça tocada em destaque.
+  window.tracoNarrarEditar = (i = 0) => {
+    const atual = window.tracoPeca?.part?.narrado; if (!atual) return;
+    spec = { folga: atual.folga || 0, avisos: [], texto: spec?.texto || '',
+      pecas: atual.pecas.map((pc) => ({ ...pc, auto: {}, furos: (pc.furos || []).map((f) => ({ ...f, auto: {} })) })) };
+    formulario();
+    const fs = dlg.querySelectorAll('.narrar-peca')[i];
+    if (fs) { fs.classList.add('destaque'); setTimeout(() => fs.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60); fs.querySelector('input')?.focus({ preventScroll: true }); }
+  };
 
   // ---------- Formulário ----------
   const CAMPOS = {

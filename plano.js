@@ -117,3 +117,22 @@
     caixa.style.left = `${Math.min(innerWidth - 190, mx + 18)}px`; caixa.style.top = `${Math.min(innerHeight - 70, my + 18)}px`;
   }, 60);
 })();
+
+// Peça narrada: tocar numa peça no 3D abre a edição dela (sem arrastar, fora do Pintar/Medir).
+(() => {
+  const api = window.tracoPeca; if (!api?.model) return;
+  const m = api.model; let ini = null;
+  const dentro = (x, y, c) => { const s = (a, b) => (x - b.x) * (a.y - b.y) - (a.x - b.x) * (y - b.y);
+    const d1 = s(c[0], c[1]), d2 = s(c[1], c[2]), d3 = s(c[2], c[0]); return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
+  m.addEventListener('pointerdown', (e) => { ini = [e.clientX, e.clientY]; }, true);
+  m.addEventListener('pointerup', (e) => {
+    const p = api.part; if (!ini || p.operation !== 'narrado' || p.sim) return;
+    const moveu = Math.hypot(e.clientX - ini[0], e.clientY - ini[1]); ini = null;
+    if (moveu > 6 || window.tracoPintura?.ativa || window.tracoCotas?.medindo) return;
+    const r = m.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, faces = p.lastFaces || [];
+    let alvo = null; for (let i = faces.length - 1; i >= 0; i--) if (dentro(x, y, faces[i].corners)) { alvo = faces[i].idx; break; }
+    if (alvo == null) return;
+    const i = api.pecas().findIndex((q) => alvo >= q.ini && alvo < q.ini + q.tris.length);
+    if (i >= 0) window.tracoNarrarEditar?.(i);
+  });
+})();

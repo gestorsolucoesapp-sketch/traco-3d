@@ -367,3 +367,18 @@ body.tela-cheia .roda-fab{bottom:18px}
 .roda-txt i{display:flex;gap:3px}.roda-txt i span{width:5px;height:5px;border-radius:50%;background:#cfc9c0}.roda-txt i span.on{background:#D76845}
 .roda-seta{border:0;background:none;font-size:22px;font-weight:800;color:#555;width:20px;cursor:pointer;padding:0}
 @media print{.roda-fab,.roda-ov{display:none!important}}
+
+/* ---------- Coluna em carrossel (tambor) ---------- */
+.pc-lateral.tambor{display:block!important;overflow:hidden!important;perspective:520px;touch-action:none;padding:0!important}
+.pc-lateral.tambor .pc-sep{display:none}
+.pc-lateral.tambor .pc-ferr{position:absolute;left:50%;top:0;width:44px;height:44px;min-height:0!important;margin:0;padding:0!important;display:grid;place-items:center;border-radius:12px;will-change:transform,opacity;backface-visibility:hidden}
+.pc-lateral.tambor .pc-ferr.centro{background:#fff;border-color:#D76845;box-shadow:0 0 0 3px rgba(215,104,69,.22),0 4px 12px rgba(0,0,0,.12)}
+.pc-lateral.tambor .pc-ferr.on{background:#fbe9e3}
+.tambor-faixa{position:absolute;left:2px;right:2px;height:54px;transform:translateY(-50%);border-radius:14px;background:linear-gradient(90deg,rgba(215,104,69,.10),rgba(215,104,69,.04));border-top:1px solid rgba(215,104,69,.35);border-bottom:1px solid rgba(215,104,69,.35);pointer-events:none}
+.pc-lateral.tambor::before,.pc-lateral.tambor::after{content:'';position:absolute;left:0;right:0;height:22%;z-index:200;pointer-events:none}
+.pc-lateral.tambor::before{top:0;background:linear-gradient(#fbfaf7,rgba(251,250,247,0))}
+.pc-lateral.tambor::after{bottom:0;background:linear-gradient(rgba(251,250,247,0),#fbfaf7)}
+.tambor-nome{position:fixed;z-index:80;transform:translateY(-50%) translateX(-6px);background:#263c32;color:#fff;font-size:12px;font-weight:800;padding:7px 11px;border-radius:8px;pointer-events:none;opacity:0;transition:opacity .18s,transform .18s;white-space:nowrap}
+.tambor-nome.on{opacity:1;transform:translateY(-50%) translateX(0)}
+body.trilho .pc-dica{display:none}
+.narrar-peca.destaque{outline:2px solid #D76845;outline-offset:3px;border-radius:10px}
