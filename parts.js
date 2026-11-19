@@ -1787,14 +1787,28 @@
     const box = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
     for (const t of [...t0, ...t1]) for (const q of t.points) for (let k = 0; k < 3; k++) { box[k] = Math.min(box[k], q[k]); box[k + 3] = Math.max(box[k + 3], q[k]); }
     const dur = Math.min(9000, Math.max(3500, m.curso / m.passo * 450)), ini = performance.now();
-    part.sim = { s: 0, box };
+    // Zoom na região do encaixe (onde a rosca entra): começa vendo tudo, aproxima, e no fim volta a mostrar tudo.
+    const pcs = window.tracoNarrado.montar(part.narrado).pecas, cb = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    for (const t of pcs[m.corpoI]?.tris || []) for (const q of t.points) for (let k = 0; k < 3; k++) { cb[k] = Math.min(cb[k], q[k]); cb[k + 3] = Math.max(cb[k + 3], q[k]); }
+    const c3 = [0, 1, 2].map((k) => (cb[k] + cb[k + 3]) / 2), meia = Math.max(cb[3] - cb[0], cb[4] - cb[1], cb[5] - cb[2], m.passo * 6) * .75;
+    const perto = [c3[0] - meia, c3[1] - meia, c3[2] - meia, c3[0] + meia, c3[1] + meia, c3[2] + meia];
+    const longe = [...box], liso = (x) => x * x * (3 - 2 * x);
+    const enquadra = (e) => { if (part.sim) part.sim.box = longe.map((v, k) => v + (perto[k] - v) * liso(Math.max(0, Math.min(1, e)))); };
+    const aproxima = Math.max(...[3, 4, 5].map((k) => box[k] - box[k - 3])) > meia * 2.6; // só se a peça for pequena perto do conjunto
+    part.sim = { s: 0, box: [...longe] };
     refresh();
     const passo = (agora) => {
       if (!part.sim) return;
       const f = Math.min(1, (agora - ini) / dur);
-      part.sim.s = f * m.curso; render();
+      part.sim.s = f * m.curso;
+      if (aproxima) enquadra(f / .18);
+      render();
       if (f < 1) setTimeout(() => requestAnimationFrame(passo), 60);
-      else $('partStatus').textContent = 'Montado · ' + m.msgs.join(' ');
+      else {
+        $('partStatus').textContent = 'Montado · ' + m.msgs.join(' ');
+        if (aproxima) { const t0z = performance.now() + 1500; const volta = (a) => { if (!part.sim) return; const e = 1 - (a - t0z) / 900; enquadra(e); render(); if (e > 0) requestAnimationFrame(volta); };
+          setTimeout(() => requestAnimationFrame(volta), 1500); }
+      }
     };
     requestAnimationFrame(passo);
   });
