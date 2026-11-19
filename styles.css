@@ -464,3 +464,6 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .fea-livre{display:flex;flex-direction:column;gap:10px}
 .fea-livre label{display:flex;flex-direction:column;gap:4px;font-size:13px}
 .fea-livre input[type=range]{width:100%;accent-color:#EF6C00;height:28px}
+
+.fea-rodar-3d{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:5;padding:9px 18px;border-radius:999px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.18);white-space:nowrap}
+.fea-rodar-3d[hidden]{display:none}

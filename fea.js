@@ -209,7 +209,7 @@
   }
 
   // ---------- painel ----------
-  let painel = null, legenda = null;
+  let painel = null, legenda = null, botao3d = null;
   function abrir() {
     const api = API(); if (!api) return;
     if (!api.meshBase().length) return avisa('Feche o desenho (ou narre uma peça) para ter um 3D para simular.');
@@ -220,10 +220,15 @@
       document.querySelector('.part-model-wrap')?.insertAdjacentElement('afterend', painel);
       legenda = document.createElement('div'); legenda.className = 'fea-legenda'; legenda.hidden = true;
       document.querySelector('.part-model-wrap')?.appendChild(legenda);
+      // botão de rodar em cima do 3D: configura embaixo e roda daqui
+      botao3d = document.createElement('button'); botao3d.type = 'button'; botao3d.className = 'fea-rodar-3d primary-button'; botao3d.hidden = true;
+      botao3d.addEventListener('pointerdown', (e) => e.stopPropagation()); botao3d.onclick = () => rodar();
+      document.querySelector('.part-model-wrap')?.appendChild(botao3d);
       painel.addEventListener('click', clique); painel.addEventListener('change', muda); painel.addEventListener('input', (e) => { if (e.target.matches('[data-livre]')) return livre(e.target); if (e.target.matches('[data-v]')) muda(e); });
     }
     painel.hidden = !S.aberto;
     if (!S.aberto) { S.escolhendo = null; S.anima = false; legenda.hidden = true; }
+    botaoPinta();
     S.versao++; pinta(); api.render();
     if (S.aberto) painel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
@@ -259,7 +264,7 @@
     h += `<div class="foto-acoes"><span id="feaProg" class="an-sub" style="flex:1"></span><button type="button" class="primary-button" data-x="rodar"${S.rodando ? ' disabled' : ''}>${S.rodando ? 'Calculando…' : '▶ Rodar simulação'}</button></div><div id="feaRes">${resultadoHtml()}</div>
       <p class="an-sub">Cálculo linear (material elástico, deformação pequena) numa malha de cubinhos: cantos vivos e roscas finas ficam aproximados. Ainda não faz: não linear, impacto/queda, flambagem, injeção e resfriamento de eletrônicos.</p>`;
     painel.innerHTML = h;
-    legendaPinta(); marcaFalta();
+    legendaPinta(); marcaFalta(); botaoPinta();
   }
   function resultadoHtml() {
     const r = S.res; if (!r) return '';
@@ -312,6 +317,12 @@
     if (r.estudo !== 'estatico') malha(); // calcula a faixa de temperatura agora
     { const q = painel.querySelector('#feaLivreRes'); if (q) q.innerHTML = r.estudo === 'estatico' ? livreEstTxt(r) : livreTermTxt(r); legendaPinta(); }
     const an = painel.querySelector('[data-x=anima]'); if (an) an.textContent = '▶ Animar';
+  }
+  function botaoPinta() {
+    if (!botao3d) return;
+    botao3d.hidden = !S.aberto;
+    botao3d.disabled = S.rodando;
+    botao3d.textContent = S.rodando ? '⏳ Calculando…' : S.res ? '▶ Rodar de novo' : '▶ Rodar simulação';
   }
   function marcaFalta() {
     if (!painel) return;
@@ -384,7 +395,7 @@
     }
     const prog = painel.querySelector('#feaProg');
     S.falta = alvo; marcaFalta();
-    if (falta.length) { prog.innerHTML = `<span class="atencao">Falta: ${falta.join(', ')}. (marquei com um círculo vermelho)</span>`; painel.querySelector('.fea-falta')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+    if (falta.length) { prog.innerHTML = `<span class="atencao">Falta: ${falta.join(', ')}. (marquei com um círculo vermelho)</span>`; painel.querySelector('.fea-falta')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); avisa('Falta preencher o que está com círculo vermelho.'); return; }
     const d = { normal: 'normal', z: [0, 0, 1], '-z': [0, 0, -1], x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0] }[S.carga.dir];
     const cfg = { alvo: MALHAS[S.malha][e], E: (p.E || 1) * 1000, nu: p.nu, rho: (p.rho || 0) * 1e-12, rhoKg: p.rho || 0, cp: p.cp || 0, k: p.k, modos: +S.modos,
       fixo: lista('fixo'), cargas: S.sel.carga.size ? [{ tris: lista('carga'), tipo: S.carga.tipo === 'pressao' ? 'pressao' : 'forca', valor: num(S.carga.valor) * (S.carga.tipo === 'massa' ? 9.81 : 1), dir: S.carga.tipo === 'pressao' ? 'normal' : d }] : [], gravidade: S.gravidade,
