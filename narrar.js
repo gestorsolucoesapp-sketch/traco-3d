@@ -399,7 +399,8 @@
   }
 
   function campo(path, valor, rot, auto) {
-    return `<label class="${valor == null ? 'falta' : ''}">${rot}<span><input data-p="${path}" inputmode="decimal" value="${fmt(valor)}" placeholder="falta" /> mm</span>${auto ? '<small>ISO</small>' : ''}</label>`;
+    const un = /espiras$/.test(path) ? 'voltas' : 'mm';
+    return `<label class="${valor == null ? 'falta' : ''}">${rot}<span><input data-p="${path}" inputmode="decimal" value="${fmt(valor)}" placeholder="falta" /> ${un}</span>${auto ? '<small>ISO</small>' : ''}</label>`;
   }
   function formulario() {
     const blocos = spec.pecas.map((pc, i) => {
@@ -416,7 +417,7 @@
           <button type="button" class="text-button" data-del-furo="${i}.${fi}">remover furo</button></div>`).join('');
       const addFuro = (pc.tipo === 'cilindro' || pc.tipo === 'bloco') && (pc.furos || []).length < 2 ? `<button type="button" class="text-button" data-add-furo="${i}">+ furo</button>` : '';
       return `<fieldset class="narrar-peca"><legend>${esc(pc.nome || NOMES[pc.tipo])} · ${NOMES[pc.tipo]} <button type="button" class="text-button" data-del="${i}">remover</button></legend>
-        <div class="narrar-campos">${linhas}${cab}</div>${furos}${addFuro}</fieldset>`;
+        <div class="narrar-campos">${linhas}${cab}</div>${pc.tipo === 'mola' ? `<p class="mola-calc" data-calc="${i}"></p>` : ''}${furos}${addFuro}</fieldset>`;
     }).join('');
     abrir(`<h3>Confira as medidas</h3>
       ${spec.texto ? `<p class="foto-sub">“${esc(spec.texto)}”</p>` : ''}
@@ -445,6 +446,20 @@
       formulario();
     });
     dlg.querySelectorAll('[data-del-furo]').forEach((b) => b.onclick = () => { const [i, fi] = b.dataset.delFuro.split('.').map(Number); spec.pecas[i].furos.splice(fi, 1); formulario(); });
+    // Mola: diâmetro interno (externo − 2 × arame) e altura livre, atualizados a cada tecla.
+    const calcMola = (i) => {
+      const box = dlg.querySelector(`[data-calc="${i}"]`); if (!box) return;
+      const v = (k) => num(dlg.querySelector(`[data-p="${i}.${k}"]`)?.value);
+      const D = v('diametro'), d = v('fio'), n = v('espiras'), p = v('passo');
+      const partes = [];
+      if (D && d) partes.push(D - 2 * d > 0 ? `<b>Ø interno ${fmt(D - 2 * d)} mm</b>` : '<b class="erro">arame grosso demais</b>');
+      else partes.push('Ø interno: digite o externo e o arame');
+      if (D && d) partes.push(`Ø médio ${fmt(D - d)} mm`);
+      if (n && p && d) partes.push(`altura livre ${fmt(n * p + d)} mm`);
+      box.innerHTML = partes.join(' · ');
+    };
+    spec.pecas.forEach((pc, i) => { if (pc.tipo === 'mola') calcMola(i); });
+    dlg.querySelectorAll('[data-p]').forEach((el) => el.addEventListener('input', () => { const i = el.dataset.p.split('.')[0]; if (spec.pecas[+i]?.tipo === 'mola') calcMola(i); }));
     dlg.querySelectorAll('[data-p]').forEach((el) => el.addEventListener('change', () => {
       const path = el.dataset.p.split('.');
       if (path[0] === 'folga') { spec.folga = Number(String(el.value).replace(',', '.')) || 0; return estado(); }

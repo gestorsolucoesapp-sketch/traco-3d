@@ -382,3 +382,4 @@ body.tela-cheia .roda-fab{bottom:18px}
 .tambor-nome.on{opacity:1;transform:translateY(-50%) translateX(0)}
 body.trilho .pc-dica{display:none}
 .narrar-peca.destaque{outline:2px solid #D76845;outline-offset:3px;border-radius:10px}
+.mola-calc{margin:8px 2px 0;font-size:14px;color:#111}.mola-calc b{color:#286855}.mola-calc b.erro{color:#b3261e}
