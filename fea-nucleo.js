@@ -461,7 +461,18 @@ function tracoNucleoFEA() {
       for (let n = 0; n < 8; n++) { const w = (n & 1 ? a : 1 - a) * (n & 2 ? b : 1 - b) * (n & 4 ? c : 1 - c), id = M.conec[e * 8 + n]; for (let q2 = 0; q2 < comp; q2++) out[q2] += w * campo[id * comp + q2]; }
       return out;
     }
-    return null;
+    // ponta fina que ficou fora dos cubinhos: usa o cubinho cheio mais perto (até 3 de distância)
+    const f = [(p[0] - M.o[0]) / h, (p[1] - M.o[1]) / h, (p[2] - M.o[2]) / h], c0 = f.map(Math.floor);
+    let best = -1, bd = Infinity, bi = 0, bj = 0, bk = 0;
+    for (let dk = -3; dk <= 3; dk++) for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
+      const i = c0[0] + di, j = c0[1] + dj, k = c0[2] + dk; if (i < 0 || j < 0 || k < 0 || i >= M.nx || j >= M.ny || k >= M.nz) continue;
+      const e = M.elIdx[i + M.nx * (j + M.ny * k)]; if (e < 0) continue;
+      const d = (i + .5 - f[0]) ** 2 + (j + .5 - f[1]) ** 2 + (k + .5 - f[2]) ** 2; if (d < bd) { bd = d; best = e; bi = i; bj = j; bk = k; }
+    }
+    if (best < 0) return null;
+    const a = Math.min(1, Math.max(0, f[0] - bi)), b = Math.min(1, Math.max(0, f[1] - bj)), c = Math.min(1, Math.max(0, f[2] - bk)), out = new Float64Array(comp);
+    for (let n = 0; n < 8; n++) { const w = (n & 1 ? a : 1 - a) * (n & 2 ? b : 1 - b) * (n & 4 ? c : 1 - c), id = M.conec[best * 8 + n]; for (let q2 = 0; q2 < comp; q2++) out[q2] += w * campo[id * comp + q2]; }
+    return out;
   }
   // superfície dos voxels que ficaram (resultado da otimização)
   function casca(M, manter) {
