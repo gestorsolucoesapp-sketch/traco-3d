@@ -129,7 +129,7 @@
   m.addEventListener('pointerup', (e) => {
     const p = api.part; if (!ini || p.operation !== 'narrado' || p.sim) return;
     const moveu = Math.hypot(e.clientX - ini[0], e.clientY - ini[1]); ini = null;
-    if (moveu > 6 || window.tracoPintura?.ativa || window.tracoCotas?.medindo) return;
+    if (moveu > 6 || window.tracoPintura?.ativa || window.tracoCotas?.medindo || window.tracoFEA?.S?.aberto) return; // com a simulação aberta o toque é para escolher faces
     const r = m.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, faces = p.lastFaces || [];
     let alvo = null; for (let i = faces.length - 1; i >= 0; i--) if (dentro(x, y, faces[i].corners)) { alvo = faces[i].idx; break; }
     if (alvo == null) return;
