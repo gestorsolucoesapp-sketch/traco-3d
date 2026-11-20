@@ -92,7 +92,7 @@
         let v = quadro ? quadro[i] : (campo[i * 3] + campo[i * 3 + 1] + campo[i * 3 + 2]) / 3;
         if (inv) v = 1 - Math.min(v, vmax) / vmax; else v = (v - vmin) / ((vmax - vmin) || 1);
         const pts = u && esc ? t.points.map((p, k) => [p[0] + u[(i * 3 + k) * 3] * esc, p[1] + u[(i * 3 + k) * 3 + 1] * esc, p[2] + u[(i * 3 + k) * 3 + 2] * esc]) : t.points;
-        return { ...t, points: pts, cor: arco(v) };
+        return { ...t, points: pts, cor: arco(v), real: true };
       });
     } else {
       const cor = {}; for (const [k, s] of Object.entries(S.sel)) for (const i of s) cor[i] = CORSEL[k];
@@ -345,7 +345,7 @@
     if (r.estudo === 'estatico') {
       const fs = S.props.esc / r.maxVM, cl = fs >= 2 ? 'bom' : fs >= 1 ? 'atencao' : 'ruim';
       return `<h4>Resultado</h4><div class="fea-abas">${[['vm', 'Tensão (von Mises)'], ['u', 'Deslocamento'], ['fs', 'Coef. de segurança']].map(([k, t]) => `<button type="button" class="${S.vista === k ? 'primary-button' : 'secondary-button'}" data-x="vista-${k}">${t}</button>`).join('')}</div>
-        <p class="an-sub">Tensão máxima: <b>${fmt(r.maxVM, 2)} MPa</b> · deslocamento máximo: <b>${fmt(r.maxU, 4)} mm</b><br>Coeficiente de segurança mínimo: <b class="${cl}">${fmt(fs, 2)}</b> ${fs < 1 ? '— passa do limite do material: deforma de vez ou quebra.' : fs < 2 ? '— aguenta, mas no limite.' : '— folgado.'}${r.convergiu ? '' : '<br><span class="atencao">O cálculo não convergiu totalmente: use malha mais grossa ou confira se a peça está bem presa.</span>'}</p>
+        ${r.pico ? `<p class="an-sub atencao">⚠️ Pico pontual de ${fmt(r.pico, 0)} MPa bem onde a força ou o apoio estão em poucos pontos. Isso é efeito de força concentrada no cálculo, não da peça: ignorei esse pico. Para um valor mais real, espalhe a força numa face maior (use "superfície contínua").</p>` : ''}<p class="an-sub">Tensão máxima: <b>${fmt(r.maxVM, 2)} MPa</b> · deslocamento máximo: <b>${fmt(r.maxU, 4)} mm</b><br>Coeficiente de segurança mínimo: <b class="${cl}">${fmt(fs, 2)}</b> ${fs < 1 ? '— passa do limite do material: deforma de vez ou quebra.' : fs < 2 ? '— aguenta, mas no limite.' : '— folgado.'}${r.convergiu ? '' : '<br><span class="atencao">O cálculo não convergiu totalmente: use malha mais grossa ou confira se a peça está bem presa.</span>'}</p>
         ${livreEst(r)}<div class="foto-acoes"><label class="fea-chk"><span><input type="checkbox" data-v="exagero"${S.exagero ? ' checked' : ''}/> deformação exagerada para ver</span></label><span style="flex:1"></span>${anim}<button type="button" class="secondary-button" data-x="limparRes">Limpar resultado</button></div>${m}`;
     }
     if (r.estudo === 'modal') return `<h4>Frequências naturais</h4><div class="fea-abas">${r.modos.map((q, i) => `<button type="button" class="${S.modo === i ? 'primary-button' : 'secondary-button'}" data-x="modo-${i}">Modo ${i + 1}: ${fmt(q.f, 1)} Hz</button>`).join('')}</div>

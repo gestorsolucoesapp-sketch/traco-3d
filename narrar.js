@@ -285,7 +285,7 @@
       const pts = t.points.map(atual.p), tri = { points: pts, normal: atual.n(t.normal) };
       const cz = (pts[0][2] + pts[1][2] + pts[2][2]) / 3, d = G.pre[i];
       if (cz > G.z0 && cz < G.z1 && d != null && d < G.lim) {
-        tri.cor = corFolga(d); stats.n++;
+        tri.cor = corFolga(d); tri.real = true; stats.n++;
         if (d < -.01) stats.interf++; else if (d < .03) stats.contato++;
         stats.min = Math.min(stats.min, d); stats.max = Math.max(stats.max, d);
       }

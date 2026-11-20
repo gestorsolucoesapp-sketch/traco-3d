@@ -876,13 +876,20 @@
   }
   window.tracoPlano = { get: () => part.plano, set: escolherPlano };
 
+  // A área escura é feita com invert(1) hue-rotate(180deg) no canvas. Aplicar o mesmo filtro antes faz ele se desfazer.
+  function preInverte([r, g, b]) {
+    r = 255 - r; g = 255 - g; b = 255 - b;
+    const c = (v) => Math.max(0, Math.min(255, Math.round(v)));
+    return [c(-.574 * r + 1.43 * g + .144 * b), c(.426 * r + .43 * g + .144 * b), c(.426 * r + 1.43 * g - .856 * b)];
+  }
   function corFace(triangle, light) {
     const shade = Math.round(135 + 73 * light);
     if (triangle.vidro) { const h = triangle.vidro.replace('#', ''), k = .55 + .5 * light; const c = [0, 2, 4].map((i) => Math.min(255, Math.round(parseInt(h.slice(i, i + 2), 16) * k))); return `rgba(${c[0]},${c[1]},${c[2]},.38)`; }
     if (triangle.ghost) return `rgba(${Math.round(shade * .62)},${Math.round(shade * .78)},${Math.round(shade * .9)},.16)`;
     if (triangle.cor) {
       const h = triangle.cor.replace('#', ''), k = .5 + .55 * light;
-      const c = [0, 2, 4].map((i) => Math.min(255, Math.round(parseInt(h.slice(i, i + 2), 16) * k)));
+      let c = [0, 2, 4].map((i) => Math.min(255, Math.round(parseInt(h.slice(i, i + 2), 16) * k)));
+      if (triangle.real && window.tracoAreaEscura) c = preInverte(c); // mapa de cores: mostra as cores verdadeiras mesmo com a área escura
       return `rgb(${c[0]},${c[1]},${c[2]})`;
     }
     return `rgb(${Math.min(255, shade + 33)},${Math.round(shade * .80)},${Math.round(shade * .66)})`;

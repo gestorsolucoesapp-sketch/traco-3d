@@ -12,6 +12,7 @@
     const neutro = cfg.escuro === cfg.areaEscuro && cfg.brilho === cfg.areaBrilho;
     document.documentElement.style.setProperty('--filtro-area', neutro ? 'none' : area);
     document.documentElement.classList.toggle('tema-escuro', cfg.escuro);
+    window.tracoAreaEscura = !!cfg.areaEscuro; // a área escura inverte as cores do canvas; mapas de cor compensam
     window.tracoGrade = { mostrar: cfg.grade, forca: cfg.gradeForca, tam: cfg.gradeTam };
     try { window.requestRender?.(); window.tracoPeca?.render(); } catch { /* */ }
     try { localStorage.setItem(CH, JSON.stringify(cfg)); } catch { /* */ }

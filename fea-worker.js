@@ -33,7 +33,10 @@ self.onmessage = (ev) => {
     if (estudo !== 'otimizar') { res.tris = trisS; res.pai = Int32Array.from(pai); }
     const tr = [];
     if (estudo === 'estatico') {
-      res.u = amostra(r.u, 3); res.vm = amostra(r.vmNo, 1); res.maxVM = r.maxVM; res.it = r.it; res.convergiu = r.res < 1e-4;
+      res.u = amostra(r.u, 3); res.vm = amostra(r.vmNo, 1); res.it = r.it; res.convergiu = r.res < 1e-4;
+      // pico pontual: força ou apoio em poucos pontos cria tensão "infinita" só ali (singularidade numérica)
+      const ord = Float32Array.from(res.vm).sort(), p995 = ord[Math.floor(ord.length * .995)] || 0, topo = ord[ord.length - 1] || 0;
+      if (topo > p995 * 2.5 && p995 > 0) { res.maxVM = p995; res.pico = topo; } else res.maxVM = Math.max(topo, 1e-12);
       let mu = 0; for (let i = 0; i < M.nn; i++) mu = Math.max(mu, Math.hypot(r.u[3 * i], r.u[3 * i + 1], r.u[3 * i + 2])); res.maxU = mu;
       tr.push(res.u.buffer, res.vm.buffer);
     } else if (estudo === 'modal') {
