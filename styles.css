@@ -470,3 +470,7 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 
 .fea-mola{display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px dashed #e1e6e4}
 .fea-mola .primary-button{align-self:flex-start}
+
+.fea-edita{position:absolute;z-index:8;display:flex;align-items:center;gap:6px;background:#fff;border:2px solid #EF6C00;border-radius:10px;padding:6px 8px;box-shadow:0 6px 18px rgba(0,0,0,.2);color:#111}
+.fea-edita input{width:80px;font:700 16px DM Sans,Arial,sans-serif;border:1px solid #ddd;border-radius:6px;padding:4px 6px;color:#111;background:#fff}
+.fea-edita button{border:0;background:#EF6C00;color:#fff;font-weight:800;border-radius:7px;padding:6px 10px}

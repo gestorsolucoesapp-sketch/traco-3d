@@ -248,6 +248,21 @@
     }
     S.versao++; API().render();
   }
+  // toque (sem arrastar) na força: caixinha para digitar o valor
+  function editarValor(x, y) {
+    const wrap = document.querySelector('.part-model-wrap'); if (!wrap) return;
+    wrap.querySelector('.fea-edita')?.remove();
+    const un = S.carga.tipo === 'pressao' ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N';
+    const cx = document.createElement('div'); cx.className = 'fea-edita';
+    cx.innerHTML = `<input type="text" inputmode="decimal" value="${fmt(valorBase(), 2)}" aria-label="Valor da força" /><span>${un}</span><button type="button">OK</button>`;
+    const W = wrap.clientWidth; cx.style.left = `${Math.max(6, Math.min(W - 170, x - 80))}px`; cx.style.top = `${Math.max(6, y - 14)}px`;
+    wrap.appendChild(cx);
+    const inp = cx.querySelector('input'); inp.focus(); inp.select();
+    const ok = () => { const v = num(inp.value); cx.remove(); if (v == null || v < 0) return avisa('Valor inválido.'); aplicaValor(v); if (!S.res && !S.rodando) avisa('Força ajustada. Toque em ▶ Rodar simulação.'); };
+    cx.querySelector('button').onclick = ok;
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); if (e.key === 'Escape') cx.remove(); });
+    cx.addEventListener('pointerdown', (e) => e.stopPropagation());
+  }
   function moverCarga(e) {
     const api = API(), [x, y] = pontoCanvas(e), faces = api.part.lastFaces || []; let alvo = null;
     for (let i = faces.length - 1; i >= 0; i--) if (dentro(x, y, faces[i].corners)) { alvo = faces[i].idx; break; }
@@ -271,12 +286,14 @@
     m.addEventListener('pointermove', (e) => {
       if (!arrasto) return; e.stopImmediatePropagation(); e.preventDefault();
       const [x, y] = pontoCanvas(e);
+      arrasto.mx = Math.max(arrasto.mx || 0, Math.hypot(x - arrasto.x0, y - arrasto.y0));
       if (arrasto.tipo === 'valor') { // puxar para trás (contra a seta) aumenta; empurrar para a peça diminui
+        if (arrasto.mx < 6) return; // ainda é um toque
         const d = -((x - arrasto.x0) * arrasto.dir2[0] + (y - arrasto.y0) * arrasto.dir2[1]);
         const base = arrasto.v0 || 10; aplicaValor(base * Math.pow(2, d / 90));
       } else { arrasto.x = x; arrasto.y = y; API().render(); }
     }, true);
-    const solta = (e) => { if (!arrasto) return; e.stopImmediatePropagation(); const a = arrasto; arrasto = null; if (a.tipo === 'mover' && a.x != null && Math.hypot(a.x - a.x0, a.y - a.y0) > 12) moverCarga(e); else API().render(); };
+    const solta = (e) => { if (!arrasto) return; e.stopImmediatePropagation(); const a = arrasto; arrasto = null; if ((a.mx || 0) < 6) { editarValor(a.x0, a.y0); return; } if (a.tipo === 'mover' && a.x != null && Math.hypot(a.x - a.x0, a.y - a.y0) > 12) moverCarga(e); else API().render(); };
     m.addEventListener('pointerup', solta, true); m.addEventListener('pointercancel', (e) => { if (arrasto) { arrasto = null; API().render(); } }, true);
     let ini = null;
     m.addEventListener('pointerdown', (e) => { ini = S.aberto && S.escolhendo ? [e.clientX, e.clientY] : null; }, true);
