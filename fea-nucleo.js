@@ -247,7 +247,6 @@ function tracoNucleoFEA() {
     }
     const ini = new Float64Array(n + 1); let flops = 0;
     for (let i = 0; i < n; i++) { const l = i - f[i] + 1; ini[i + 1] = ini[i] + l; flops += l * l / 2; }
-    if (typeof process !== "undefined" && process.env.FLOPS) console.log("flops", flops.toExponential(2), "perfil", ini[n].toExponential(2));
     if (ini[n] > 3.5e7 || flops > limite) return null; // grande demais para fazer direto no navegador
     const L = new Float64Array(ini[n]);
     for (let e = 0; e < M.ne; e++) {
@@ -266,7 +265,7 @@ function tracoNucleoFEA() {
       let s = L[oi + i]; for (let k = fi; k < i; k++) s -= L[oi + k] * L[oi + k];
       if (!(s > 0)) return null; // solto (sem apoio suficiente)
       L[oi + i] = Math.sqrt(s);
-      if (prog && i % 4000 === 0) prog({ fase: 'Fatorando', it: Math.round(i / n * 100) + '%', res: 0 });
+      if (prog && i % 800 === 0) prog({ fase: 'Fatorando', it: Math.round(i / n * 100) + '%', res: 0 });
     }
     return (b, x) => { // resolve K x = b (graus fixos ficam como estão em x)
       const y = new Float64Array(n);
@@ -290,9 +289,9 @@ function tracoNucleoFEA() {
     let r; const dir = direto(M, el.K, null, fixo, prog);
     if (dir) { dir(F, u); r = { it: 0, res: 0, direto: true }; }
     else {
-      r = cg(A, F, u, dg, fixo, 1e-6, 2000, (it, res) => prog?.({ fase: 'Resolvendo', it, res }));
+      r = cg(A, F, u, dg, fixo, 1e-6, 400, (it, res) => prog?.({ fase: 'Resolvendo', it, res })); // peça compacta converge antes disso
       if (r.res >= 1e-6) { const d2 = direto(M, el.K, null, fixo, prog, 9e9); // peça fina e comprida: termina direto
-        if (d2) { d2(F, u); r = { it: r.it, res: 0, direto: true }; } else r = cg(A, F, u, dg, fixo, 1e-6, 4000, (it, res) => prog?.({ fase: 'Resolvendo', it: it + 2000, res })); }
+        if (d2) { d2(F, u); r = { it: r.it, res: 0, direto: true }; } else r = cg(A, F, u, dg, fixo, 1e-6, 4000, (it, res) => prog?.({ fase: 'Resolvendo', it: it + 400, res })); }
     }
     const { vm, vmNo } = tensoes(M, u, E, el);
     return { tipo: 'estatico', malha: resumo(M), u, vmNo, it: r.it, res: r.res, maxVM: Math.max(...vmNo), M };
