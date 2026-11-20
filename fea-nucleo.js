@@ -185,6 +185,7 @@ function tracoNucleoFEA() {
     for (const id of fix) fixo[3 * id] = fixo[3 * id + 1] = fixo[3 * id + 2] = 1;
     for (const c of cfg.cargas || []) {
       const ns = nosPerto(M, c.tris); if (!ns.length) continue;
+      if (c.guia) for (const id of ns) fixo[3 * id] = fixo[3 * id + 1] = 1; // prato: a ponta só desce, não escorrega de lado
       const A = c.tris.reduce((s, t) => s + area(t), 0);
       let dir = c.dir;
       if (c.dir === 'normal' || c.tipo === 'pressao') { // empurrando a face (contra a normal de fora), média ponderada pela área

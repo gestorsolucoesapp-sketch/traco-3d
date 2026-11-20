@@ -257,7 +257,7 @@
     const tris = base(), mapa = vizinhos(tris), n0 = tris[alvo].normal, vistos = new Set([alvo]), fila = [alvo];
     const lim = Math.cos((S.modoSel === 'plana' ? 6 : 28) * Math.PI / 180);
     while (fila.length) { const i = fila.pop(); for (const j of mapa[i]) { if (vistos.has(j)) continue; const a = S.modoSel === 'plana' ? n0 : tris[i].normal, b = tris[j].normal; if (a[0] * b[0] + a[1] * b[1] + a[2] * b[2] >= lim) { vistos.add(j); fila.push(j); } } }
-    S.sel.carga.clear(); for (const i of vistos) { S.sel.fixo.delete(i); S.sel.carga.add(i); }
+    S.prato = false; S.sel.carga.clear(); for (const i of vistos) { S.sel.fixo.delete(i); S.sel.carga.add(i); }
     S.res = null; S.anima = false; S.versao++; pinta(); api.render();
     avisa('Força movida. Toque em ▶ Rodar simulação para ver o resultado.');
   }
@@ -409,7 +409,7 @@
     const faixa = Math.max(m.fio || 1, (z1 - z0) * .02);
     S.sel.fixo.clear(); S.sel.carga.clear();
     tris.forEach((t, i) => { const zs = t.points.map((q) => q[2]); if (Math.max(...zs) < z0 + faixa) S.sel.fixo.add(i); else if (Math.min(...zs) > z1 - faixa) S.sel.carga.add(i); });
-    S.carga.tipo = S.carga.tipo === 'pressao' ? 'forca' : S.carga.tipo; S.carga.dir = '-z'; S.gravidade = false; S.res = null; S.anima = false; S.versao++;
+    S.carga.tipo = S.carga.tipo === 'pressao' ? 'forca' : S.carga.tipo; S.carga.dir = '-z'; S.gravidade = false; S.prato = true; S.res = null; S.anima = false; S.versao++;
     pinta(); API().render();
     if (!num(S.carga.valor)) { S.falta = ['[data-v="carga.valor"]']; marcaFalta(); painel.querySelector('.fea-falta')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); avisa('Diga a força (N) ou o peso (kg) para apertar a mola.'); return; }
     rodar();
@@ -458,7 +458,7 @@
     const x = ev.target.closest('[data-x]')?.dataset.x; if (!x) return;
     const api = API();
     if (x === 'fechar') return abrir();
-    if (x.startsWith('esc-')) { const k = x.slice(4); if (S.falta) S.falta = S.falta.filter((q) => !q.includes(`"${k}"`)); S.escolhendo = S.escolhendo === k ? null : k; S.res = null; S.anima = false; S.versao++; pinta(); api.render(); if (S.escolhendo) avisa('Toque nas faces da peça no 3D. Arraste para girar.'); return; }
+    if (x.startsWith('esc-')) { S.prato = false; const k = x.slice(4); if (S.falta) S.falta = S.falta.filter((q) => !q.includes(`"${k}"`)); S.escolhendo = S.escolhendo === k ? null : k; S.res = null; S.anima = false; S.versao++; pinta(); api.render(); if (S.escolhendo) avisa('Toque nas faces da peça no 3D. Arraste para girar.'); return; }
     if (x.startsWith('limpa-')) { S.sel[x.slice(6)].clear(); S.res = null; S.versao++; pinta(); api.render(); return; }
     if (x.startsWith('vista-')) { S.vista = x.slice(6); S.versao++; pinta(); api.render(); return; }
     if (x.startsWith('modo-')) { S.modo = +x.slice(5); S.versao++; pinta(); api.render(); return; }
@@ -500,7 +500,7 @@
     if (falta.length) { prog.innerHTML = `<span class="atencao">Falta: ${falta.join(', ')}. (marquei com um círculo vermelho)</span>`; painel.querySelector('.fea-falta')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); avisa('Falta preencher o que está com círculo vermelho.'); return; }
     const d = { normal: 'normal', z: [0, 0, 1], '-z': [0, 0, -1], x: [1, 0, 0], '-x': [-1, 0, 0], y: [0, 1, 0], '-y': [0, -1, 0] }[S.carga.dir];
     const cfg = { alvo: MALHAS[S.malha][e], E: (p.E || 1) * 1000, nu: p.nu, rho: (p.rho || 0) * 1e-12, rhoKg: p.rho || 0, cp: p.cp || 0, k: p.k, modos: +S.modos,
-      fixo: lista('fixo'), cargas: S.sel.carga.size ? [{ tris: lista('carga'), tipo: S.carga.tipo === 'pressao' ? 'pressao' : 'forca', valor: num(S.carga.valor) * (S.carga.tipo === 'massa' ? 9.81 : 1), dir: S.carga.tipo === 'pressao' ? 'normal' : d }] : [], gravidade: S.gravidade,
+      fixo: lista('fixo'), cargas: S.sel.carga.size ? [{ tris: lista('carga'), tipo: S.carga.tipo === 'pressao' ? 'pressao' : 'forca', valor: num(S.carga.valor) * (S.carga.tipo === 'massa' ? 9.81 : 1), dir: S.carga.tipo === 'pressao' ? 'normal' : d, guia: !!S.prato }] : [], gravidade: S.gravidade,
       temps: S.sel.temp.size ? [{ tris: lista('temp'), valor: num(S.tempValor) }] : [], calor: S.sel.calor.size ? [{ tris: lista('calor'), valor: num(S.calorValor) }] : [],
       hconv: num(S.hconv) || 0, tAmb: num(S.tAmb) ?? 20, manter: (num(S.manter) || 0) / 100, iter: 22 };
     try { worker?.terminate(); worker = new Worker('fea-worker.js' + (SRC ? `?${SRC}` : '')); } catch (er) { prog.textContent = 'Este navegador não deixou rodar a simulação: ' + er.message; return; }
