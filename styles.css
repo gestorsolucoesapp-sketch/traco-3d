@@ -467,3 +467,6 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 
 .fea-rodar-3d{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:5;padding:9px 18px;border-radius:999px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.18);white-space:nowrap}
 .fea-rodar-3d[hidden]{display:none}
+
+.fea-mola{display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px dashed #e1e6e4}
+.fea-mola .primary-button{align-self:flex-start}

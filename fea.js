@@ -85,8 +85,9 @@
       let esc = 0;
       if (u) {
         const umax = r.estudo === 'estatico' ? r.maxU : 1;
-        esc = r.estudo === 'modal' ? sz * .08 / umax : S.exagero ? (umax > 0 ? sz * .05 / umax : 0) : 1;
+        esc = r.estudo === 'modal' ? sz * .08 / umax : S.exagero ? (umax > sz * .02 ? 1 : umax > 0 ? sz * .05 / umax : 0) : 1; // já dá para ver (mola): mostra o movimento real
         if (S.anima || r.estudo === 'estatico') esc *= r.estudo === 'modal' ? Math.sin(S.fase * 2 * Math.PI) : rampa;
+        if (r.estudo === 'estatico' && Math.abs(esc) * umax > sz * .6) esc = Math.sign(esc) * sz * .6 / umax; // não deixa a peça virar do avesso no desenho
       }
       out = lista.map((t, i) => {
         let v = quadro ? quadro[i] : (campo[i * 3] + campo[i * 3 + 1] + campo[i * 3 + 2]) / 3;
@@ -327,6 +328,7 @@
       h += selBloco('temp') + `<div class="an-linha">${campo('tempValor', 'Temperatura dessas faces', '°C')}</div>` + selBloco('calor') + `<div class="an-linha">${campo('calorValor', 'Potência de calor nessas faces', 'W')}</div>
         <h4>Troca de calor com o ar (resto da peça)</h4><div class="an-linha">${campo('hconv', 'Coeficiente h', 'W/m²·K', 'ar parado ≈ 5 a 25')}${campo('tAmb', 'Temperatura do ar', '°C')}</div>`;
     } else {
+      if (e === 'estatico' && molaSpec()) h += `<div class="fea-mola"><button type="button" class="primary-button" data-x="apertarMola">🗜️ Apertar a mola entre pratos</button><span class="an-sub">Prende a ponta de baixo, empurra a ponta de cima para baixo e mostra a mola comprimindo, a rigidez (N/mm) e quando as espiras encostam.</span></div>`;
       h += selBloco('fixo');
       if (e !== 'modal') h += selBloco('carga') + `<div class="an-linha"><label>Tipo<select data-v="carga.tipo"><option value="forca"${S.carga.tipo === 'forca' ? ' selected' : ''}>Força total</option><option value="pressao"${S.carga.tipo === 'pressao' ? ' selected' : ''}>Pressão</option><option value="massa"${S.carga.tipo === 'massa' ? ' selected' : ''}>Peso em cima (kg)</option></select></label>
         ${campo('carga.valor', S.carga.tipo === 'pressao' ? 'Pressão' : S.carga.tipo === 'massa' ? 'Peso' : 'Força', S.carga.tipo === 'pressao' ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N')}
@@ -370,7 +372,7 @@
     const a = r.aplicado, f = S.livre ?? 1, sg = r.maxVM * f, fs = sg > 0 ? S.props.esc / sg : Infinity, lim = a.v * S.props.esc / r.maxVM;
     return `Tensão máx. <b>${fmt(sg, 1)} MPa</b> · deslocamento <b>${fmt(r.maxU * f, 4)} mm</b> · segurança <b class="${fs >= 2 ? 'bom' : fs >= 1 ? 'atencao' : 'ruim'}">${fs === Infinity ? '—' : fmt(fs, 2)}</b><br>`
       + (fs < 1 ? `<span class="ruim">❌ Passou do limite: com isso a peça escoa (deforma de vez) ou quebra.</span> ` : '')
-      + `Aguenta até cerca de <b>${fmt(lim, 1)} ${a.un}</b> (coeficiente 1). <small>Cálculo linear: perto e acima do limite o real é pior.</small>`;
+      + `Aguenta até cerca de <b>${fmt(lim, 1)} ${a.un}</b> (coeficiente 1). <small>Cálculo linear: perto e acima do limite o real é pior.</small>` + molaInfo(r, f);
   }
   function livreTerm(r) {
     let h = '';
@@ -397,6 +399,31 @@
     botao3d.hidden = !S.aberto;
     botao3d.disabled = S.rodando;
     botao3d.textContent = S.rodando ? '⏳ Calculando…' : S.res ? '▶ Rodar de novo' : '▶ Rodar simulação';
+  }
+  // ---------- mola: ensaio de compressão entre pratos ----------
+  function molaSpec() { const n = API()?.part?.narrado; return n?.pecas?.length === 1 && n.pecas[0].tipo === 'mola' ? n.pecas[0] : null; }
+  function apertarMola() {
+    const m = molaSpec(); if (!m) return;
+    const tris = base(); let z0 = Infinity, z1 = -Infinity;
+    for (const t of tris) for (const q of t.points) { z0 = Math.min(z0, q[2]); z1 = Math.max(z1, q[2]); }
+    const faixa = Math.max(m.fio || 1, (z1 - z0) * .02);
+    S.sel.fixo.clear(); S.sel.carga.clear();
+    tris.forEach((t, i) => { const zs = t.points.map((q) => q[2]); if (Math.max(...zs) < z0 + faixa) S.sel.fixo.add(i); else if (Math.min(...zs) > z1 - faixa) S.sel.carga.add(i); });
+    S.carga.tipo = S.carga.tipo === 'pressao' ? 'forca' : S.carga.tipo; S.carga.dir = '-z'; S.gravidade = false; S.res = null; S.anima = false; S.versao++;
+    pinta(); API().render();
+    if (!num(S.carga.valor)) { S.falta = ['[data-v="carga.valor"]']; marcaFalta(); painel.querySelector('.fea-falta')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); avisa('Diga a força (N) ou o peso (kg) para apertar a mola.'); return; }
+    rodar();
+  }
+  function molaInfo(r, f) { // rigidez medida, fórmula de catálogo e quando fecha
+    const m = molaSpec(); if (!m || !r.tris || !S.sel.carga.size) return '';
+    let soma = 0, n = 0; r.tris.forEach((_, i) => { if (S.sel.carga.has(r.pai[i])) for (let k = 0; k < 3; k++) { soma += r.u[(i * 3 + k) * 3 + 2]; n++; } });
+    if (!n) return '';
+    const dz = -soma / n, F = r.aplicado.v * (r.aplicado.un === 'kg' ? 9.81 : 1), kMed = F / Math.max(dz, 1e-12);
+    const E = (S.props.E || 0) * 1000, G = E / (2 * (1 + (S.props.nu || .3))), D = m.diametro - m.fio, kCat = G * m.fio ** 4 / (8 * D ** 3 * m.espiras);
+    const livre = m.espiras * m.passo + m.fio, solida = (m.espiras + 1) * m.fio, curso = livre - solida, Fx = F * f, desl = dz * f;
+    const fecha = kMed * curso;
+    return `<br>🗜️ <b>Mola:</b> comprimiu <b>${fmt(desl, 2)} mm</b> (altura ${fmt(livre - desl, 1)} de ${fmt(livre, 1)} mm) · rigidez <b>${fmt(kMed, 2)} N/mm</b> <small>(fórmula de catálogo: ${fmt(kCat, 2)} N/mm)</small>`
+      + (desl >= curso ? `<br><span class="ruim">❌ Espiras encostam (mola fechada): isso acontece com ~${fmt(fecha, 1)} N. Acima disso ela vira um bloco.</span>` : `<br>Fecha (espiras encostam) com cerca de <b>${fmt(fecha, 1)} N</b> · curso até fechar ${fmt(curso, 1)} mm.`);
   }
   function marcaFalta() {
     if (!painel) return;
@@ -439,6 +466,7 @@
     if (x === 'limparRes') { S.res = null; S.anima = false; S.versao++; pinta(); api.render(); return; }
     if (x === 'stlOtim') return stlOtim();
     if (x === 'rodar') return rodar();
+    if (x === 'apertarMola') return apertarMola();
   }
   let t0a = 0;
   const PERIODO = { estatico: 2600, modal: 1600, termico: 7000, otimizar: 5000 };
