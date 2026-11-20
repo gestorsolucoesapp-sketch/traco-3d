@@ -124,13 +124,14 @@
     ctx.strokeStyle = cor; ctx.fillStyle = cor; ctx.lineWidth = 2.4;
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x - Math.cos(ang) * cab * .7, b.y - Math.sin(ang) * cab * .7); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x - Math.cos(ang - .42) * cab, b.y - Math.sin(ang - .42) * cab); ctx.lineTo(b.x - Math.cos(ang + .42) * cab, b.y - Math.sin(ang + .42) * cab); ctx.closePath(); ctx.fill();
-    return a;
+    return { x: a.x, y: a.y, hx: b.x, hy: b.y };
   }
   function etiqueta(ctx, x, y, txt, cor) {
     ctx.font = '700 11px DM Sans, Arial, sans-serif'; const w = ctx.measureText(txt).width + 10;
     ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.strokeStyle = cor; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 18, w, 16, 5) : ctx.rect(x - w / 2, y - 18, w, 16); ctx.fill(); ctx.stroke();
     ctx.fillStyle = cor; ctx.textAlign = 'center'; ctx.fillText(txt, x, y - 6);
+    return { x: x - w / 2, y: y - 18, w, h: 16 };
   }
   function desenhar(ctx, proj) {
     if (!S.aberto || !proj || S.res?.estudo === 'otimizar' && S.anima) return;
@@ -147,11 +148,29 @@
       ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + dx * h + px * h * .7, p.y + dy * h + py * h * .7); ctx.lineTo(p.x + dx * h - px * h * .7, p.y + dy * h - py * h * .7); ctx.closePath(); ctx.fill();
       for (let k = -1; k <= 1; k++) { const bx = p.x + dx * (h + 2) + px * k * 6, by = p.y + dy * (h + 2) + py * k * 6; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + dx * 5 - px * 4, by + dy * 5 - py * 4); ctx.stroke(); }
     }
-    // cargas
+    // cargas (arrastáveis: puxe a etiqueta para aumentar/diminuir; arraste a ponta para outra face)
+    S.ui = null;
     if ((e === 'estatico' || e === 'otimizar') && S.sel.carga.size) {
-      const pr = S.carga.tipo === 'pressao', v = num(S.carga.valor); let pos = null;
-      for (const { c, n } of amostras(S.sel.carga, tris, pr ? 9 : 6)) { const d = pr || S.carga.dir === 'normal' ? n.map((x) => -x) : DIR[S.carga.dir]; const a = seta(ctx, proj, c, d, L, '#EF6C00', off); if (!pos || a.y < pos.y) pos = a; }
-      if (pos && v) { const f = S.anima && S.res?.estudo === 'estatico' ? Math.min(1, S.fase / .7) : S.res?.estudo === 'estatico' ? (S.livre ?? 1) : 1; etiqueta(ctx, pos.x, pos.y - 4, `${fmt(v * f, 1)} ${pr ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N'}`, '#EF6C00'); }
+      const pr = S.carga.tipo === 'pressao', r = S.res?.estudo === 'estatico' ? S.res : null;
+      const v = r?.aplicado?.v || num(S.carga.valor);
+      const f = S.anima && r ? Math.min(1, S.fase / .7) : r ? (S.livre ?? 1) : 1;
+      const Lc = L * Math.min(2.6, Math.max(.35, f));
+      let pos = null; const cabecas = []; let dir2 = null;
+      for (const { c, n } of amostras(S.sel.carga, tris, pr ? 9 : 6)) {
+        const d = pr || S.carga.dir === 'normal' ? n.map((x) => -x) : DIR[S.carga.dir];
+        const a = seta(ctx, proj, c, d, Lc, '#EF6C00', off); cabecas.push([a.hx, a.hy]);
+        if (!dir2) { const l = Math.hypot(a.hx - a.x, a.hy - a.y) || 1; dir2 = [(a.hx - a.x) / l, (a.hy - a.y) / l]; }
+        if (!pos || a.y < pos.y) pos = a;
+      }
+      if (pos) {
+        const txt = v ? `⇕ ${fmt(v * f, 1)} ${pr ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N'}` : '⇕ arraste';
+        const rot = etiqueta(ctx, pos.x, pos.y - 4, txt, '#EF6C00');
+        S.ui = { rot, cabecas, dir2: dir2 || [0, 1] };
+      }
+      if (arrasto?.tipo === 'mover' && arrasto.x != null) { // fantasma da seta indo para a nova face
+        ctx.strokeStyle = '#EF6C00'; ctx.setLineDash([6, 4]); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(arrasto.x - (dir2?.[0] || 0) * 40, arrasto.y - (dir2?.[1] || 1) * 40); ctx.lineTo(arrasto.x, arrasto.y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#EF6C00'; ctx.beginPath(); ctx.arc(arrasto.x, arrasto.y, 6, 0, Math.PI * 2); ctx.fill();
+      }
     }
     if (S.gravidade && e !== 'termico') { const c = centro(tris); const a = seta(ctx, proj, c, [0, 0, -1], L * .8, '#6D4C41', off); etiqueta(ctx, a.x, a.y - 4, 'peso', '#6D4C41'); }
     // térmico: faces quentes/frias, calor entrando e o ar em volta
@@ -201,8 +220,59 @@
     else { for (const k of Object.keys(S.sel)) if (k !== S.escolhendo) for (const i of vistos) S.sel[k].delete(i); for (const i of vistos) s.add(i); }
     S.res = null; S.versao++; api.render(); pinta();
   }
+  // ---------- arrastar a força no 3D ----------
+  let arrasto = null;
+  function pontoCanvas(e) { const r = API().model.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  function pegaForca(e) {
+    if (!S.aberto || !S.ui || S.escolhendo || S.rodando) return null;
+    const [x, y] = pontoCanvas(e), t = e.pointerType === 'touch' ? 16 : 8, R = S.ui.rot;
+    if (x >= R.x - t && x <= R.x + R.w + t && y >= R.y - t && y <= R.y + R.h + t) return 'valor';
+    if (S.ui.cabecas.some(([hx, hy]) => Math.hypot(hx - x, hy - y) < t + 10)) return 'mover';
+    return null;
+  }
+  function valorBase() { const r = S.res?.estudo === 'estatico' ? S.res : null; return r?.aplicado?.v ? r.aplicado.v * (S.livre ?? 1) : num(S.carga.valor) || 0; }
+  function aplicaValor(v) {
+    v = Math.max(0, Math.round(v * 100) / 100);
+    const r = S.res?.estudo === 'estatico' ? S.res : null;
+    if (r?.aplicado?.v) { // já calculado: muda ao vivo (linear), sem recalcular
+      S.livre = v / r.aplicado.v; S.anima = false;
+      const rg = painel?.querySelector('[data-livre=carga]'); if (rg) { if (v > +rg.max) rg.max = String(v * 1.5); rg.value = String(v); }
+      const tx = painel?.querySelector('#feaLivreTxt'); if (tx) tx.textContent = `${fmt(v, 1)} ${r.aplicado.un}`;
+      const q = painel?.querySelector('#feaLivreRes'); if (q) q.innerHTML = livreEstTxt(r);
+      legendaPinta();
+    } else {
+      S.carga.valor = String(v); const inp = painel?.querySelector('[data-v="carga.valor"]'); if (inp) inp.value = S.carga.valor;
+    }
+    S.versao++; API().render();
+  }
+  function moverCarga(e) {
+    const api = API(), [x, y] = pontoCanvas(e), faces = api.part.lastFaces || []; let alvo = null;
+    for (let i = faces.length - 1; i >= 0; i--) if (dentro(x, y, faces[i].corners)) { alvo = faces[i].idx; break; }
+    if (alvo == null) return avisa('Solte a seta em cima da peça.');
+    const tris = base(), mapa = vizinhos(tris), n0 = tris[alvo].normal, vistos = new Set([alvo]), fila = [alvo];
+    const lim = Math.cos((S.modoSel === 'plana' ? 6 : 28) * Math.PI / 180);
+    while (fila.length) { const i = fila.pop(); for (const j of mapa[i]) { if (vistos.has(j)) continue; const a = S.modoSel === 'plana' ? n0 : tris[i].normal, b = tris[j].normal; if (a[0] * b[0] + a[1] * b[1] + a[2] * b[2] >= lim) { vistos.add(j); fila.push(j); } } }
+    S.sel.carga.clear(); for (const i of vistos) { S.sel.fixo.delete(i); S.sel.carga.add(i); }
+    S.res = null; S.anima = false; S.versao++; pinta(); api.render();
+    avisa('Força movida. Toque em ▶ Rodar simulação para ver o resultado.');
+  }
   function ligarToque() {
     const m = API()?.model; if (!m || m.dataset.fea) return; m.dataset.fea = '1';
+    m.addEventListener('pointerdown', (e) => {
+      const tipo = pegaForca(e); if (!tipo) return;
+      e.stopImmediatePropagation(); e.preventDefault(); try { m.setPointerCapture(e.pointerId); } catch { /* */ }
+      const [x, y] = pontoCanvas(e); arrasto = { tipo, x0: x, y0: y, v0: valorBase(), dir2: S.ui.dir2 };
+    }, true);
+    m.addEventListener('pointermove', (e) => {
+      if (!arrasto) return; e.stopImmediatePropagation(); e.preventDefault();
+      const [x, y] = pontoCanvas(e);
+      if (arrasto.tipo === 'valor') { // puxar para trás (contra a seta) aumenta; empurrar para a peça diminui
+        const d = -((x - arrasto.x0) * arrasto.dir2[0] + (y - arrasto.y0) * arrasto.dir2[1]);
+        const base = arrasto.v0 || 10; aplicaValor(base * Math.pow(2, d / 90));
+      } else { arrasto.x = x; arrasto.y = y; API().render(); }
+    }, true);
+    const solta = (e) => { if (!arrasto) return; e.stopImmediatePropagation(); const a = arrasto; arrasto = null; if (a.tipo === 'mover' && a.x != null && Math.hypot(a.x - a.x0, a.y - a.y0) > 12) moverCarga(e); else API().render(); };
+    m.addEventListener('pointerup', solta, true); m.addEventListener('pointercancel', (e) => { if (arrasto) { arrasto = null; API().render(); } }, true);
     let ini = null;
     m.addEventListener('pointerdown', (e) => { ini = S.aberto && S.escolhendo ? [e.clientX, e.clientY] : null; }, true);
     m.addEventListener('pointerup', (e) => { if (ini && Math.hypot(e.clientX - ini[0], e.clientY - ini[1]) < 7) escolher(e); ini = null; }, true);
@@ -257,7 +327,7 @@
       if (e !== 'modal') h += selBloco('carga') + `<div class="an-linha"><label>Tipo<select data-v="carga.tipo"><option value="forca"${S.carga.tipo === 'forca' ? ' selected' : ''}>Força total</option><option value="pressao"${S.carga.tipo === 'pressao' ? ' selected' : ''}>Pressão</option><option value="massa"${S.carga.tipo === 'massa' ? ' selected' : ''}>Peso em cima (kg)</option></select></label>
         ${campo('carga.valor', S.carga.tipo === 'pressao' ? 'Pressão' : S.carga.tipo === 'massa' ? 'Peso' : 'Força', S.carga.tipo === 'pressao' ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N')}
         ${S.carga.tipo !== 'pressao' ? `<label>Direção<select data-v="carga.dir">${[['normal', 'empurrando a face'], ['-z', '↓ para baixo (−Z)'], ['z', '↑ para cima (+Z)'], ['x', '→ +X'], ['-x', '← −X'], ['y', '+Y'], ['-y', '−Y']].map(([k, t]) => `<option value="${k}"${S.carga.dir === k ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : ''}
-        <label class="fea-chk"><span><input type="checkbox" data-v="gravidade"${S.gravidade ? ' checked' : ''}/> somar o peso da peça</span></label></div>`;
+        <label class="fea-chk"><span><input type="checkbox" data-v="gravidade"${S.gravidade ? ' checked' : ''}/> somar o peso da peça</span></label></div><p class="an-sub">✋ No 3D: puxe a etiqueta <b>⇕</b> da força para aumentar ou diminuir, e arraste a ponta da seta para outra face.</p>`;
       if (e === 'modal') h += `<div class="an-linha"><label>Quantos modos<select data-v="modos">${[1, 2, 3, 4, 5, 6].map((n) => `<option${n === +S.modos ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
       if (e === 'otimizar') h += `<div class="an-linha">${campo('manter', 'Manter do material', '%', 'ex.: 40')}</div><p class="an-sub">As faces fixas e as da carga ficam inteiras. O resto é retirado onde quase não trabalha.</p>`;
     }
