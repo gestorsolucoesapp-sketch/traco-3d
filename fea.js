@@ -158,7 +158,7 @@
       let pos = null; const cabecas = []; let dir2 = null;
       for (const { c, n } of amostras(S.sel.carga, tris, pr ? 9 : 6)) {
         const d = pr || S.carga.dir === 'normal' ? n.map((x) => -x) : DIR[S.carga.dir];
-        const a = seta(ctx, proj, c, d, Lc, '#EF6C00', off); cabecas.push([a.hx, a.hy]);
+        const a = seta(ctx, proj, c, d, Lc, '#EF6C00', off); cabecas.push([a.hx, a.hy, a.x, a.y]);
         if (!dir2) { const l = Math.hypot(a.hx - a.x, a.hy - a.y) || 1; dir2 = [(a.hx - a.x) / l, (a.hy - a.y) / l]; }
         if (!pos || a.y < pos.y) pos = a;
       }
@@ -224,11 +224,13 @@
   let arrasto = null;
   function pontoCanvas(e) { const r = API().model.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
   function pegaForca(e) {
-    if (!S.aberto || !S.ui || S.escolhendo || S.rodando) return null;
-    const [x, y] = pontoCanvas(e), t = e.pointerType === 'touch' ? 16 : 8, R = S.ui.rot;
+    if (!S.aberto || !S.ui || S.escolhendo) return null;
+    const [x, y] = pontoCanvas(e), t = e.pointerType === 'touch' ? 24 : 10, R = S.ui.rot;
     if (x >= R.x - t && x <= R.x + R.w + t && y >= R.y - t && y <= R.y + R.h + t) return 'valor';
-    if (S.ui.cabecas.some(([hx, hy]) => Math.hypot(hx - x, hy - y) < t + 10)) return 'mover';
-    return null;
+    if (S.ui.cabecas.some(([hx, hy]) => Math.hypot(hx - x, hy - y) < t)) return S.rodando ? 'valor' : 'mover';
+    // no meio da seta (haste): também muda o valor
+    const naHaste = S.ui.cabecas.some(([hx, hy, ax, ay]) => { const vx = hx - ax, vy = hy - ay, l2 = vx * vx + vy * vy || 1; const k = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / l2)); return Math.hypot(ax + vx * k - x, ay + vy * k - y) < t; });
+    return naHaste ? 'valor' : null;
   }
   function valorBase() { const r = S.res?.estudo === 'estatico' ? S.res : null; return r?.aplicado?.v ? r.aplicado.v * (S.livre ?? 1) : num(S.carga.valor) || 0; }
   function aplicaValor(v) {
@@ -474,6 +476,7 @@
       temps: S.sel.temp.size ? [{ tris: lista('temp'), valor: num(S.tempValor) }] : [], calor: S.sel.calor.size ? [{ tris: lista('calor'), valor: num(S.calorValor) }] : [],
       hconv: num(S.hconv) || 0, tAmb: num(S.tAmb) ?? 20, manter: (num(S.manter) || 0) / 100, iter: 22 };
     try { worker?.terminate(); worker = new Worker('fea-worker.js' + (SRC ? `?${SRC}` : '')); } catch (er) { prog.textContent = 'Este navegador não deixou rodar a simulação: ' + er.message; return; }
+    const aplicado = { v: num(S.carga.valor) || 0, un: S.carga.tipo === 'pressao' ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N' };
     S.rodando = true; S.escolhendo = null; S.res = null; S.anima = false; S.versao++; pinta(); api.render();
     const pg = () => painel.querySelector('#feaProg');
     worker.onmessage = (m) => {
@@ -481,7 +484,9 @@
       if (d2.prog) { const q = pg(); if (q) q.textContent = `${d2.prog.fase}${d2.prog.it ? ` · ${d2.prog.it}` : ''}…`; return; }
       S.rodando = false; worker.terminate(); worker = null;
       if (d2.erro) { pinta(); pg().innerHTML = `<span class="ruim">Não deu: ${esc(d2.erro)}.</span>`; return; }
-      S.res = d2.fim; S.vista = 'vm'; S.modo = 0; S.livre = null; S.potencia = null; S.tempo = null; S.res.aplicado = { v: num(S.carga.valor) || 0, un: S.carga.tipo === 'pressao' ? 'MPa' : S.carga.tipo === 'massa' ? 'kg' : 'N' }; if (S.res.estudo !== 'termico' || S.res.quadros?.length) { S.anima = true; laco(); }
+      S.res = d2.fim; S.vista = 'vm'; S.modo = 0; S.potencia = null; S.tempo = null; S.res.aplicado = aplicado;
+      { const agora = num(S.carga.valor) || 0; S.livre = aplicado.v && Math.abs(agora - aplicado.v) > 1e-9 ? agora / aplicado.v : null; }
+      if ((S.res.estudo !== 'termico' || S.res.quadros?.length) && S.livre == null) { S.anima = true; laco(); }
       S.versao++; pinta(); api.render();
     };
     worker.onerror = (er) => { S.rodando = false; pinta(); pg().innerHTML = `<span class="ruim">Erro na simulação: ${esc(er.message || 'falhou')}.</span>`; };
