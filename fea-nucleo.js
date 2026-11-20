@@ -219,6 +219,65 @@ function tracoNucleoFEA() {
     return s;
   }
 
+
+  // ---------- solução direta (Cholesky em perfil, nós reordenados por RCM) ----------
+  // Peças compridas e finas (mola, viga, haste) fazem o gradiente conjugado andar devagar; nelas a fatoração
+  // direta é rápida porque a "largura de banda" fica pequena. Se ficar cara demais, devolve null e usa o CG.
+  function direto(M, Ke, fator, fixo, prog, limite = 2e9) {
+    const nn = M.nn, adj = Array.from({ length: nn }, () => new Set());
+    for (let e = 0; e < M.ne; e++) for (let a = 0; a < 8; a++) for (let b = 0; b < 8; b++) if (a !== b) adj[M.conec[e * 8 + a]].add(M.conec[e * 8 + b]);
+    const viz = adj.map((s) => [...s]);
+    const bfs = (ini) => { const nivel = new Int32Array(nn).fill(-1), ordem = [ini]; nivel[ini] = 0; for (let q = 0; q < ordem.length; q++) for (const v of viz[ordem[q]]) if (nivel[v] < 0) { nivel[v] = nivel[ordem[q]] + 1; ordem.push(v); } return { nivel, ordem }; };
+    let semente = 0; for (let i = 1; i < nn; i++) if (viz[i].length < viz[semente].length) semente = i;
+    for (let k = 0; k < 2; k++) { const { ordem } = bfs(semente); semente = ordem[ordem.length - 1]; } // nó periférico
+    const visto = new Uint8Array(nn), cm = [];
+    for (let s0 = semente; cm.length < nn;) {
+      cm.push(s0); visto[s0] = 1;
+      for (let q = cm.length - 1; q < cm.length; q++) { const vs = viz[cm[q]].filter((v) => !visto[v]).sort((a, b) => viz[a].length - viz[b].length); for (const v of vs) { visto[v] = 1; cm.push(v); } }
+      if (cm.length < nn) { s0 = 0; while (visto[s0]) s0++; }
+    }
+    cm.reverse();
+    const id = new Int32Array(nn * 3).fill(-1); let n = 0;
+    for (const no of cm) for (let q = 0; q < 3; q++) if (!fixo[3 * no + q]) id[3 * no + q] = n++;
+    const f = new Int32Array(n); for (let i = 0; i < n; i++) f[i] = i;
+    const ids = new Int32Array(24);
+    for (let e = 0; e < M.ne; e++) {
+      let mn = Infinity; for (let a = 0; a < 8; a++) for (let q = 0; q < 3; q++) { const d = id[3 * M.conec[e * 8 + a] + q]; if (d >= 0 && d < mn) mn = d; }
+      for (let a = 0; a < 8; a++) for (let q = 0; q < 3; q++) { const d = id[3 * M.conec[e * 8 + a] + q]; if (d >= 0 && mn < f[d]) f[d] = mn; }
+    }
+    const ini = new Float64Array(n + 1); let flops = 0;
+    for (let i = 0; i < n; i++) { const l = i - f[i] + 1; ini[i + 1] = ini[i] + l; flops += l * l / 2; }
+    if (typeof process !== "undefined" && process.env.FLOPS) console.log("flops", flops.toExponential(2), "perfil", ini[n].toExponential(2));
+    if (ini[n] > 3.5e7 || flops > limite) return null; // grande demais para fazer direto no navegador
+    const L = new Float64Array(ini[n]);
+    for (let e = 0; e < M.ne; e++) {
+      const fac = (fator ? fator[e] : 1) * M.cheio[e] * M.h; if (!fac) continue;
+      for (let a = 0; a < 8; a++) for (let q = 0; q < 3; q++) ids[3 * a + q] = id[3 * M.conec[e * 8 + a] + q];
+      for (let a = 0; a < 24; a++) { const ra = ids[a]; if (ra < 0) continue; const o = ini[ra] - f[ra];
+        for (let b = 0; b < 24; b++) { const rb = ids[b]; if (rb < 0 || rb > ra) continue; L[o + rb] += Ke[a * 24 + b] * fac; } }
+    }
+    for (let i = 0; i < n; i++) { // Cholesky (Crout por linha)
+      const fi = f[i], oi = ini[i] - fi;
+      for (let j = fi; j < i; j++) {
+        const fj = f[j], oj = ini[j] - fj, k0 = fi > fj ? fi : fj; let s = L[oi + j];
+        for (let k = k0; k < j; k++) s -= L[oi + k] * L[oj + k];
+        L[oi + j] = s / L[oj + j];
+      }
+      let s = L[oi + i]; for (let k = fi; k < i; k++) s -= L[oi + k] * L[oi + k];
+      if (!(s > 0)) return null; // solto (sem apoio suficiente)
+      L[oi + i] = Math.sqrt(s);
+      if (prog && i % 4000 === 0) prog({ fase: 'Fatorando', it: Math.round(i / n * 100) + '%', res: 0 });
+    }
+    return (b, x) => { // resolve K x = b (graus fixos ficam como estão em x)
+      const y = new Float64Array(n);
+      for (let no = 0; no < nn * 3; no++) if (id[no] >= 0) y[id[no]] = b[no];
+      for (let i = 0; i < n; i++) { const fi = f[i], oi = ini[i] - fi; let s = y[i]; for (let k = fi; k < i; k++) s -= L[oi + k] * y[k]; y[i] = s / L[oi + i]; }
+      for (let i = n - 1; i >= 0; i--) { const fi = f[i], oi = ini[i] - fi; y[i] /= L[oi + i]; const v = y[i]; for (let k = fi; k < i; k++) y[k] -= L[oi + k] * v; }
+      for (let no = 0; no < nn * 3; no++) if (id[no] >= 0) x[no] = y[id[no]];
+      return x;
+    };
+  }
+
   // ---------- estudos ----------
   function estatico(tris, cfg, prog) {
     const M = modelo(tris, cfg.alvo || 12000); if (!M.ne) throw new Error('não deu para montar a malha');
@@ -228,7 +287,13 @@ function tracoNucleoFEA() {
     const A = opElastico(M, el.K), dg = diagElastico(M, el.K);
     const u = new Float64Array(M.nn * 3);
     for (let i = 0; i < F.length; i++) F[i] /= E; // resolve com E = 1 e divide a carga
-    const r = cg(A, F, u, dg, fixo, 1e-6, 6000, (it, res) => prog?.({ fase: 'Resolvendo', it, res }));
+    let r; const dir = direto(M, el.K, null, fixo, prog);
+    if (dir) { dir(F, u); r = { it: 0, res: 0, direto: true }; }
+    else {
+      r = cg(A, F, u, dg, fixo, 1e-6, 2000, (it, res) => prog?.({ fase: 'Resolvendo', it, res }));
+      if (r.res >= 1e-6) { const d2 = direto(M, el.K, null, fixo, prog, 9e9); // peça fina e comprida: termina direto
+        if (d2) { d2(F, u); r = { it: r.it, res: 0, direto: true }; } else r = cg(A, F, u, dg, fixo, 1e-6, 4000, (it, res) => prog?.({ fase: 'Resolvendo', it: it + 2000, res })); }
+    }
     const { vm, vmNo } = tensoes(M, u, E, el);
     return { tipo: 'estatico', malha: resumo(M), u, vmNo, it: r.it, res: r.res, maxVM: Math.max(...vmNo), M };
   }
@@ -242,6 +307,7 @@ function tracoNucleoFEA() {
     const mas = new Float64Array(nd); const me = cfg.rho * M.h ** 3 / 8;
     for (let e = 0; e < M.ne; e++) for (let a = 0; a < 8; a++) for (let q = 0; q < 3; q++) mas[M.conec[e * 8 + a] * 3 + q] += me;
     for (let e = 0; e < M.ne; e++) for (let a = 0; a < 8; a++) for (let q = 0; q < 3; q++) mas[M.conec[e * 8 + a] * 3 + q] += me * (M.cheio[e] - 1);
+    const dirM = direto(M, el.K, null, fixo, prog, 6e9);
     // Lanczos em K⁻¹M (produto interno de M), reortogonalização completa
     const passos = Math.min(30, Math.max(12, cfg.modos * 4 + 4)), V = [], alfa = [], beta = [];
     let semente = 7; const rnd = () => (semente = (semente * 16807) % 2147483647) / 2147483647 - .5;
@@ -251,7 +317,7 @@ function tracoNucleoFEA() {
     const b = new Float64Array(nd);
     for (let j = 0; j < passos; j++) {
       V.push(v); for (let i = 0; i < nd; i++) b[i] = fixo[i] ? 0 : mas[i] * v[i];
-      const w = new Float64Array(nd); cg(A, b, w, dg, fixo, 1e-6, 3000);
+      const w = new Float64Array(nd); if (dirM) dirM(b, w); else cg(A, b, w, dg, fixo, 1e-6, 3000);
       prog?.({ fase: `Frequências — passo ${j + 1} de ${passos}`, it: j, res: 0 });
       alfa.push(mdot(w, v));
       for (let rep = 0; rep < 2; rep++) for (const u of V) { const c = mdot(w, u); for (let i = 0; i < nd; i++) w[i] -= c * u[i]; }
@@ -358,7 +424,7 @@ function tracoNucleoFEA() {
     for (let it = 0; it < (cfg.iter || 30); it++) {
       for (let e = 0; e < M.ne; e++) fat[e] = xmin + (1 - xmin) * x[e] ** pen;
       const A = opElastico(M, el.K, fat), dg = diagElastico(M, el.K, fat);
-      cg(A, F, u, dg, fixo, 2e-3, 1200);
+      const dO = direto(M, el.K, fat, fixo); if (dO) dO(F, u); else cg(A, F, u, dg, fixo, 2e-3, 1200);
       c = 0;
       for (let e = 0; e < M.ne; e++) {
         for (let a = 0; a < 8; a++) { const n = M.conec[e * 8 + a] * 3; loc[3 * a] = u[n]; loc[3 * a + 1] = u[n + 1]; loc[3 * a + 2] = u[n + 2]; }
