@@ -249,6 +249,8 @@
     const api = API(), [x, y] = pontoCanvas(e), faces = api.part.lastFaces || []; let alvo = null;
     for (let i = faces.length - 1; i >= 0; i--) if (dentro(x, y, faces[i].corners)) { alvo = faces[i].idx; break; }
     if (alvo == null) return avisa('Solte a seta em cima da peça.');
+    if (S.res?.pai && S.res.estudo !== 'otimizar') alvo = S.res.pai[alvo]; // malha mostrada é a subdividida do resultado
+    if (S.res?.estudo === 'otimizar') return avisa('Volte à peça (tire o resultado da otimização) para mover a força.');
     const tris = base(), mapa = vizinhos(tris), n0 = tris[alvo].normal, vistos = new Set([alvo]), fila = [alvo];
     const lim = Math.cos((S.modoSel === 'plana' ? 6 : 28) * Math.PI / 180);
     while (fila.length) { const i = fila.pop(); for (const j of mapa[i]) { if (vistos.has(j)) continue; const a = S.modoSel === 'plana' ? n0 : tris[i].normal, b = tris[j].normal; if (a[0] * b[0] + a[1] * b[1] + a[2] * b[2] >= lim) { vistos.add(j); fila.push(j); } } }
