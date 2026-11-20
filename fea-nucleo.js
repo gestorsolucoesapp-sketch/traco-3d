@@ -290,9 +290,9 @@ function tracoNucleoFEA() {
     let r; const dir = direto(M, el.K, null, fixo, prog);
     if (dir) { dir(F, u); r = { it: 0, res: 0, direto: true }; }
     else {
-      r = cg(A, F, u, dg, fixo, 1e-6, 400, (it, res) => prog?.({ fase: 'Resolvendo', it, res })); // peça compacta converge antes disso
+      r = cg(A, F, u, dg, fixo, 1e-6, 900, (it, res) => prog?.({ fase: 'Resolvendo', it, res })); // peça compacta converge antes disso
       if (r.res >= 1e-6) { const d2 = direto(M, el.K, null, fixo, prog, 9e9); // peça fina e comprida: termina direto
-        if (d2) { d2(F, u); r = { it: r.it, res: 0, direto: true }; } else r = cg(A, F, u, dg, fixo, 1e-6, 4000, (it, res) => prog?.({ fase: 'Resolvendo', it: it + 400, res })); }
+        if (d2) { d2(F, u); r = { it: r.it, res: 0, direto: true }; } else r = cg(A, F, u, dg, fixo, 1e-6, 4000, (it, res) => prog?.({ fase: 'Resolvendo', it: it + 900, res })); }
     }
     const { vm, vmNo } = tensoes(M, u, E, el);
     return { tipo: 'estatico', malha: resumo(M), u, vmNo, it: r.it, res: r.res, maxVM: Math.max(...vmNo), M };
