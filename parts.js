@@ -71,7 +71,7 @@
       localStorage.setItem(STORAGE, JSON.stringify({ version: 1, kind: 'rotational-part',
         mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
         operation: part.operation, extrudeDepth: part.extrudeDepth,
-        shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint, plano: part.plano }));
+        shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint, plano: part.plano, enfeite: part.enfeite }));
     } catch { $('profileStatus').textContent = 'Armazenamento indisponível; use Salvar peça.'; }
   }
 
@@ -111,6 +111,9 @@
     part.holeDiameter = data.holeDiameter ?? 0;
     part.helix = data.helix ?? { diameter: 20, pitch: 5, turns: 5, thickness: 2 };
     part.narrado = data.operation === 'narrado' ? data.narrado : null;
+    part.enfeite = Array.isArray(data.enfeite) && data.enfeite.every((f) => f && Array.isArray(f.perfil) && f.perfil.length >= 3 && f.perfil.length <= 200 &&
+      f.perfil.every((q) => Array.isArray(q) && q.length === 2 && q.every(Number.isFinite)) && ['espessura', 'x', 'y', 'z'].every((k) => Number.isFinite(f[k])) && f.espessura > 0)
+      ? data.enfeite : null;
     part.paint = data.paint && typeof data.paint.key === 'string' && data.paint.cores && typeof data.paint.cores === 'object' ? data.paint : null;
     part.cup = { ...data.cup };
     part.profile = part.mode === 'cup' ? cupProfile(part.cup) : data.profile.map((p) => [...p]);
@@ -521,6 +524,24 @@
     return triangles;
   }
 
+  // Enfeite: figuras extrudadas presas à peça. Cada uma: perfil (u horizontal, v vertical), espessura e posição.
+  // eixo 'x': a figura fica de frente (perfil no plano YZ, espessura em X); 'y': igual à extrusão normal.
+  function enfeiteMesh() {
+    if (!Array.isArray(part.enfeite) || !part.enfeite.length) return [];
+    const out = [], salvo = [part.profile, part.extrudeDepth];
+    try {
+      for (const f of part.enfeite) {
+        part.profile = f.perfil; part.extrudeDepth = f.espessura;
+        for (const t of extrusionMesh()) {
+          let pts = t.points.map(([u, e, v]) => f.eixo === 'x' ? [f.x + e, f.y + u, f.z + v] : [f.x + u, f.y + e, f.z + v]);
+          if (f.eixo === 'x') pts = [pts[0], pts[2], pts[1]]; // trocar eixos espelha: desvira a face
+          const n = normal(...pts); if (n) out.push({ points: pts, normal: n, enfeite: f.nome });
+        }
+      }
+    } finally { [part.profile, part.extrudeDepth] = salvo; }
+    return out;
+  }
+
   function drilledMesh() {
     if (!part.closed || !['rectangle', 'circle'].includes(part.shapeType)) return [];
     const xs = part.profile.map((p) => p[0]), zs = part.profile.map((p) => p[1]);
@@ -620,7 +641,7 @@
 
   // Pintura: cores por triângulo (índice global da malha), válidas só para a mesma geometria.
   function geomKey() {
-    return JSON.stringify([part.mode, part.operation, part.profile, part.closed, part.extrudeDepth, part.holeDiameter, part.shapeType, part.helix, part.cup, part.narrado]);
+    return JSON.stringify([part.mode, part.operation, part.profile, part.closed, part.extrudeDepth, part.holeDiameter, part.shapeType, part.helix, part.cup, part.narrado, part.enfeite || null]);
   }
   function mesh() {
     if (!part.sim) { const fe = window.tracoFEA?.malha?.(); if (fe) return fe; }
@@ -646,7 +667,7 @@
     if (part.operation === 'thread' || part.operation === 'spring') return helixMesh();
     if (part.mode === 'custom' && part.operation === 'extrude' && part.holeDiameter > 0)
       return drilledMesh();
-    if (part.mode === 'custom' && part.operation === 'extrude') return extrusionMesh();
+    if (part.mode === 'custom' && part.operation === 'extrude') return [...extrusionMesh(), ...enfeiteMesh()];
     const triangles = [];
     const flip = signedArea(part.profile) > 0;
     const vertex = ([r, z], angle) => [r * Math.cos(angle), r * Math.sin(angle), z];
@@ -1104,19 +1125,28 @@
     const perfil = profile.filter((q, i) => i === 0 || q[0] !== profile[i - 1][0] || q[1] !== profile[i - 1][1]);
     part.sim = null; part.realce = null;
     openProject(JSON.stringify({ version: 1, kind: 'rotational-part', mode: 'custom', cup: { ...example }, profile: perfil, closed: true,
-      operation: 'extrude', extrudeDepth: 170, shapeType: null, holeDiameter: 0, plano: 'frontal' }));
+      operation: 'extrude', extrudeDepth: 170, shapeType: null, holeDiameter: 0, plano: 'frontal', enfeite: [
+        // pedestal ao lado do controle: entra 1 mm na base do suporte para sair tudo numa peça só
+        { nome: 'pedestal', eixo: 'y', perfil: [[18, 0], [82, 0], [82, 5], [18, 5]], espessura: 61, x: 0, y: 169, z: 0 },
+        // personagem original (boné virado de lado, braço acenando), de frente para quem olha, 6 mm de espessura
+        { nome: 'personagem', eixo: 'x', espessura: 6, x: 44, y: 174, z: 5, perfil: [
+          [9, 0], [23, 0], [24, 36], [26, 36], [27, 0], [41, 0], [39, 6], [37, 40], [39, 62], [48, 70], [52, 86], [47, 88],
+          [44, 74], [40, 70], [31, 70], [32, 74], [33, 79], [39, 81], [39, 83.5], [33, 84], [31, 88], [25, 90], [19, 88],
+          [17, 84], [17, 79], [18, 74], [19, 70], [10, 67], [6, 62], [4, 42], [9, 41], [11, 56], [13, 40], [11, 6]] },
+      ] }));
     part.plano = 'frontal';
     const tris = meshBase(), cores = {};
     const COR = { base: '#2D0B4E', baixo: '#FF7A00', meio: '#FF2E88', alto: '#9B30FF' };
     tris.forEach((t, i) => {
       const cx = (t.points[0][0] + t.points[1][0] + t.points[2][0]) / 3, cz = (t.points[0][2] + t.points[1][2] + t.points[2][2]) / 3;
-      cores[i] = cz <= 5.5 || (cx <= 8.5 && cz <= 16) ? COR.base : cz < 37 ? COR.baixo : cz < 68 ? COR.meio : COR.alto;
+      cores[i] = t.enfeite === 'pedestal' ? COR.base : t.enfeite === 'personagem' ? (cz >= 88 ? COR.alto : cz >= 75 ? COR.baixo : cz >= 45 ? COR.alto : COR.meio)
+        : cz <= 5.5 || (cx <= 8.5 && cz <= 16) ? COR.base : cz < 37 ? COR.baixo : cz < 68 ? COR.meio : COR.alto;
     });
     part.paint = { key: geomKey(), cores };
     part.drawLine = false; part.freehand = false; part.shapeTool = null; part.pending = false; part.showHoleControls = false;
-    part.selected = [...part.profile.at(-1)]; part.zoom = 1;
+    part.selected = [...part.profile.at(-1)]; part.zoom = 1; part.yaw = -1.3; part.pitch = .3; // de frente para o personagem
     fitSketchView(); save(); refresh();
-    $('partStatus').textContent = 'Suporte de controle PS5 · 170 × ' + display(fundo) + ' × ' + TOPO + ' mm · tema neon (4 cores)';
+    $('partStatus').textContent = 'Suporte de controle PS5 com personagem · 230 × ' + display(fundo) + ' × ' + TOPO + ' mm · tema neon (4 cores)';
   });
   $('newProfile').addEventListener('click', () => {
     part.mode = 'custom'; part.operation = 'extrude'; part.profile = []; part.closed = false;
@@ -1827,7 +1857,7 @@
       return t.length ? [{ nome: part.mode === 'cup' ? 'Copo' : 'Peça', tris: t, ini: 0 }] : [];
     },
     projeto() { return JSON.stringify({ version: 1, kind: 'rotational-part', mode: part.mode, cup: part.cup, profile: part.profile, closed: part.closed,
-      operation: part.operation, extrudeDepth: part.extrudeDepth, shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint, plano: part.plano }); },
+      operation: part.operation, extrudeDepth: part.extrudeDepth, shapeType: part.shapeType, holeDiameter: part.holeDiameter, helix: part.helix, narrado: part.narrado, paint: part.paint, plano: part.plano, enfeite: part.enfeite }); },
     abrir(raw) { part.sim = null; part.realce = null; openProject(raw); save(); refresh(); },
   };
   // Simulação de montagem: o parafuso desce girando pelo furo; o corpo fica transparente.
