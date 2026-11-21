@@ -25,13 +25,13 @@
     extrudeTool: '⬆', revolveTool: '⟳', pushPullTool: '⇕', holeTool: '◎', threadTool: '🔩', springTool: '〰',
     doorTool: '🚪', windowTool: '🪟', undoButton: '↶', redoButton: '↷', clearButton: '🗑',
     newProfile: '📄', undoProfilePoint: '↶', closeProfile: '⬠', fitProfileView: '⤢', cotarPerfil: '📐', analisePeca: '🔬', simulacaoFEA: '🧪', simularMontagem: '▶', espessuraPerfil: '⧉',
-    openPart: '📂', savePart: '💾', cupExample: '⭐', exportPartStl: '⬇️', export3mf: '🌈', exportStep: '🧩',
+    openPart: '📂', savePart: '💾', cupExample: '⭐', controleExample: '🎮', exportPartStl: '⬇️', export3mf: '🌈', exportStep: '🧩',
     novoProjeto: '📄', openButton: '📂', saveButton: '💾', exampleButton: '⭐', importStlButton: '📥', exportButton: '⬇️',
     pushWallsTool: '⇕', desenhar3d: '🧊', narrarButton: '🎙️', fotoArchButton: '📷', fotoPartButton: '📷',
   };
   const NOMES = {
     newProfile: 'Novo perfil', closeProfile: 'Fechar perfil', fitProfileView: 'Enquadrar', exportPartStl: 'Exportar STL',
-    export3mf: 'Exportar 3MF (cores)', exportStep: 'SolidWorks (STEP)', cupExample: 'Exemplo pronto', exampleButton: 'Exemplo pronto',
+    export3mf: 'Exportar 3MF (cores)', exportStep: 'SolidWorks (STEP)', cupExample: 'Exemplo pronto', controleExample: 'Suporte de controle PS5', exampleButton: 'Exemplo pronto',
     exportButton: 'Exportar STL', importStlButton: 'Importar STL', clearButton: 'Limpar desenho', undoButton: 'Desfazer', redoButton: 'Refazer',
     pushWallsTool: 'Empurrar / puxar paredes', espessuraPerfil: 'Espessura da parede', desenhar3d: 'Desenhar no 3D (SketchUp)',
   };
@@ -64,6 +64,7 @@
         ['📷 Foto do desenho', arq ? '#fotoArchButton' : '#fotoPartButton'],
         ['🎙️ Narrar peça', arq ? '' : '🎙️ Narrar'],
         ['Exemplo pronto', arq ? '#exampleButton' : '#cupExample'],
+        ['🎮 Suporte de controle PS5', arq ? '' : '#controleExample'],
         null,
         ['Importar STL', arq ? '#importStlButton' : ''],
         ['Exportar STL', arq ? '#exportButton' : '#exportPartStl'],
@@ -214,7 +215,7 @@
       ids('#undoButton', '#redoButton', '#clearButton'),
       ids('#exportButton', '🖨️ Prancha', '📚 Histórico'),
     ] : [
-      ids('#newProfile', '#openPart', '#savePart', '#cupExample', '#fotoPartButton', '#narrarButton'),
+      ids('#newProfile', '#openPart', '#savePart', '#cupExample', '#controleExample', '#fotoPartButton', '#narrarButton'),
       [...document.querySelectorAll('#sketchMenu .part-menu-content button')],
       ids('#cotarPerfil', '#espessuraPerfil', '#closeProfile', '#undoProfilePoint', '#fitProfileView'),
       [...document.querySelectorAll('#modelMenu .part-menu-content button')],

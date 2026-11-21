@@ -1090,6 +1090,34 @@
     part.closed = true; part.drawLine = false; part.freehand = false; part.pending = false;
     part.selected = [0, 0]; fitSketchView(); save(); refresh();
   });
+  // Exemplo: suporte de mesa para controle de PS5 (DualSense 160 × 66 × 106 mm, dados da Sony).
+  // Perfil lateral extrudado em 170 mm (controle + 5 mm de folga de cada lado): base, aba da frente e
+  // encosto curvo. Pintado em faixas de pôr do sol neon (4 cores = cabe nos 4 slots do AMS).
+  $('controleExample')?.addEventListener('click', () => {
+    const TOPO = 100, ESP = 6, curva = (z) => 98 + .18 * (z - 5) + .0012 * (z - 5) ** 2;
+    const frente = [], tras = [];
+    for (let z = 5; z <= TOPO + 1e-9; z += 5) { const x = +curva(z).toFixed(2); frente.push([x, z]); tras.push([+(x + ESP).toFixed(2), z]); }
+    const fundo = +(tras.at(-1)[0] + 4).toFixed(2);
+    const profile = [[0, 0], [fundo, 0], [fundo, 5], ...tras.slice(0, 1).map(([x]) => [x, 5]).filter(([x]) => x < fundo), ...tras.slice(1),
+      ...frente.slice().reverse(), [8, 5], [8, 16], [0, 16]];
+    // tira pontos repetidos (o 1º ponto de trás já está em z=5)
+    const perfil = profile.filter((q, i) => i === 0 || q[0] !== profile[i - 1][0] || q[1] !== profile[i - 1][1]);
+    part.sim = null; part.realce = null;
+    openProject(JSON.stringify({ version: 1, kind: 'rotational-part', mode: 'custom', cup: { ...example }, profile: perfil, closed: true,
+      operation: 'extrude', extrudeDepth: 170, shapeType: null, holeDiameter: 0, plano: 'frontal' }));
+    part.plano = 'frontal';
+    const tris = meshBase(), cores = {};
+    const COR = { base: '#2D0B4E', baixo: '#FF7A00', meio: '#FF2E88', alto: '#9B30FF' };
+    tris.forEach((t, i) => {
+      const cx = (t.points[0][0] + t.points[1][0] + t.points[2][0]) / 3, cz = (t.points[0][2] + t.points[1][2] + t.points[2][2]) / 3;
+      cores[i] = cz <= 5.5 || (cx <= 8.5 && cz <= 16) ? COR.base : cz < 37 ? COR.baixo : cz < 68 ? COR.meio : COR.alto;
+    });
+    part.paint = { key: geomKey(), cores };
+    part.drawLine = false; part.freehand = false; part.shapeTool = null; part.pending = false; part.showHoleControls = false;
+    part.selected = [...part.profile.at(-1)]; part.zoom = 1;
+    fitSketchView(); save(); refresh();
+    $('partStatus').textContent = 'Suporte de controle PS5 · 170 × ' + display(fundo) + ' × ' + TOPO + ' mm · tema neon (4 cores)';
+  });
   $('newProfile').addEventListener('click', () => {
     part.mode = 'custom'; part.operation = 'extrude'; part.profile = []; part.closed = false;
     part.shapeType = null; part.holeDiameter = 0; part.shapeTool = null; part.showHoleControls = false;
