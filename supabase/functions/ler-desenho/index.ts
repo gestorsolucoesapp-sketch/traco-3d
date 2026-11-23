@@ -54,7 +54,7 @@ DESENHO TÉCNICO (CAD, com cotas de diâmetro Ø, alturas, espessuras)
 - Pode ser peça de revolução (pote, copo, tampa, flange): use "revolucao" e descreva MEIO perfil começando no eixo (x = 0) na base, raio = Ø/2.
 - Pode calcular comprimentos e ângulos a partir das COTAS ESCRITAS (soma, subtração, metade do Ø, ângulo de parede inclinada por atan das cotas). Isso não é estimar. O que não sair das cotas escritas fica null com aviso.
 - Seja econômico: no máximo 60 segmentos; detalhes pequenos sem cota (raios de canto, chanfros) podem ser simplificados, avisando.
-- Responda SÓ o JSON, sem crases nem explicação.
+- Responda SÓ o JSON, sem crases nem explicação.`;
 
 const PROMPT_NARRAR = `O usuário descreveu, falando ou escrevendo, peças mecânicas que quer modelar em 3D.
 Transforme a descrição em JSON. Medidas em MILÍMETROS.
