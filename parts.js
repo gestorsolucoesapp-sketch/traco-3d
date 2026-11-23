@@ -1291,6 +1291,29 @@
       return [Math.max(0, Math.round((p[0] + mx * k) * 100) / 100), Math.max(0, Math.round((p[1] + mz * k) * 100) / 100)];
     });
   }
+  // tira os laços que a linha paralela faz em detalhes mais finos que a parede (aba, degrau): ali fica maciço
+  function limpaLacos(pts) {
+    const cruza = (a, b, c, d) => {
+      const r = [b[0] - a[0], b[1] - a[1]], q = [d[0] - c[0], d[1] - c[1]], den = r[0] * q[1] - r[1] * q[0];
+      if (Math.abs(den) < 1e-12) return null;
+      const t = ((c[0] - a[0]) * q[1] - (c[1] - a[1]) * q[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
+      return t > 1e-6 && t < 1 - 1e-6 && u > 1e-6 && u < 1 - 1e-6 ? [a[0] + r[0] * t, a[1] + r[1] * t] : null;
+    };
+    let out = pts.map((p) => [...p]), mudou = true, voltas = 0;
+    while (mudou && voltas++ < 50) {
+      mudou = false;
+      fora: for (let i = 0; i < out.length - 3; i++) for (let j = out.length - 2; j > i + 1; j--) {
+        const x = cruza(out[i], out[i + 1], out[j], out[j + 1]);
+        if (x) { out = [...out.slice(0, i + 1), x.map((v) => Math.round(v * 100) / 100), ...out.slice(j + 1)]; mudou = true; break fora; }
+      }
+    }
+    out = out.filter((p, i) => i === 0 || Math.hypot(p[0] - out[i - 1][0], p[1] - out[i - 1][1]) > .01); // sem ponto repetido
+    for (let k = 1; k < out.length - 1; k++) { // vai-e-volta na mesma reta (aba mais fina que 2× a parede): tira a ponta
+      const a = out[k - 1], b = out[k], c = out[k + 1], u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]];
+      if (Math.abs(u[0] * v[1] - u[1] * v[0]) < 1e-6 * (Math.hypot(...u) * Math.hypot(...v) + 1e-9) && u[0] * v[0] + u[1] * v[1] < 0) { out.splice(k, 1); k = Math.max(0, k - 2); }
+    }
+    return out;
+  }
   const btnEsp = document.createElement('button');
   btnEsp.id = 'espessuraPerfil'; btnEsp.type = 'button'; btnEsp.className = 'secondary-button'; btnEsp.textContent = '⧉ Espessura';
   btnEsp.title = 'Dá espessura de parede ao contorno aberto (ex.: pote) e fecha o perfil para a Revolução';
@@ -1303,7 +1326,7 @@
     const a = offsetLinha(part.profile, t), b = offsetLinha(part.profile, -t);
     const media = (q) => q.reduce((s2, p) => s2 + p[0], 0) / q.length;
     const dentro = media(a) <= media(b) ? a : b, fora = dentro === a ? b : a; // dentro = lado mais perto do eixo
-    part.espPrev = espLado === 'dentro' ? dentro : fora; render(); return part.espPrev;
+    part.espPrev = limpaLacos(espLado === 'dentro' ? dentro : fora); render(); return part.espPrev;
   }
   function abrirEsp() {
     if (part.mode !== 'custom' || part.closed || part.profile.length < 2) {
@@ -1336,6 +1359,8 @@
     $('profileHint').textContent = 'Parede criada e perfil fechado. A peça foi girada (Revolução 360°).';
   }
   btnEsp.addEventListener('click', () => (espBox.hidden ? abrirEsp() : fecharEsp()));
+  // usado pela leitura de foto: dá a parede direto (para dentro) num contorno aberto
+  window.tracoEspessuraAuto = (t) => { abrirEsp(); if (espBox.hidden) return false; espBox.querySelector('#espT').value = String(t).replace('.', ','); espLado = 'dentro'; aplicarEsp(); return part.closed; };
 
   // ---------- Cotar: acerta comprimento e ângulo de qualquer linha do perfil ----------
   const btnCotar = document.createElement('button');

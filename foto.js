@@ -83,7 +83,7 @@
     });
     if (tipo === 'peca') {
       const p = j.peca || {};
-      return { tipo, foto, avisos,
+      return { tipo, foto, avisos, parede: null,
         operacao: p.operacao === 'revolucao' ? 'revolucao' : 'extrusao',
         profundidade: Number.isFinite(+p.profundidade_mm) && +p.profundidade_mm > 0 ? +p.profundidade_mm : null,
         contornos: [{ fechado: true, segmentos: (p.segmentos || []).map((s) => seg(s, 'comprimento_mm')) }] };
@@ -115,10 +115,13 @@
         Corrija o que estiver errado. Campo vermelho = medida que não estava escrita: digite.</p>
       <img class="foto-previa mini" src="${L.foto}" alt="Foto enviada" />
       ${L.avisos.length ? `<ul class="foto-avisos">${L.avisos.map((a) => `<li>${a.replace(/</g, '&lt;')}</li>`).join('')}</ul>` : ''}
+      ${L.contornos.length ? `<div class="foto-2d"><canvas id="foto2d" height="300"></canvas><small>Desenho com as medidas lidas. Toque numa linha da tabela para ver onde ela fica.</small></div>` : ''}
       ${L.contornos.length ? linhas : '<p>Nenhum traço com medida foi encontrado nessa foto.</p>'}
       ${peca ? `<div class="foto-peca">
         <label>Como virar 3D <select data-k="operacao"><option value="extrusao" ${L.operacao === 'extrusao' ? 'selected' : ''}>Extrusão</option><option value="revolucao" ${L.operacao === 'revolucao' ? 'selected' : ''}>Revolução 360°</option></select></label>
-        <label class="${L.operacao === 'extrusao' && L.profundidade == null ? 'falta' : ''}" ${L.operacao === 'extrusao' ? '' : 'hidden'}>Profundidade (mm) <input data-k="profundidade" inputmode="decimal" value="${fmt(L.profundidade, 1)}" placeholder="falta" /></label></div>` : ''}
+        <label class="${L.operacao === 'extrusao' && L.profundidade == null ? 'falta' : ''}" ${L.operacao === 'extrusao' ? '' : 'hidden'}>Profundidade (mm) <input data-k="profundidade" inputmode="decimal" value="${fmt(L.profundidade, 1)}" placeholder="falta" /></label>
+        <label ${L.operacao === 'revolucao' ? '' : 'hidden'}>Parede (pote oco) <input data-k="parede" inputmode="decimal" value="${fmt(L.parede, 2)}" placeholder="maciço" /> mm</label></div>
+        <p class="foto-sub" ${L.operacao === 'revolucao' ? '' : 'hidden'}>Parede: deixe vazio para peça maciça. Com espessura, o app usa o contorno de fora e faz a parede para dentro (fundo e lateral), com a boca aberta em cima.</p>` : ''}
       <p id="fotoFecho" class="foto-fecho"></p>
       <div class="foto-acoes"><button type="button" class="secondary-button" data-x="fechar">Cancelar</button>
         <button type="button" class="primary-button" data-x="gerar">Gerar 3D</button></div>`);
@@ -128,14 +131,57 @@
       const k = el.dataset.k;
       if (k === 'operacao') { L.operacao = el.value; conferir(); return; }
       if (k === 'profundidade') L.profundidade = num(el.value);
+      else if (k === 'parede') L.parede = num(el.value) > 0 ? num(el.value) : null;
       else {
         const s = L.contornos[+el.dataset.c].segmentos[+el.dataset.s];
         if (k === 'angulo') s.angulo = +el.value; else s.valor = num(el.value);
         el.closest('tr')?.classList.toggle('falta', s.valor == null);
       }
-      estado();
+      estado(); desenho2d();
     }));
-    estado();
+    dlg.querySelectorAll('tbody tr').forEach((tr, i) => tr.addEventListener('focusin', () => { realce = i; desenho2d(); }));
+    dlg.querySelectorAll('tbody tr').forEach((tr, i) => tr.addEventListener('click', () => { realce = i; desenho2d(); }));
+    estado(); realce = -1; desenho2d();
+  }
+  // ---------- 2D para conferir: o perfil desenhado com as medidas lidas ----------
+  let realce = -1;
+  function desenho2d() {
+    const cv = dlg.querySelector('#foto2d'); if (!cv) return;
+    const L = leitura, peca = L.tipo === 'peca', rev = peca && L.operacao === 'revolucao';
+    const W = cv.clientWidth || 320, H = 300, dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + 'px';
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    const linhas = []; // [x0,y0,x1,y1,valor,falta,idx]
+    let k = 0;
+    for (const c of L.contornos) {
+      let x = 0, y = 0;
+      for (const s of c.segmentos) { const a = s.angulo * Math.PI / 180, v = s.valor ?? 0; const nx = x + Math.cos(a) * v, ny = y + Math.sin(a) * v; linhas.push([x, y, nx, ny, s.valor, s.valor == null, k++]); x = nx; y = ny; }
+    }
+    if (!linhas.length) return;
+    const xs = linhas.flatMap((l) => [l[0], l[2]]).concat(rev ? linhas.flatMap((l) => [-l[0], -l[2]]) : []), ys = linhas.flatMap((l) => [l[1], l[3]]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const M = 46, esc = Math.min((W - 2 * M) / Math.max(x1 - x0, 1e-6), (H - 70) / Math.max(y1 - y0, 1e-6));
+    const P = (x, y) => [M + (x - x0) * esc + ((W - 2 * M) - (x1 - x0) * esc) / 2, H - 35 - (y - y0) * esc];
+    ctx.lineCap = 'round';
+    if (rev) { // eixo e o outro lado espelhado, para ver a peça inteira
+      const [ax] = P(0, 0); ctx.strokeStyle = '#9aa7a1'; ctx.setLineDash([6, 5]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ax, 8); ctx.lineTo(ax, H - 8); ctx.stroke();
+      ctx.strokeStyle = 'rgba(215,104,69,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); for (const l of linhas) { const a = P(-l[0], l[1]), b = P(-l[2], l[3]); ctx.moveTo(...a); ctx.lineTo(...b); } ctx.stroke(); ctx.setLineDash([]);
+    }
+    for (const l of linhas) {
+      const a = P(l[0], l[1]), b = P(l[2], l[3]), sel = l[6] === realce;
+      ctx.strokeStyle = l[5] ? '#d32f2f' : sel ? '#1565C0' : '#c0582f'; ctx.lineWidth = sel ? 4 : 2.2; ctx.setLineDash(l[5] ? [4, 4] : []);
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.font = '700 11px DM Sans, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const l of linhas) { // número da linha (igual à tabela) e a medida
+      const a = P(l[0], l[1]), b = P(l[2], l[3]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, sel = l[6] === realce;
+      const dx = b[0] - a[0], dy = b[1] - a[1], ln = Math.hypot(dx, dy) || 1, ox = -dy / ln * 12, oy = dx / ln * 12;
+      const curto = ln < 22 && !sel, r0 = curto ? 6 : 9; // linha curta: só o número, menor (toque na tabela para ver a medida)
+      ctx.fillStyle = sel ? '#1565C0' : l[5] ? '#d32f2f' : '#2e4b3f'; ctx.beginPath(); ctx.arc(mx + ox, my + oy, r0, 0, Math.PI * 2); ctx.fill();
+      ctx.font = `700 ${curto ? 8 : 11}px DM Sans, Arial, sans-serif`; ctx.fillStyle = '#fff'; ctx.fillText(String(l[6] + 1), mx + ox, my + oy);
+      if (!curto) { const txt = l[5] ? '?' : fmt(l[4], peca ? 1 : 2); ctx.font = '700 11px DM Sans, Arial, sans-serif'; ctx.fillStyle = sel ? '#1565C0' : '#333'; ctx.fillText(txt, mx + ox * 2.4, my + oy * 2.4); }
+    }
+    const ini = P(0, 0); ctx.fillStyle = '#2e7d4f'; ctx.beginPath(); ctx.arc(ini[0], ini[1], 4, 0, Math.PI * 2); ctx.fill();
   }
 
   function pontos(c, escala) {
@@ -214,6 +260,18 @@
     if (Math.hypot(p.at(-1)[0], p.at(-1)[1]) <= .5) p = p.slice(0, -1);
     const mx = Math.min(...p.map((q) => q[0])), my = Math.min(...p.map((q) => q[1]));
     p = p.map(([x, y]) => [Math.round((x - mx) * 100) / 100, Math.round((y - my) * 100) / 100]);
+    if (L.operacao === 'revolucao' && L.parede > 0) { // pote oco: contorno de fora (sem o eixo e sem a tampa) + parede para dentro
+      const tolE = Math.max(.6, Math.max(...p.map((q) => q[0])) * .02); // medidas lidas não fecham exato no eixo
+      let lin = p.slice(); while (lin.length > 2 && Math.abs(lin.at(-1)[0]) < tolE) lin.pop(); // tira a volta pelo eixo/tampa
+      lin[0] = [0, lin[0][1]];
+      if (Math.abs(p[0][0]) > tolE) { dlg.querySelector('#fotoFecho').textContent = 'Para fazer a parede, o perfil precisa começar no eixo (no centro do fundo).'; return; }
+      $('partsTab').click();
+      window.tracoAbrirPeca({ mode: 'custom', profile: lin, closed: false, operation: 'revolve', extrudeDepth: 20, shapeType: null, holeDiameter: 0 });
+      const ok = window.tracoEspessuraAuto?.(L.parede);
+      if (!ok) { window.tracoAbrirPeca({ mode: 'custom', profile: p, closed: true, operation: 'revolve', extrudeDepth: 20, shapeType: null, holeDiameter: 0 });
+        notify('Com essa parede as linhas se cruzam. Gerei a peça maciça; use ⧉ Espessura com um valor menor.'); }
+      fechar(); return;
+    }
     try {
       $('partsTab').click();
       window.tracoAbrirPeca({ mode: 'custom', profile: p, closed: true,

@@ -480,3 +480,8 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .conta-teclas{display:inline-flex;gap:4px;margin:0 4px;vertical-align:middle}
 .conta-teclas button{min-width:30px;height:30px;border-radius:8px;border:1px solid #c9d3cf;background:#fff;color:#111;font-weight:800;font-size:15px;padding:0}
 #simetrico[aria-pressed="true"]{outline:2px solid #D76845}
+
+.foto-2d{margin:8px 0;border:1px solid #d9dfdc;border-radius:12px;background:#fbfcfb;padding:6px}
+.foto-2d canvas{width:100%;display:block}
+.foto-2d small{color:#666;font-size:11px}
+.foto-tab tbody tr{cursor:pointer}
