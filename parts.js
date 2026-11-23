@@ -1973,23 +1973,32 @@
   let pan = null, espaco = false;
   window.addEventListener('keydown', (e) => { if (e.code === 'Space' && document.activeElement === sketch) { espaco = true; e.preventDefault(); } });
   window.addEventListener('keyup', (e) => { if (e.code === 'Space') espaco = false; });
-  sketch.addEventListener('pointerdown', (event) => {
-    if (!(event.button === 1 || event.button === 2 || espaco)) return;
+  // ✋ Mover: com o botão ligado, clicar/tocar e arrastar move a tela do desenho (sem desenhar)
+  const maoBtn = document.createElement('button'); maoBtn.type = 'button'; maoBtn.id = 'moverTela'; maoBtn.className = 'secondary-button';
+  maoBtn.textContent = '✋'; maoBtn.title = 'Mover a tela: segure e arraste (tecla H liga/desliga)'; maoBtn.setAttribute('aria-pressed', 'false');
+  const maoLiga = (on) => { part.mao = on; maoBtn.setAttribute('aria-pressed', String(on)); maoBtn.classList.toggle('primary-button', on); maoBtn.classList.toggle('secondary-button', !on); sketch.style.cursor = on ? 'grab' : '';
+    $('profileHint').textContent = on ? '✋ Mover ligado: segure e arraste para andar pela tela. Toque no ✋ de novo para voltar a desenhar.' : 'Mover desligado: voltou a desenhar.'; };
+  maoBtn.addEventListener('click', () => maoLiga(!part.mao));
+  $('fitProfileView')?.insertAdjacentElement('afterend', maoBtn);
+  window.addEventListener('keydown', (e) => { if ((e.key === 'h' || e.key === 'H') && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') && document.body.classList.contains('parts-mode') !== false) { if (document.getElementById('partSketchCanvas')?.offsetParent) maoLiga(!part.mao); } });
+  window.addEventListener('pointerdown', (event) => { // na janela (antes de qualquer outro clique no desenho)
+    if (event.target !== sketch || !(event.button === 1 || event.button === 2 || espaco || part.mao)) return;
     event.preventDefault(); event.stopImmediatePropagation();
     pan = { id: event.pointerId, x: event.clientX, y: event.clientY, r0: part.view.r0 || 0, z0: part.view.z0 || 0 };
-    sketch.setPointerCapture(event.pointerId);
+    try { sketch.setPointerCapture(event.pointerId); } catch { /* */ }
   }, { capture: true });
   sketch.addEventListener('pointermove', (event) => {
     if (!pan || pan.id !== event.pointerId) return;
     event.stopImmediatePropagation();
     const rect = sketch.getBoundingClientRect(), t = sketchTransform(rect.width, rect.height);
-    part.view.r0 = Math.max(0, pan.r0 - (event.clientX - pan.x) / (t.right - t.left) * part.view.r);
-    part.view.z0 = Math.max(0, pan.z0 + (event.clientY - pan.y) / (t.bottom - t.top) * part.view.z);
+    part.view.r0 = Math.max(-part.view.r * .5, pan.r0 - (event.clientX - pan.x) / (t.right - t.left) * part.view.r);
+    part.view.z0 = Math.max(-part.view.z * .5, pan.z0 + (event.clientY - pan.y) / (t.bottom - t.top) * part.view.z);
+    if (part.mao) sketch.style.cursor = 'grabbing';
     render();
   }, { capture: true });
   for (const type of ['pointerup', 'pointercancel']) sketch.addEventListener(type, (event) => {
     if (!pan || pan.id !== event.pointerId) return;
-    event.stopImmediatePropagation(); pan = null;
+    event.stopImmediatePropagation(); pan = null; if (part.mao) sketch.style.cursor = 'grab';
   }, { capture: true });
   new ResizeObserver(render).observe(sketch);
   new ResizeObserver(render).observe(model);
