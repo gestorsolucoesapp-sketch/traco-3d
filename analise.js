@@ -236,8 +236,8 @@
     if (meca) { const txt = P0.narrado.pecas.filter((q) => window.tracoMeca?.eh(q.tipo)).map((q) => window.tracoMeca.info(q)).join(' · ');
       const dim = document.getElementById('partDimensions'); if (dim && !P0.sim && dim.textContent !== txt) dim.textContent = txt; }
     // Legenda do contato da rosca durante a simulação de montagem
-    { let lg = wrap.querySelector('.rosca-legenda');
-      if (!lg) { lg = document.createElement('div'); lg.className = 'rosca-legenda'; wrap.appendChild(lg); }
+    { let lg = document.querySelector('.rosca-legenda');
+      if (!lg) { lg = document.createElement('div'); lg.className = 'rosca-legenda'; wrap.insertAdjacentElement('afterend', lg); } // fora da área do 3D, para não tapar a montagem
       const ct = window.tracoNarrado?.contato, on = !!(P0?.sim && ct?.n);
       lg.hidden = !on;
       if (on) {

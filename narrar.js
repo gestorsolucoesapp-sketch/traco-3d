@@ -259,46 +259,65 @@
     const corpo = pecas[m.corpoI].tris, paraf = pecas[m.parI].tris;
     const folga = Math.max(4, m.L * .6), entrou = Math.max(0, Math.min(m.curso, s));
     const topo = m.furo.face !== 'base';
+    const G = gradeContato(spec, corpo, m.passo), stats = { n: 0, contato: 0, interf: 0, min: Infinity, max: -Infinity };
     // Pose pela descida D: o giro acompanha a descida (movimento helicoidal de verdade, a rosca nunca "pula").
-    const pose = (D) => {
-      const ang = (-m.curso + (D - folga - m.curso)) / m.passo * TAU, c = Math.cos(ang), sn = Math.sin(ang);
+    // fi = giro extra que centraliza a rosca do parafuso na da porca (folga igual nos dois flancos, como no real).
+    const pose = (D, fi = G.fi || 0) => {
+      const ang = (-m.curso + (D - folga - m.curso)) / m.passo * TAU + fi, c = Math.cos(ang), sn = Math.sin(ang);
       const zPonta = topo ? m.H + folga - D : -folga + D;
       return {
         p: (q) => { const x = q[0] * c - q[1] * sn, y = q[0] * sn + q[1] * c; const z = topo ? zPonta + (m.k + m.L - q[2]) : zPonta - (m.k + m.L - q[2]); return [x, topo ? -y : y, z]; },
         n: (v) => topo ? [v[0] * c - v[1] * sn, -(v[0] * sn + v[1] * c), -v[2]] : [v[0] * c - v[1] * sn, v[0] * sn + v[1] * c, v[2]],
       };
     };
-    const atual = pose(folga * entrou / m.curso + entrou);
-    const tris = corpo.map((t) => ({ ...t, vidro: '#3F7FBF' }));
-    const G = gradeContato(spec, corpo, m.passo), stats = { n: 0, contato: 0, interf: 0, min: Infinity, max: -Infinity };
-    // Folga de cada triângulo do parafuso: calculada uma vez, levando-o para o meio da porca (vale em qualquer ponto da rosca).
-    if (G.pre?.length !== paraf.length) {
-      const zm = (G.z0 + G.z1) / 2;
-      G.pre = paraf.map((t) => {
-        const zl = (t.points[0][2] + t.points[1][2] + t.points[2][2]) / 3;
-        const D = topo ? m.H + folga + m.k + m.L - zl - zm : zm + folga + m.k + m.L - zl;
-        const ps = pose(D), q = t.points.map(ps.p);
-        return G.folga([(q[0][0] + q[1][0] + q[2][0]) / 3, (q[0][1] + q[1][1] + q[2][1]) / 3, (q[0][2] + q[1][2] + q[2][2]) / 3]);
-      });
+    const zm = (G.z0 + G.z1) / 2;
+    const noMeio = (t) => { const zl = (t.points[0][2] + t.points[1][2] + t.points[2][2]) / 3; return topo ? m.H + folga + m.k + m.L - zl - zm : zm + folga + m.k + m.L - zl; };
+    const folgaEm = (t, fi) => { const ps = pose(noMeio(t), fi), q = t.points.map(ps.p); return G.folga([(q[0][0] + q[1][0] + q[2][0]) / 3, (q[0][1] + q[1][1] + q[2][1]) / 3, (q[0][2] + q[1][2] + q[2][2]) / 3]); };
+    if (G.fi == null) { // procura o giro que deixa a rosca centralizada (maior folga mínima)
+      const amostra = paraf.filter((_, i) => i % Math.max(1, Math.floor(paraf.length / 500)) === 0);
+      const nota = (fi) => { const ds = amostra.map((t) => folgaEm(t, fi)).filter((d) => d != null && d < G.lim).sort((a, b) => a - b); return ds.length ? ds[Math.floor(ds.length * .03)] : -Infinity; };
+      let melhor = 0, nm = -Infinity; const N = 48;
+      for (let k = 0; k < N; k++) { const fi = k / N * TAU, v = nota(fi); if (v > nm) { nm = v; melhor = fi; } }
+      for (let k = -4; k <= 4; k++) { const fi = melhor + k / (N * 4) * TAU, v = nota(fi); if (v > nm) { nm = v; melhor = fi; } }
+      G.fi = melhor;
     }
-    paraf.forEach((t, i) => {
+    const atual = pose(folga * entrou / m.curso + entrou);
+    // Folga de cada triângulo do parafuso: calculada uma vez, levando-o para o meio da porca (vale em qualquer ponto da rosca).
+    if (G.pre?.length !== paraf.length) G.pre = paraf.map((t) => folgaEm(t, G.fi));
+    // Folga da porca até o parafuso (para pintar a porca também): parafuso na posição final, que atravessa a porca.
+    if (!G.preP) {
+      const fim = pose(folga + m.curso), pt = paraf.map((t) => ({ points: t.points.map(fim.p), normal: fim.n(t.normal) }));
+      const GP = gradeContato(spec, pt, m.passo, 'parafuso');
+      G.preP = corpo.map((t) => { const c = [0, 1, 2].map((q) => (t.points[0][q] + t.points[1][q] + t.points[2][q]) / 3); return Math.hypot(c[0], c[1]) < m.furo.diametro / 2 + m.passo && Math.abs(t.normal[2]) < .9 ? GP.folga(c) : null; }); // só a rosca (não a face de cima/baixo)
+    }
+    const tris = [];
+    let zs0 = Infinity, zs1 = -Infinity;
+    const pf = paraf.map((t, i) => {
       const pts = t.points.map(atual.p), tri = { points: pts, normal: atual.n(t.normal) };
       const cz = (pts[0][2] + pts[1][2] + pts[2][2]) / 3, d = G.pre[i];
+      zs0 = Math.min(zs0, cz); zs1 = Math.max(zs1, cz);
       if (cz > G.z0 && cz < G.z1 && d != null && d < G.lim) {
         tri.cor = corFolga(d); tri.real = true; stats.n++;
         if (d < -.01) stats.interf++; else if (d < .03) stats.contato++;
         stats.min = Math.min(stats.min, d); stats.max = Math.max(stats.max, d);
       }
-      tris.push(tri);
+      return tri;
     });
+    corpo.forEach((t, i) => { // porca: rosca pintada onde o parafuso já está dentro; o resto fica de vidro
+      const d = G.preP[i], cz = (t.points[0][2] + t.points[1][2] + t.points[2][2]) / 3;
+      if (d != null && d < G.lim && cz > zs0 && cz < zs1) tris.push({ ...t, cor: corFolga(d), real: true });
+      else tris.push({ ...t, vidro: '#3F7FBF' });
+    });
+    tris.push(...pf);
     window.tracoNarrado.contato = stats;
     return { tris, ...m, contato: stats };
   }
 
   // ---------- Contato da rosca: folga de cada ponto do parafuso até a superfície da porca ----------
-  let cacheG = { k: '', g: null };
-  function gradeContato(spec, corpo, passo) {
-    const k = JSON.stringify(spec); if (cacheG.k === k) return cacheG.g;
+  const cacheG = new Map();
+  function gradeContato(spec, corpo, passo, tipo = 'porca') {
+    const k = tipo + JSON.stringify(spec); if (cacheG.has(k)) return cacheG.get(k);
+    if (cacheG.size > 6) cacheG.clear();
     const cel = Math.max(passo * .6, .4), mapa = new Map(), chave = (i, j, l) => i + ',' + j + ',' + l;
     let z0 = Infinity, z1 = -Infinity;
     corpo.forEach((t, ti) => {
@@ -320,8 +339,8 @@
       const n = bt.normal, lado = (p[0] - bq[0]) * n[0] + (p[1] - bq[1]) * n[1] + (p[2] - bq[2]) * n[2];
       return lado < -1e-6 ? -best : best; // dentro do material da porca = interferência
     };
-    cacheG = { k, g: { folga, z0: z0 + passo * .25, z1: z1 - passo * .25, lim } };
-    return cacheG.g;
+    const g = { folga, z0: z0 + passo * .25, z1: z1 - passo * .25, lim }; cacheG.set(k, g);
+    return g;
   }
   function pontoTri(p, [a, b, c]) {
     const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]], dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
