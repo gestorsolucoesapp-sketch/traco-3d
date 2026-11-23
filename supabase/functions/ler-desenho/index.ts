@@ -48,7 +48,13 @@ FORMATO (responda só o JSON, sem texto em volta)
 }
 - Preencha só o bloco do tipo escolhido; o outro fica null.
 - peca: o perfil é um contorno FECHADO. Para "revolucao", descreva meio perfil começando no eixo de giro. "profundidade_mm" só se estiver escrita (espessura/profundidade); senão null.
-- planta: cada parede é um segmento; ambientes separados viram contornos separados.`;
+- planta: cada parede é um segmento; ambientes separados viram contornos separados.
+
+DESENHO TÉCNICO (CAD, com cotas de diâmetro Ø, alturas, espessuras)
+- Pode ser peça de revolução (pote, copo, tampa, flange): use "revolucao" e descreva MEIO perfil começando no eixo (x = 0) na base, raio = Ø/2.
+- Pode calcular comprimentos e ângulos a partir das COTAS ESCRITAS (soma, subtração, metade do Ø, ângulo de parede inclinada por atan das cotas). Isso não é estimar. O que não sair das cotas escritas fica null com aviso.
+- Seja econômico: no máximo 60 segmentos; detalhes pequenos sem cota (raios de canto, chanfros) podem ser simplificados, avisando.
+- Responda SÓ o JSON, sem crases nem explicação.
 
 const PROMPT_NARRAR = `O usuário descreveu, falando ou escrevendo, peças mecânicas que quer modelar em 3D.
 Transforme a descrição em JSON. Medidas em MILÍMETROS.
@@ -86,7 +92,7 @@ async function narrar(texto: string, chave: string, h: Record<string, string>) {
   });
   if (!r.ok) {
     console.error("anthropic", r.status, (await r.text()).slice(0, 500));
-    return new Response(JSON.stringify({ erro: `IA respondeu ${r.status}.` }), { status: 502, headers: h });
+    return new Response(JSON.stringify({ erro: [429, 500, 502, 503, 529].includes(r.status) ? "A IA está ocupada agora (" + r.status + "). Tente de novo em instantes." : `IA respondeu ${r.status}.` }), { status: [429, 500, 502, 503, 529].includes(r.status) ? 503 : 502, headers: h });
   }
   const dados = await r.json();
   const t: string = (dados.content ?? []).filter((c: { type: string }) => c.type === "text")
@@ -126,7 +132,7 @@ Deno.serve(async (req) => {
     headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
       model: MODELO,
-      max_tokens: 3000,
+      max_tokens: 8000,
       messages: [{
         role: "user",
         content: [
@@ -139,16 +145,21 @@ Deno.serve(async (req) => {
   if (!r.ok) {
     const det = await r.text();
     console.error("anthropic", r.status, det.slice(0, 500));
-    return new Response(JSON.stringify({ erro: `IA respondeu ${r.status}.` }), { status: 502, headers: h });
+    return new Response(JSON.stringify({ erro: [429, 500, 502, 503, 529].includes(r.status) ? "A IA está ocupada agora (" + r.status + "). Tente de novo em instantes." : `IA respondeu ${r.status}.` }), { status: [429, 500, 502, 503, 529].includes(r.status) ? 503 : 502, headers: h });
   }
   const dados = await r.json();
   const texto: string = (dados.content ?? []).filter((c: { type: string }) => c.type === "text")
     .map((c: { text: string }) => c.text).join("\n");
-  const ini = texto.indexOf("{"), fim = texto.lastIndexOf("}");
+  const limpo = texto.replace(/```(?:json)?/gi, "");
+  const ini = limpo.indexOf("{"), fim = limpo.lastIndexOf("}");
   try {
-    const json = JSON.parse(texto.slice(ini, fim + 1));
+    const json = JSON.parse(limpo.slice(ini, fim + 1));
     return new Response(JSON.stringify(json), { headers: h });
   } catch {
-    return new Response(JSON.stringify({ erro: "A IA não devolveu um resultado legível. Tente outra foto." }), { status: 502, headers: h });
+    console.error("json", dados.stop_reason, limpo.slice(0, 300));
+    const motivo = dados.stop_reason === "max_tokens"
+      ? "O desenho tem detalhes demais para ler de uma vez. Recorte a foto mostrando só o perfil (meia peça) ou use \"Narrar\"."
+      : "A IA não conseguiu montar as medidas desta foto. Tente uma foto mais reta e nítida, ou use \"Narrar\".";
+    return new Response(JSON.stringify({ erro: motivo }), { status: 422, headers: h });
   }
 });

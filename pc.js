@@ -64,7 +64,6 @@
         ['📷 Foto do desenho', arq ? '#fotoArchButton' : '#fotoPartButton'],
         ['🎙️ Narrar peça', arq ? '' : '🎙️ Narrar'],
         ['Exemplo pronto', arq ? '#exampleButton' : '#cupExample'],
-        ['🎮 Suporte de controle PS5', arq ? '' : '#controleExample'],
         null,
         ['Importar STL', arq ? '#importStlButton' : ''],
         ['Exportar STL', arq ? '#exportButton' : '#exportPartStl'],
@@ -215,7 +214,7 @@
       ids('#undoButton', '#redoButton', '#clearButton'),
       ids('#exportButton', '🖨️ Prancha', '📚 Histórico'),
     ] : [
-      ids('#newProfile', '#openPart', '#savePart', '#cupExample', '#controleExample', '#fotoPartButton', '#narrarButton'),
+      ids('#newProfile', '#openPart', '#savePart', '#cupExample', '#fotoPartButton', '#narrarButton'),
       [...document.querySelectorAll('#sketchMenu .part-menu-content button')],
       ids('#moverTela', '#cotarPerfil', '#espessuraPerfil', '#simetrico', '#closeProfile', '#undoProfilePoint', '#fitProfileView'),
       [...document.querySelectorAll('#modelMenu .part-menu-content button')],
