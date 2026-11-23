@@ -394,7 +394,7 @@
       <div class="obj-dims">${['Larg.', 'Prof.', 'Alt.'].map((r, i) => `<label>${r}<input data-d="${i}" inputmode="decimal" value="${nf(o.dims[i])}" /> m</label>`).join('')}</div>
       <div class="obj-acoes"><button type="button" data-a="rot">⟲ 90°</button><button type="button" data-a="dup">Duplicar</button><button type="button" data-a="del">Excluir</button></div>`;
     pn.querySelectorAll('[data-d]').forEach((inp) => inp.onchange = () => {
-      const v = Number(inp.value.replace(',', '.')); if (!(v > .01 && v < 100)) { inp.value = nf(o.dims[inp.dataset.d]); return; }
+      const v = window.tracoConta?.(inp.value) ?? Number(inp.value.replace(',', '.')); if (!(v > .01 && v < 100)) { inp.value = nf(o.dims[inp.dataset.d]); return; }
       o.dims[+inp.dataset.d] = v; salvar();
     });
     pn.querySelector('[data-a=rot]').onclick = () => { o.rot = ((o.rot || 0) + Math.PI / 2) % (2 * Math.PI); salvar(); };

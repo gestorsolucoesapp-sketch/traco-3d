@@ -1,6 +1,6 @@
 // Conta nos campos de medida: 56/2, 10+2,5, (40-3)*2, 3x4. Vírgula = decimal. Sem eval.
 window.tracoConta = (txt) => {
-  let s = String(txt ?? '').trim().replace(/\s+/g, '').replace(/[x×]/gi, '*').replace(/÷/g, '/').replace(/,/g, '.');
+  let s = String(txt ?? '').trim().replace(/\s+/g, '').replace(/[x×]/gi, '*').replace(/÷/g, '/').replace(/[−–—]/g, '-').replace(/,/g, '.');
   s = s.replace(/(mm|cm|m|°)$/i, '');
   if (!s || !/^[-+*/().\d]+$/.test(s)) return null;
   let i = 0;

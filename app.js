@@ -975,7 +975,7 @@ window.addEventListener('keydown', (event) => {
     event.preventDefault();
     if (event.key === 'Escape') state.angleTyping = null;
     else if (event.key === 'Enter') {
-      const deg = Number(state.angleTyping.replace(',', '.'));
+      const deg = window.tracoConta?.(state.angleTyping) ?? Number(state.angleTyping.replace(',', '.'));
       state.angleTyping = null;
       if (Number.isFinite(deg) && String(deg) !== '') {
         const rad = deg * Math.PI / 180;
@@ -985,7 +985,7 @@ window.addEventListener('keydown', (event) => {
           state.linePreview = sn.point; state.lineSnapKind = sn.kind; state.lineGuides = sn.guides || [];
         }
       }
-    } else if (/^[0-9,.\-]$/.test(event.key)) state.angleTyping += event.key;
+    } else if (/^[0-9,.+\-*/()]$/.test(event.key)) state.angleTyping += event.key;
     else if (event.key === 'Backspace') state.angleTyping = state.angleTyping.slice(0, -1);
     refreshMeasure(); requestRender(); return;
   }
@@ -1015,7 +1015,7 @@ window.addEventListener('keydown', (event) => {
     refreshMeasure(); requestRender(); return;
   }
   const input = $('measureInput');
-  if (/^[0-9,.mc]$/i.test(event.key)) input.value += event.key.toLowerCase();
+  if (/^[0-9,.mc+\-*/() ]$/i.test(event.key)) input.value += event.key.toLowerCase(); // aceita conta: 2,5+0,15
   else if (event.key === 'Backspace') input.value = input.value.slice(0, -1);
   else return;
   event.preventDefault(); refreshMeasure(); requestRender();
@@ -1587,9 +1587,9 @@ $('offsetTool').addEventListener('click', () => {
   }
 });
 function applyOffset() {
-  const match = /^\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?\s*$/i.exec($('offsetInput').value);
+  const match = /^\s*(.+?)\s*(mm|cm|m)?\s*$/i.exec($('offsetInput').value);
   const unit = match?.[2]?.toLowerCase() ?? 'm';
-  const value = match ? Number(match[1].replace(',', '.')) *
+  const value = match ? (window.tracoConta?.(match[1]) ?? NaN) *
     (unit === 'mm' ? .001 : unit === 'cm' ? .01 : 1) : NaN;
   if (!Number.isFinite(value) || value < .1 || value > .3) {
     notify('Digite uma espessura entre 10 e 30 cm. Ex.: 20 cm.'); return;
@@ -1658,7 +1658,7 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { event.preventDefault(); stopPush(); return; }
   if (event.key === 'Enter') { event.preventDefault(); applyPushHeight(); return; }
   const input = $('pushHeightInput');
-  if (/^[0-9,.mc]$/i.test(event.key)) {
+  if (/^[0-9,.mc+\-*/() ]$/i.test(event.key)) {
     if (!state.pushTyping) { input.value = ''; state.pushTyping = true; }
     input.value += event.key.toLowerCase();
   } else if (event.key === 'Backspace') {

@@ -257,8 +257,8 @@
       for (let k = 1; k <= n; k++) { const novo = s.map((p) => r2([p[0] + dx * k, p[1] + dy * k])); if (dentro(novo)) lista.push(novo); }
       commit(lista); notify(`${n} cópias`); ex.ultimaCopia = null; vcb(); return;
     }
-    if (t === 'girar' && ex.passo === 3) { const g = Number(txt.replace(',', '.')); if (Number.isFinite(g)) aplicar(-g * Math.PI / 180); return; }
-    const metros = parseLength(txt.replace(/m$/, ' m')) ?? (Number(txt.replace(',', '.')) > 0 ? Number(txt.replace(',', '.')) : null);
+    if (t === 'girar' && ex.passo === 3) { const g = window.tracoConta?.(txt) ?? Number(txt.replace(',', '.')); if (Number.isFinite(g)) aplicar(-g * Math.PI / 180); return; }
+    const metros = parseLength(txt.replace(/m$/, ' m')) ?? ((window.tracoConta?.(txt) ?? 0) > 0 ? window.tracoConta(txt) : null);
     if (metros == null) { notify('Medida inválida.'); vcb(); return; }
     const px = metros * state.pixelsPerMeter;
     const dir = (o) => { const h = ex.hover || [o[0] + 1, o[1]], d = dist(o, h) || 1; return [o[0] + (h[0] - o[0]) / d * px, o[1] + (h[1] - o[1]) / d * px]; };
@@ -346,7 +346,7 @@
       <small>A ponta final anda e as paredes ligadas a ela acompanham.</small>`;
     edBox.hidden = false; const inp = edBox.querySelector('#edL'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
     const ok = () => {
-      const nL = Number(edBox.querySelector('#edL').value.replace(',', '.')), nA = Number(edBox.querySelector('#edA').value.replace(',', '.'));
+      const nL = window.tracoConta?.(edBox.querySelector('#edL').value) ?? NaN, nA = window.tracoConta?.(edBox.querySelector('#edA').value) ?? NaN;
       if (!(nL > .01) || !Number.isFinite(nA)) return notify('Digite comprimento e ângulo válidos.');
       const r = -nA * Math.PI / 180, nb = r2([a[0] + Math.cos(r) * nL * state.pixelsPerMeter, a[1] + Math.sin(r) * nL * state.pixelsPerMeter]);
       if (!dentro([nb])) return notify('Sai do quadro.');

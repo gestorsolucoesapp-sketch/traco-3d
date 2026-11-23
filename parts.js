@@ -1593,12 +1593,13 @@
       if (event.key === 'Escape') { part.angleTyping = false; ang.value = ''; }
       else if (event.key === 'Enter') {
         part.angleTyping = false;
-        if (!Number.isFinite(Number(ang.value.replace(',', '.'))) || !ang.value.trim()) ang.value = '';
-        else if (part.lastRaw) part.selected = projetarAngulo(part.lastRaw, Number(ang.value.replace(',', '.')),
+        const gv = window.tracoConta?.(ang.value) ?? Number(ang.value.replace(',', '.'));
+        if (!Number.isFinite(gv) || !ang.value.trim()) ang.value = '';
+        else if (part.lastRaw) part.selected = projetarAngulo(part.lastRaw, gv,
           part.view.r > 120 ? 1 : part.view.r > 30 ? .5 : .1);
-      } else if (/^[0-9,.\-]$/.test(event.key)) ang.value += event.key;
+      } else if (/^[0-9,.+\-*/()]$/.test(event.key)) ang.value += event.key;
       else if (event.key === 'Backspace') ang.value = ang.value.slice(0, -1);
-      { const g = Number(ang.value.replace(',', '.')); // prévia no ângulo exato, sem pular para sugestões
+      { const g = window.tracoConta?.(ang.value) ?? NaN; // prévia no ângulo exato, sem pular para sugestões
         if (ang.value.trim() && Number.isFinite(g) && part.lastRaw) part.selected = projetarAngulo(part.lastRaw, g, part.view.r > 120 ? 1 : part.view.r > 30 ? .5 : .1); }
       $('profileHint').textContent = part.angleTyping ? `Ângulo: ${ang.value || '_'}° · Enter trava · Esc cancela` :
         ang.value ? `Ângulo ${ang.value}° travado · puxe ou digite os mm e Enter` : 'Ângulo cancelado.';
@@ -1629,7 +1630,7 @@
       save(); refresh(); render(); return;
     }
     const input = $('profileLength');
-    if (/^[0-9,.]$/.test(event.key)) input.value += event.key;
+    if (/^[0-9,.+\-*/() ]$/.test(event.key)) input.value += event.key; // aceita conta: 200-5, 56/2
     else if (event.key === 'Backspace') input.value = input.value.slice(0, -1);
     else return;
     event.preventDefault(); render();
