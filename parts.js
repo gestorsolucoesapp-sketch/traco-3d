@@ -26,7 +26,7 @@
 
   const display = (value) => Number(value.toFixed(2)).toString().replace('.', ',');
   const number = (raw) => {
-    const value = Number(String(raw).trim().replace(',', '.'));
+    const value = window.tracoConta ? window.tracoConta(raw) ?? NaN : Number(String(raw).trim().replace(',', '.')); // aceita conta: 56/2
     return Number.isFinite(value) && value >= 0 && value <= MAX_MM ? value : null;
   };
   const validCup = (cup) => cup && Object.values(cup).every((value) =>
@@ -192,12 +192,12 @@
     if (!part.profile.length) return part.selected;
     const length = number($('profileLength').value);
     const rawAngle = $('profileAngle').value.trim();
-    const angle = Number(rawAngle.replace(',', '.'));
+    const angle = window.tracoConta?.(rawAngle) ?? Number(rawAngle.replace(',', '.'));
     if (length == null || length < .01 || (rawAngle && !Number.isFinite(angle)))
       return part.selected;
     const [r, z] = part.profile.at(-1);
-    if (rawAngle) return [r + Math.cos(angle * Math.PI / 180) * length,
-      z + Math.sin(angle * Math.PI / 180) * length];
+    if (rawAngle) { const L = metadeSimetrica(Math.cos(angle * Math.PI / 180), Math.sin(angle * Math.PI / 180), length);
+      return [r + Math.cos(angle * Math.PI / 180) * L, z + Math.sin(angle * Math.PI / 180) * L]; }
     const dx = part.selected[0] - r, dz = part.selected[1] - z;
     const direction = Math.hypot(dx, dz);
     return direction < .01 ? part.selected :
@@ -292,6 +292,14 @@
       ctx.textAlign = 'right'; ctx.fillText(display((t.extent.z0 || 0) + t.extent.z * i / 5), t.left - 6, y + 4);
     }
     ctx.beginPath(); ctx.rect(t.left - 8, t.top - 8, t.right - t.left + 16, t.bottom - t.top + 16); ctx.clip();
+    if (part.simetrico) { // eixo de simetria: a metade desenhada à direita é espelhada para a esquerda
+      const [ex] = t.screen([0, 0]); ctx.save(); ctx.strokeStyle = '#D76845'; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.moveTo(ex, t.top); ctx.lineTo(ex, t.bottom); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#D76845'; ctx.font = 'bold 11px DM Sans, Arial, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('🪞 eixo de simetria', ex + 6, t.top + 14);
+      if (part.profile.length > 1) { ctx.strokeStyle = 'rgba(215,104,69,.45)'; ctx.setLineDash([4, 4]); ctx.beginPath();
+        part.profile.forEach(([r, z], i) => { const [x, y] = t.screen([-r, z]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); }
+      ctx.restore();
+    }
     if (window.tracoPlano?.estilo === 'sketchup') { // eixos do SketchUp: X vermelho, Y verde; tracejado no lado negativo
       const [ox, oy] = t.screen([0, 0]);
       const eixo = (cor, x1, y1, x2, y2, trac) => { ctx.save(); ctx.strokeStyle = cor; ctx.lineWidth = trac ? 1.2 : 2; ctx.setLineDash(trac ? [5, 4] : []); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); };
@@ -1349,7 +1357,7 @@
     cotaBox.hidden = false; render();
     const inp = cotaBox.querySelector('#cotaL'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
     const aplicar = () => {
-      const nL = number(cotaBox.querySelector('#cotaL').value), nA = Number(String(cotaBox.querySelector('#cotaA').value).replace(',', '.'));
+      const nL = number(cotaBox.querySelector('#cotaL').value), nA = window.tracoConta?.(cotaBox.querySelector('#cotaA').value) ?? Number(String(cotaBox.querySelector('#cotaA').value).replace(',', '.'));
       if (nL == null || nL < .01 || !Number.isFinite(nA)) { $('profileStatus').textContent = 'Digite um comprimento em mm e um ângulo válidos.'; return; }
       const rad = nA * Math.PI / 180, novoB = [a[0] + Math.cos(rad) * nL, a[1] + Math.sin(rad) * nL];
       const dx = novoB[0] - b[0], dz = novoB[1] - b[1];
@@ -1416,7 +1424,7 @@
   // Tecla A: ângulo digitado trava a direção; o cursor só puxa o comprimento ao longo dela.
   function anguloTravado() {
     const txt = $('profileAngle').value.trim(); // vale já enquanto digita (ex.: -5), sem precisar do Enter
-    const a = Number(txt.replace(',', '.'));
+    const a = window.tracoConta?.(txt) ?? Number(txt.replace(',', '.'));
     return txt && Number.isFinite(a) ? a : null;
   }
   function projetarAngulo([r, z], graus, passo) {
@@ -1485,6 +1493,39 @@
     $('profileZ').value = display(point[1]);
     render();
   }
+  // Perfil simétrico: desenha a metade a partir do eixo (X = 0); medida horizontal digitada é a largura TOTAL.
+  function metadeSimetrica(dx, dz, length) {
+    if (!part.simetrico) return length;
+    const h = Math.hypot(dx, dz) || 1; return Math.abs(dz) / h < .02 ? length / 2 : length; // só linha na horizontal vale metade
+  }
+  function espelharPerfil() {
+    let pts = part.profile.map((p) => [...p]);
+    if (part.fecharEm > 0 && !part.closed) { pts = pts.slice(part.fecharEm); part.fecharEm = null; }
+    const eixo = (p) => Math.abs(p[0]) < .05;
+    if (part.closed || (pts.length > 2 && Math.hypot(pts[0][0] - pts.at(-1)[0], pts[0][1] - pts.at(-1)[1]) < .01)) { // fechado: abre na aresta do eixo
+      if (Math.hypot(pts[0][0] - pts.at(-1)[0], pts[0][1] - pts.at(-1)[1]) < .01) pts.pop();
+      const k = pts.findIndex((p, i) => eixo(p) && eixo(pts[(i + 1) % pts.length]));
+      if (k < 0) return 'O perfil precisa ter um lado em cima do eixo (X = 0) para espelhar.';
+      pts = [...pts.slice(k + 1), ...pts.slice(0, k + 1)];
+    }
+    if (pts.length < 2 || !eixo(pts[0]) || !eixo(pts.at(-1))) return 'Comece e termine a metade em cima do eixo (X = 0) para espelhar.';
+    const meio = pts.map(([x, z]) => [x, z]), espelho = pts.slice(1, -1).reverse().map(([x, z]) => [-x, z]);
+    let todos = [...meio, ...espelho];
+    const W = Math.max(...pts.map((p) => p[0]));
+    todos = todos.map(([x, z]) => [Math.round((x + W) * 100) / 100, z]);
+    if (todos.length < 3 || Math.abs(signedArea(todos)) < .001) return 'A metade ficou sem área para espelhar.';
+    part.profile = todos; part.closed = true; part.pending = false; part.drawLine = false; part.freehand = false; part.solto = false;
+    if (part.operation === 'revolve') part.operation = 'extrude'; // revolução já é simétrica: espelhado vira extrusão
+    part.simetrico = false; fitSketchView(); save(); refresh();
+    $('profileHint').textContent = `Espelhado: largura total ${display(2 * W)} mm. Ajuste a extrusão (profundidade) se precisar.`;
+    return null;
+  }
+  window.tracoEspelhar = () => espelharPerfil();
+  window.tracoSimetrico = (on) => { part.simetrico = on ?? !part.simetrico;
+    if (part.view?.r) part.view.r0 = part.simetrico ? -part.view.r * .45 : Math.max(0, part.view.r0 || 0); // eixo no meio da tela
+    render?.();
+    $('profileHint').textContent = part.simetrico ? '🪞 Simétrico: comece no eixo (X = 0), desenhe só a metade da direita e termine no eixo. Medida na horizontal = largura TOTAL (o app usa a metade). Depois toque em Fechar perfil.' : 'Simétrico desligado.';
+    return part.simetrico; };
   function applySegmentLength() {
     if (part.mode !== 'custom' || part.closed || !part.profile.length) return;
     const length = number($('profileLength').value);
@@ -1495,7 +1536,7 @@
     const start = part.profile.at(-1);
     let dx = part.selected[0] - start[0], dz = part.selected[1] - start[1];
     const angleText = $('profileAngle').value.trim();
-    const angle = angleText ? Number(angleText.replace(',', '.')) : null;
+    const angle = angleText ? window.tracoConta?.(angleText) ?? Number(angleText.replace(',', '.')) : null;
     if (angleText && (!Number.isFinite(angle) || angle < -360 || angle > 360)) {
       $('profileStatus').textContent = 'Digite um ângulo entre -360° e 360°.';
       return;
@@ -1509,7 +1550,8 @@
       $('profileStatus').textContent = 'Aponte a direção da linha no corte antes de confirmar.';
       return;
     }
-    const end = [start[0] + dx / preview * length, start[1] + dz / preview * length]
+    const L = metadeSimetrica(dx, dz, length);
+    const end = [start[0] + dx / preview * L, start[1] + dz / preview * L]
       .map((value) => Math.round(value * 100) / 100);
     if (end.some((value) => value < 0 || value > MAX_MM) || part.profile.length >= MAX_POINTS) {
       $('profileStatus').textContent = 'A linha ultrapassa o eixo/quadro ou o limite de 128 pontos.';
@@ -1795,6 +1837,7 @@
     part.selected = [...(part.profile.at(-1) ?? [0, 0])]; save(); refresh();
   });
   $('closeProfile').addEventListener('click', () => {
+    if (part.simetrico) { const erro = espelharPerfil(); if (erro) { $('profileStatus').textContent = erro; $('profileHint').textContent = erro; } return; }
     if (part.fecharEm > 0 && !part.closed) { part.profile = part.profile.slice(part.fecharEm); part.fecharEm = null; }
     if (part.profile.length < 3 || Math.abs(signedArea(part.profile)) < .001 ||
         !simpleProfile(part.profile) ||

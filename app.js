@@ -395,9 +395,9 @@ function commitLine(end) {
 }
 
 function parseLength(text) {
-  const match = /^\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?\s*$/i.exec(text);
+  const match = /^\s*(.+?)\s*(mm|cm|m)?\s*$/i.exec(text); // aceita conta: 5,6/2 m
   if (!match) return null;
-  const numeric = Number(match[1].replace(',', '.'));
+  const numeric = window.tracoConta ? window.tracoConta(match[1]) ?? NaN : Number(match[1].replace(',', '.'));
   const factor = match[2]?.toLowerCase() === 'mm' ? .001 : match[2]?.toLowerCase() === 'cm' ? .01 : 1;
   const meters = numeric * factor;
   return Number.isFinite(meters) && meters >= .15 && meters <= 100 ? meters : null;

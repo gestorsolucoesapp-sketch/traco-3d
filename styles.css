@@ -475,3 +475,8 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .fea-edita{position:absolute;z-index:8;display:flex;align-items:center;gap:6px;background:#fff;border:2px solid #EF6C00;border-radius:10px;padding:6px 8px;box-shadow:0 6px 18px rgba(0,0,0,.2);color:#111}
 .fea-edita input{width:80px;font:700 16px DM Sans,Arial,sans-serif;border:1px solid #ddd;border-radius:6px;padding:4px 6px;color:#111;background:#fff}
 .fea-edita button{border:0;background:#EF6C00;color:#fff;font-weight:800;border-radius:7px;padding:6px 10px}
+
+.conta-dica{font-size:12px;font-weight:700;color:#2e7d4f;margin-left:4px;white-space:nowrap}
+.conta-teclas{display:inline-flex;gap:4px;margin:0 4px;vertical-align:middle}
+.conta-teclas button{min-width:30px;height:30px;border-radius:8px;border:1px solid #c9d3cf;background:#fff;color:#111;font-weight:800;font-size:15px;padding:0}
+#simetrico[aria-pressed="true"]{outline:2px solid #D76845}
