@@ -502,3 +502,10 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .ras-zoom span{min-width:42px;text-align:center}
 .ras-dica{position:absolute;left:150px;bottom:12px;margin:0;max-width:calc(100% - 240px);font-size:11px;color:#555;background:#ffffffd0;padding:6px 9px;border-radius:8px;pointer-events:none}
 @media(max-width:760px){.ras-wrap{height:calc(100dvh - 230px);min-height:400px}.ras-dica{display:none}}
+.ras-topo .ras-ia{background:linear-gradient(135deg,#d76845,#8a4fd1);color:#fff;border:0;font-size:13px;padding:0 13px}
+.ras-dlg{border:0;border-radius:18px;padding:20px;width:min(520px,94vw);box-shadow:0 30px 80px #0005;color:#111;background:#fff}
+.ras-dlg::backdrop{background:#0006}.ras-dlg h3{margin:0 0 6px;font:800 19px Manrope,Arial,sans-serif}.ras-sub{margin:0 0 12px;font-size:13px;color:#444}
+.ras-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.ras-chips button{border:1px solid #dfe4db;background:#f6f7f3;border-radius:20px;padding:7px 11px;font:700 12px DM Sans,Arial,sans-serif;color:#111}
+.ras-dlg textarea{width:100%;box-sizing:border-box;border:1px solid #dfe4db;border-radius:10px;padding:11px;font:500 15px DM Sans,Arial,sans-serif;resize:vertical}
+.ras-ctx{display:flex;gap:8px;align-items:center;margin:10px 0 4px;font-size:13px}.ras-msg{min-height:18px;font-size:13px;color:#8a3b22;margin:6px 0}
+.ras-acoes{display:flex;justify-content:flex-end;gap:8px}

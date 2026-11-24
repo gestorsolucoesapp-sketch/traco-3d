@@ -86,6 +86,49 @@ TIPOS SUPORTADOS
 FORMATO (só o JSON)
 { "pecas": [ { "tipo": "...", "nome": "nome curto", ...campos } ], "avisos": ["..."], "nao_suportado": ["..."] }`;
 
+const PROMPT_RASCUNHO = `Você ajuda num QUADRO LIVRE de rascunhos (estilo Freeform) de um engenheiro brasileiro.
+O usuário pede ideias, listas, mapas mentais, fluxos ou DESENHOS de objetos. Monte os elementos para colocar no quadro.
+
+ÁREA: coordenadas em pixels, x de 0 a 1200 (direita), y de 0 a 900 (para baixo). Não sobreponha elementos.
+
+ELEMENTOS (lista "itens")
+- { "tipo": "nota", "id": "n1", "x": 0, "y": 0, "texto": "frase curta", "cor": "amarelo"|"rosa"|"verde"|"azul"|"lilas" } — nota adesiva de 160x160; texto de até ~90 caracteres.
+- { "tipo": "texto", "x": 0, "y": 0, "texto": "título ou lista (use \\n para quebrar linha)", "tam": 18 a 44 }
+- { "tipo": "desenho", "id": "d1", "x": 0, "y": 0, "w": 300, "h": 300, "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 300 300\">...</svg>" } — desenho vetorial limpo do objeto (traço escuro #222, preenchimentos suaves, estilo esboço técnico/ilustração). Sem texto longo, sem imagens externas, sem script. Até 15000 caracteres.
+- { "tipo": "seta", "de": "n1", "para": "n2" } — liga dois elementos pelo id.
+- { "tipo": "ret" | "circ" | "linha", "x": 0, "y": 0, "x2": 100, "y2": 100, "cor": "#2e6fd8" } — moldura ou destaque.
+
+COMO ESCOLHER
+- Ideias / brainstorm: um título (texto) + 5 a 12 notas organizadas em grade ou em volta do tema; cores por grupo.
+- Mapa mental: nota central + ramos ligados por setas.
+- Fluxo / processo: notas em sequência ligadas por setas.
+- Objeto / "desenhe": 1 desenho grande e bem feito (pode ter vistas) + notas curtas com partes ou medidas se fizer sentido.
+- Escreva em português do Brasil, frases curtas e práticas. Se o pedido citar o que já está no quadro, use isso como contexto.
+
+FORMATO (só o JSON, sem crases)
+{ "titulo": "curto", "itens": [ ... ] }`;
+
+async function rascunho(pedido: string, contexto: string, chave: string, h: Record<string, string>) {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: MODELO, max_tokens: 12000, system: PROMPT_RASCUNHO,
+      messages: [{ role: "user", content: (contexto ? `Já está no quadro:\n${contexto.slice(0, 3000)}\n\n` : "") + `Pedido: ${pedido.slice(0, 1500)}` }] }),
+  });
+  if (!r.ok) {
+    console.error("anthropic", r.status, (await r.text()).slice(0, 500));
+    return new Response(JSON.stringify({ erro: [429, 500, 502, 503, 529].includes(r.status) ? "A IA está ocupada agora (" + r.status + "). Tente de novo em instantes." : `IA respondeu ${r.status}.` }), { status: [429, 500, 502, 503, 529].includes(r.status) ? 503 : 502, headers: h });
+  }
+  const dados = await r.json();
+  const t: string = (dados.content ?? []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("\n").replace(/```(?:json)?/gi, "");
+  try {
+    return new Response(JSON.stringify(JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1))), { headers: h });
+  } catch {
+    console.error("json", dados.stop_reason, t.slice(0, 300));
+    return new Response(JSON.stringify({ erro: dados.stop_reason === "max_tokens" ? "Pedido grande demais de uma vez. Peça menos itens ou um desenho por vez." : "A IA não conseguiu montar o quadro. Tente explicar de outro jeito." }), { status: 422, headers: h });
+  }
+}
+
 async function narrar(texto: string, chave: string, h: Record<string, string>) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -119,10 +162,11 @@ Deno.serve(async (req) => {
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
   if (!chave) return new Response(JSON.stringify({ erro: "Servidor sem ANTHROPIC_API_KEY." }), { status: 500, headers: h });
 
-  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string };
+  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string; rascunho?: string; contexto?: string };
   try { corpo = await req.json(); } catch {
     return new Response(JSON.stringify({ erro: "Corpo inválido." }), { status: 400, headers: h });
   }
+  if (typeof corpo.rascunho === "string" && corpo.rascunho.trim()) return rascunho(corpo.rascunho.trim(), typeof corpo.contexto === "string" ? corpo.contexto : "", chave, h);
   if (typeof corpo.texto === "string" && corpo.texto.trim()) return narrar(corpo.texto.trim(), chave, h);
   const imagem = (corpo.imagem ?? "").replace(/^data:[^,]+,/, "");
   if (!imagem || imagem.length > MAX_IMAGEM)

@@ -21,6 +21,7 @@
         <button type="button" data-q="novo" title="Novo quadro">＋ Novo</button>
         <button type="button" data-q="nome" title="Renomear">✎</button>
         <button type="button" data-q="apagar" title="Apagar quadro">🗑</button>
+        <button type="button" data-a="ia" class="ras-ia" title="Gerar com IA">✨ IA</button>
         <span class="ras-esp"></span>
         <button type="button" data-a="desfazer" title="Desfazer">↶</button>
         <button type="button" data-a="refazer" title="Refazer">↷</button>
@@ -55,6 +56,22 @@
         <div class="ras-zoom"><button type="button" data-z="-">−</button><span id="rasZ">100%</span><button type="button" data-z="+">＋</button></div>
         <p class="ras-dica" id="rasDica"></p></div>
       <input type="file" id="rasFoto" accept="image/*" hidden />
+      <dialog class="ras-dlg" id="rasIA"><form method="dialog">
+        <h3>✨ Gerar no quadro com IA</h3>
+        <p class="ras-sub">Escreva o que você quer. A IA monta notas, textos, setas e desenhos e coloca no meio da tela.</p>
+        <div class="ras-chips">
+          <button type="button" data-p="Ideias para ">💡 Ideias</button>
+          <button type="button" data-p="Desenhe ">✏️ Desenhar objeto</button>
+          <button type="button" data-p="Mapa mental sobre ">🧠 Mapa mental</button>
+          <button type="button" data-p="Fluxo do processo de ">🔀 Fluxo</button>
+          <button type="button" data-p="Lista de tarefas para ">✅ Tarefas</button>
+          <button type="button" data-p="Prós e contras de ">⚖️ Prós e contras</button>
+        </div>
+        <textarea id="rasPedido" rows="3" placeholder="Ex.: ideias para tampa de pote que não vaza · desenhe um suporte de celular para mesa"></textarea>
+        <label class="ras-ctx"><input type="checkbox" id="rasCtx" /> <span id="rasCtxTxt">Usar o que já está no quadro</span></label>
+        <p class="ras-msg" id="rasMsg"></p>
+        <div class="ras-acoes"><button type="button" class="secondary-button" data-i="x">Cancelar</button><button type="button" class="primary-button" data-i="ok">Gerar</button></div>
+      </form></dialog>
     </section>`;
   $('partsMode').insertAdjacentElement('afterend', painel);
 
@@ -352,6 +369,76 @@
   }
   let ctxReal = null;
   function ctxTroca(novo, fn) { ctxReal = ctx; ctx = novo; try { fn(); } finally { ctx = ctxReal; } }
+
+  // ---------- ✨ gerar com IA ----------
+  const dlgIA = $('rasIA'), CORNOTA = { amarelo: NOTAS[0], rosa: NOTAS[1], verde: NOTAS[2], azul: NOTAS[3], lilas: NOTAS[4] };
+  function textosDoQuadro(lista) { return lista.filter((o) => (o.t === 'nota' || o.t === 'texto') && o.texto?.trim()).map((o) => '- ' + o.texto.trim().replace(/\s+/g, ' ')).join('\n'); }
+  function abrirIA() {
+    fecharEdicao();
+    const daSel = sel?.length ? textosDoQuadro(sel) : '', doQuadro = textosDoQuadro(Q.objs);
+    $('rasCtx').checked = Boolean(daSel); $('rasCtx').disabled = !daSel && !doQuadro;
+    $('rasCtxTxt').textContent = daSel ? `Usar o que está selecionado (${sel.length} item${sel.length > 1 ? 's' : ''})` : doQuadro ? 'Usar as notas e textos que já estão no quadro' : 'Usar o que já está no quadro (vazio)';
+    $('rasMsg').textContent = ''; dlgIA.querySelector('[data-i=ok]').disabled = false; dlgIA.showModal(); setTimeout(() => $('rasPedido').focus(), 50);
+  }
+  dlgIA.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { const t = $('rasPedido'); if (!t.value.trim() || dlgIA.querySelector(`[data-p="${t.value}"]`)) t.value = b.dataset.p; t.focus(); t.setSelectionRange(t.value.length, t.value.length); }));
+  dlgIA.querySelector('[data-i=x]').onclick = () => dlgIA.close();
+  dlgIA.querySelector('[data-i=ok]').onclick = async () => {
+    const pedido = $('rasPedido').value.trim(), msg = $('rasMsg'), bt = dlgIA.querySelector('[data-i=ok]');
+    if (pedido.length < 4) { msg.textContent = 'Escreva o que você quer gerar.'; return; }
+    const contexto = $('rasCtx').checked ? (sel?.length ? textosDoQuadro(sel) : textosDoQuadro(Q.objs)) : '';
+    bt.disabled = true; msg.textContent = '✨ Pensando… (pode levar até 1 minuto)';
+    try {
+      const j = await window.tracoChamarIA({ rascunho: pedido, contexto });
+      const n = colocarIA(j);
+      if (!n) { msg.textContent = 'A IA não devolveu nada para colocar. Tente explicar de outro jeito.'; bt.disabled = false; return; }
+      dlgIA.close(); $('rasPedido').value = ''; dica(`✨ ${n} itens colocados. Arraste para mudar de lugar; ↶ desfaz.`);
+    } catch (e) { msg.textContent = String(e.message || e); bt.disabled = false; }
+  };
+  function svgSeguro(txt) {
+    try {
+      const d = new DOMParser().parseFromString(String(txt), 'image/svg+xml'), r = d.documentElement;
+      if (!r || r.nodeName.toLowerCase() !== 'svg' || d.querySelector('parsererror')) return null;
+      d.querySelectorAll('script,foreignObject,iframe,image,use[href^="http"]').forEach((e) => e.remove());
+      d.querySelectorAll('*').forEach((e) => [...e.attributes].forEach((a) => { if (/^on/i.test(a.name) || (/href$/i.test(a.name) && !/^#/.test(a.value))) e.removeAttribute(a.name); }));
+      if (!r.getAttribute('xmlns')) r.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(r));
+    } catch { return null; }
+  }
+  function colocarIA(j) {
+    const itens = Array.isArray(j?.itens) ? j.itens.slice(0, 80) : [], num = (v, d) => (Number.isFinite(+v) ? +v : d);
+    const novos = [], porId = new Map(), setas = [];
+    for (const it of itens) {
+      const x = num(it.x, 0), y = num(it.y, 0);
+      let o = null;
+      if (it.tipo === 'nota') o = { t: 'nota', x, y, w: 160, h: 160, cor: CORNOTA[it.cor] || NOTAS[0], texto: String(it.texto || '').slice(0, 300) };
+      else if (it.tipo === 'texto') o = { t: 'texto', x, y, tam: Math.max(14, Math.min(48, num(it.tam, 24))), cor: '#111111', texto: String(it.texto || '').slice(0, 1000) };
+      else if (it.tipo === 'desenho') { const src = svgSeguro(it.svg); if (src) o = { t: 'img', x, y, w: Math.max(60, num(it.w, 300)), h: Math.max(60, num(it.h, 300)), src }; }
+      else if (['ret', 'circ', 'linha'].includes(it.tipo)) o = { t: it.tipo, x, y, x2: num(it.x2, x + 100), y2: num(it.y2, y + 100), cor: /^#[0-9a-f]{6}$/i.test(it.cor) ? it.cor : '#2e6fd8', larg: 3 };
+      else if (it.tipo === 'seta') { if (it.de != null && it.para != null) setas.push(it); else o = { t: 'seta', x, y, x2: num(it.x2, x + 100), y2: num(it.y2, y), cor: '#555555', larg: 3 }; }
+      if (o) { o.id = novoId(); novos.push(o); if (it.id != null) porId.set(String(it.id), o); }
+    }
+    const borda = (b, px, py) => { // ponto na borda da caixa b na direção de (px,py)
+      const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, dx = px - cx, dy = py - cy, hw = (b[2] - b[0]) / 2 + 8, hh = (b[3] - b[1]) / 2 + 8;
+      const k = Math.min(hw / Math.abs(dx || 1e-9), hh / Math.abs(dy || 1e-9)); return [cx + dx * k, cy + dy * k];
+    };
+    for (const s2 of setas) {
+      const a = porId.get(String(s2.de)), b = porId.get(String(s2.para)); if (!a || !b) continue;
+      const ba = caixa(a), bb = caixa(b), ca = [(ba[0] + ba[2]) / 2, (ba[1] + ba[3]) / 2], cb = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2];
+      const p = borda(ba, ...cb), q = borda(bb, ...ca);
+      novos.push({ t: 'seta', id: novoId(), x: p[0], y: p[1], x2: q[0], y2: q[1], cor: '#555555', larg: 3 });
+    }
+    if (!novos.length) return 0;
+    // centraliza o conjunto no meio da tela
+    const bs = novos.map(caixa), a = Math.min(...bs.map((b) => b[0])), b = Math.min(...bs.map((q) => q[1])), c = Math.max(...bs.map((q) => q[2])), d = Math.max(...bs.map((q) => q[3]));
+    const [mx, my] = mundo(W / 2, H / 2); let dx = mx - (a + c) / 2, dy = my - (b + d) / 2;
+    if (sel?.length) { const k = caixaSel(); dx = k[2] + 60 - a; dy = (k[1] + k[3]) / 2 - (b + d) / 2; } // ao lado do que estava selecionado
+    marca(); novos.forEach((o) => mover(o, dx, dy)); Q.objs.push(...novos);
+    escolher('sel'); sel = novos; atualizaSel(); salvar();
+    const z = Math.max(.1, Math.min(V().z, W / (c - a + 80), H / (d - b + 80))); // garante que tudo apareça
+    Q.view = { z, x: (a + c) / 2 + dx - W / 2 / z, y: (b + d) / 2 + dy - H / 2 / z }; $('rasZ').textContent = Math.round(z * 100) + '%';
+    desenhar(); return novos.length;
+  }
+  painel.querySelector('[data-a=ia]').onclick = abrirIA;
   painel.querySelector('[data-a=desfazer]').onclick = desfazer;
   painel.querySelector('[data-a=refazer]').onclick = refazer;
   painel.querySelector('[data-a=tudo]').onclick = verTudo;
