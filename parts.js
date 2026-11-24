@@ -1892,7 +1892,7 @@
   model.addEventListener('pointermove', (event) => {
     if (!part.drag) return;
     part.yaw += (event.clientX - part.drag[0]) * .008;
-    part.pitch = Math.max(.02, Math.min(1.5, part.pitch + (event.clientY - part.drag[1]) * .006));
+    part.pitch = Math.max(-1.5, Math.min(1.5, part.pitch + (event.clientY - part.drag[1]) * .006));
     part.drag = [event.clientX, event.clientY]; render();
   });
   model.addEventListener('pointerup', () => { part.drag = null; });
