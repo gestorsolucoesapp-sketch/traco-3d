@@ -826,7 +826,7 @@
         const [nx, ny, nz] = triangle.normal;
         if (culling && project([nx, ny, nz], width, height, unitN, 0).depth - d0 < -1e-9) return;
         const corners = triangle.points.map((q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz));
-        const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
+        const light = Math.min(1, Math.max(0, nx * -.5 + ny * -.35 + nz * .72) + .5 * Math.max(0, nx * .35 + ny * .3 - nz * .88));
         facesN.push({ idx, corners, depth: (corners[0].depth + corners[1].depth + corners[2].depth) / 3, color: part.realce?.has(idx) ? `rgb(${Math.round(150 + 95 * light)},${Math.round(30 + 30 * light)},${Math.round(30 + 30 * light)})` : corFace(triangle, light) });
       });
       facesN.sort((a, c) => a.depth - c.depth);
@@ -834,11 +834,18 @@
       part.lastProj = (q) => project([q[0] - cx, q[1] - cy, q[2]], width, height, unitN, cz);
       const caixa = Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2], 1);
       referencia(ctx, part.lastProj, caixa * .75, unitN, 'planos');
+      const quinas = quinasRevolucao(triangles);
       for (const face of facesN) {
         ctx.beginPath(); ctx.moveTo(face.corners[0].x, face.corners[0].y);
         ctx.lineTo(face.corners[1].x, face.corners[1].y); ctx.lineTo(face.corners[2].x, face.corners[2].y);
         ctx.closePath(); ctx.fillStyle = face.color; ctx.fill();
         ctx.strokeStyle = face.color; ctx.lineWidth = .6; ctx.stroke(); // esconde a costura entre triângulos
+        const lados = quinas?.(face.idx);
+        if (lados?.length) {
+          ctx.beginPath();
+          for (const k of lados) { ctx.moveTo(face.corners[k].x, face.corners[k].y); ctx.lineTo(face.corners[(k + 1) % 3].x, face.corners[(k + 1) % 3].y); }
+          ctx.strokeStyle = 'rgba(70,36,20,.7)'; ctx.lineWidth = 1.1; ctx.stroke();
+        }
       }
       referencia(ctx, part.lastProj, caixa * .75, unitN, 'eixos');
       try { window.tracoCotas?.desenhar(ctx, part.lastProj, width, height); } catch { /* opcional */ }
@@ -859,7 +866,8 @@
         [point[0] - (minX + maxX) / 2, point[1] - part.extrudeDepth / 2, point[2]] : point,
       width, height, unit, centerZ));
       const [nx, ny, nz] = triangle.normal;
-      const light = Math.max(0, nx * -.5 + ny * -.35 + nz * .72);
+      // luz de cima + luz de preenchimento de baixo (sem ela, todo o fundo visto por baixo fica da mesma cor e o rebaixo some)
+      const light = Math.min(1, Math.max(0, nx * -.5 + ny * -.35 + nz * .72) + .5 * Math.max(0, nx * .35 + ny * .3 - nz * .88));
       return { idx, corners, depth: corners.reduce((sum, corner) => sum + corner.depth, 0) / 3, color: corFace(triangle, light) };
     });
     faces.sort((a, b) => a.depth - b.depth);
@@ -940,6 +948,28 @@
     r = 255 - r; g = 255 - g; b = 255 - b;
     const c = (v) => Math.max(0, Math.min(255, Math.round(v)));
     return [c(-.574 * r + 1.43 * g + .144 * b), c(.426 * r + .43 * g + .144 * b), c(.426 * r + 1.43 * g - .856 * b)];
+  }
+  // quinas da peça girada: cada ponto do perfil onde a linha muda de direção vira um anel desenhado (como no SketchUp)
+  function quinasRevolucao(triangles) {
+    if (part.operation !== 'revolve' || part.sim || window.tracoFEA?.S?.aberto || part.profile.length < 3) return null;
+    const pr = part.profile, n = pr.length, aneis = [];
+    for (let i = 0; i < n; i++) {
+      const a = pr[(i - 1 + n) % n], b = pr[i], c = pr[(i + 1) % n];
+      const u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]], lu = Math.hypot(...u), lv = Math.hypot(...v);
+      if (b[0] > .01 && lu > 1e-6 && lv > 1e-6 && (u[0] * v[0] + u[1] * v[1]) / (lu * lv) < .9986) aneis.push(b);
+    }
+    if (!aneis.length) return null;
+    const ax = part.plano === 'frontal' || !PLANO_T[part.plano] ? [0, 0, 1] : PLANO_T[part.plano]([0, 0, 1]);
+    const span = Math.max(...pr.map((p) => Math.max(Math.abs(p[0]), Math.abs(p[1]))), 1), tol = Math.max(.02, span * 2e-4);
+    const rz = (p) => { const z = p[0] * ax[0] + p[1] * ax[1] + p[2] * ax[2]; return [Math.hypot(p[0] - z * ax[0], p[1] - z * ax[1], p[2] - z * ax[2]), z]; };
+    const noAnel = (p) => { const [r, z] = rz(p); return aneis.some((q) => Math.abs(r - q[0]) < tol && Math.abs(z - q[1]) < tol); };
+    const cache = new Map();
+    return (idx) => {
+      if (cache.has(idx)) return cache.get(idx);
+      const pts = triangles[idx].points, ok = pts.map(noAnel), lados = [];
+      for (let k = 0; k < 3; k++) { const p = rz(pts[k]), q = rz(pts[(k + 1) % 3]); if (ok[k] && ok[(k + 1) % 3] && Math.abs(p[1] - q[1]) < tol && Math.abs(p[0] - q[0]) < tol) lados.push(k); }
+      cache.set(idx, lados); return lados;
+    };
   }
   function corFace(triangle, light) {
     const shade = Math.round(135 + 73 * light);
