@@ -6,7 +6,7 @@
 function avalia(v, P) {
   if (typeof v === 'number') return v;
   if (v == null) return NaN;
-  const s = String(v).replace(/,/g, '.'); let i = 0;
+  const s = String(v).replace(/(\d),(\d)/g, (m, a, b, k, all) => (/[A-Za-z_(]/.test(all) ? m : `${a}.${b}`)); let i = 0; // vírgula decimal só em número puro
   const esp = () => { while (s[i] === ' ') i++; };
   function prim() {
     esp();

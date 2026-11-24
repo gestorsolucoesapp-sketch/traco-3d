@@ -99,11 +99,15 @@
       // etapa 2: cada peça em paralelo
       let prontas = 0; const n = plano.pecas.length;
       msg.textContent = `🧩 Plano pronto (${n} peça${n > 1 ? 's' : ''}). Desenhando as peças… 0/${n}`;
-      const planoTxt = JSON.stringify(plano);
+      const planoTxt = JSON.stringify(plano), faltam = {};
       const umaPeca = async (pc, i) => {
         for (let t = 0; t < 2; t++) {
           try {
-            const r = await window.tracoChamarIA({ projeto: { fase: 'peca', plano: planoTxt, indice: String(i), nome: pc.nome || '', ajuste: ajuste || '' } });
+            const r = await window.tracoChamarIA({ projeto: { fase: 'peca', plano: planoTxt, indice: String(i), nome: pc.nome || '', ajuste: [ajuste || '', faltam[i] ? `Declare em parametros_novos: ${faltam[i]}.` : ''].filter(Boolean).join(' ') } });
+            const conhecidos = new Set([...(plano.parametros || []), ...(r?.parametros_novos || [])].map((p) => p.id));
+            const falta = [...new Set((JSON.stringify(r?.forma || {}).match(/"[^"]*"/g) || []).flatMap((q) => q.slice(1, -1).match(/[A-Za-z_]\w*/g) || []))]
+              .filter((w) => !conhecidos.has(w) && !['min', 'max', 'sqrt', 'abs', 'round', 'floor', 'ceil'].includes(w) && !/^(op|tipo|itens|item|centro|rot|tam|raio|d|d1|d2|h|s|D|n|passo|eixo|uniao|diferenca|intersecao|repetir|espelho|caixa|cilindro|cone|esfera|hexagono|toro|x|y|z)$/.test(w));
+            if (falta.length && !t) { faltam[i] = falta.join(', '); continue; } // pediu medida sem declarar: tenta de novo
             if (r?.forma) { prontas++; msg.textContent = `🧩 Desenhando as peças… ${prontas}/${n}`; return r; }
           } catch (e) { if (t) return { erro: String(e.message || e) }; }
         }
@@ -171,7 +175,7 @@
     $('prjMont').innerHTML = (S.montagem || []).length ? `<h4>Montagem</h4><ol class="prj-mont">${S.montagem.map((m) => `<li>${esc(m)}</li>`).join('')}</ol>` : '';
     painel.querySelectorAll('[data-stl]').forEach((b) => (b.onclick = () => baixar([+b.dataset.stl])));
     painel.querySelectorAll('[data-par]').forEach((el) => el.addEventListener('change', () => {
-      const t = el.value.trim().replace(',', '.'); if (t === '') delete P.valores[el.dataset.par]; else P.valores[el.dataset.par] = t; salvar(); refazer();
+      const t = el.value.trim().replace(/(\d),(\d)/g, '$1.$2'); if (t === '') delete P.valores[el.dataset.par]; else P.valores[el.dataset.par] = t; salvar(); refazer();
     }));
     const tot = malhas.reduce((s, m) => s + (m.vol || 0), 0);
     $('prjCalc').textContent = malhas.length ? `${(S.pecas || []).length} peça(s) · ${fmt(tot / 1000, 1)} cm³ no total` : '';

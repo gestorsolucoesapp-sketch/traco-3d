@@ -144,7 +144,8 @@ const FORMATO_PLANO = `ETAPA 1 — PLANO (só o JSON, compacto, sem crases)
 No máximo 6 peças; montagem e conferir com no máximo 6 itens curtos cada. JSON numa linha só, sem espaços sobrando. Defina bem o sistema de coordenadas comum (onde fica a origem) na descrição da primeira peça.`;
 
 const FORMATO_PECA = `ETAPA 2 — UMA PEÇA (só o JSON, compacto, sem crases)
-{ "forma": { ... árvore de formas da peça pedida, usando os ids dos parâmetros do plano ... }, "parametros_novos": [ só se precisar de medida que o plano não tinha ] }`;
+{ "forma": { ... árvore de formas da peça pedida, usando os ids dos parâmetros do plano ... }, "parametros_novos": [ toda medida com nome que você usar e que NÃO está no plano ] }
+Regra: todo id usado nas expressões tem que estar no plano ou em "parametros_novos" — senão a peça não sai.`;
 
 async function chamar(system: string, texto: string, chave: string, h: Record<string, string>, max: number, pensar = "") {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -171,7 +172,7 @@ async function chamar(system: string, texto: string, chave: string, h: Record<st
 async function projeto(p: Record<string, string>, chave: string, h: Record<string, string>) {
   if (p.fase === "peca") {
     const txt = `PLANO DO PROJETO (JSON):\n${(p.plano || "").slice(0, 30000)}\n\nGere a forma da peça número ${Number(p.indice) + 1}: "${(p.nome || "").slice(0, 200)}".${p.ajuste ? `\nAjuste pedido pelo usuário: ${p.ajuste.slice(0, 1500)}` : ""}\n\n${FORMATO_PECA}`;
-    return chamar(PROMPT_PROJETO, txt, chave, h, 12000, p.pensar || "");
+    return chamar(PROMPT_PROJETO, txt, chave, h, 12000, p.pensar || "medium");
   }
   const partes = [`Ideia: ${(p.ideia || "").slice(0, 3000)}`];
   if (p.quadro) partes.push(`Notas do quadro de rascunhos:\n${p.quadro.slice(0, 4000)}`);
@@ -180,7 +181,7 @@ async function projeto(p: Record<string, string>, chave: string, h: Record<strin
   if (p.atual) partes.push(`Projeto atual (JSON):\n${p.atual.slice(0, 30000)}`);
   if (p.ajuste) partes.push(`AJUSTE pedido: ${p.ajuste.slice(0, 1500)} — devolva o plano completo já ajustado, mantendo ids e valores que o usuário mudou.`);
   partes.push(FORMATO_PLANO);
-  return chamar(PROMPT_PROJETO, partes.join("\n\n"), chave, h, 12000, p.pensar || "");
+  return chamar(PROMPT_PROJETO, partes.join("\n\n"), chave, h, 12000, p.pensar || "medium");
 }
 
 async function rascunho(pedido: string, contexto: string, chave: string, h: Record<string, string>) {
