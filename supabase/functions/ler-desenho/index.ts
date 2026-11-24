@@ -134,27 +134,23 @@ REGRAS DE IMPRESSÃO 3D
 - Componentes eletrônicos e peças compradas (sensor, placa, bateria, parafuso) NÃO são impressos: não vire peça, só os espaços/fixações para eles.
 - Seja fiel à ideia: janelas para tela/sensor, furos de botões, conectores, ventilação, encaixes.
 
-FORMATO (só o JSON, sem crases)
-{ "nome": "nome curto do projeto",
-  "resumo": "1 frase",
-  "parametros": [ ... ],
-  "pecas": [ { "nome": "Caixa (base)", "forma": { ... }, "impressao": "PETG 0,2 mm, 3 paredes, 15% infill, sem suporte, deitada pela face de trás", "imprimir_rot": [0,0,0] } ],
-  "montagem": [ "passo curto", ... ],
-  "conferir": [ "o que o usuário precisa medir/confirmar antes de imprimir" ] }
-Seja econômico (a resposta precisa sair rápido): JSON compacto, sem espaços sobrando, no máximo ~40 parâmetros e 6 peças; textos curtos.
-Se receber o projeto atual e um pedido de AJUSTE, devolva o projeto completo já ajustado (mesmo formato), mantendo os ids dos parâmetros que continuam valendo e os valores que o usuário mudou.`;
+ETAPAS: o app pede em duas etapas para responder rápido. Siga o FORMATO da etapa pedida no fim da mensagem.`;
 
-async function projeto(p: Record<string, string>, chave: string, h: Record<string, string>) {
-  const partes = [`Ideia: ${(p.ideia || "").slice(0, 3000)}`];
-  if (p.quadro) partes.push(`Notas do quadro de rascunhos:\n${p.quadro.slice(0, 4000)}`);
-  if (p.pedido) partes.push(`O que imprimir: ${p.pedido.slice(0, 1500)}`);
-  if (p.medidas) partes.push(`Medidas que o usuário já tem (origem "usuario"): ${p.medidas.slice(0, 1500)}`);
-  if (p.atual) partes.push(`Projeto atual (JSON):\n${p.atual.slice(0, 30000)}`);
-  if (p.ajuste) partes.push(`AJUSTE pedido: ${p.ajuste.slice(0, 1500)}`);
+const FORMATO_PLANO = `ETAPA 1 — PLANO (só o JSON, compacto, sem crases)
+{ "nome": "nome curto", "resumo": "1 frase",
+  "parametros": [ ... TODAS as medidas que as peças vão usar, até ~40 ],
+  "pecas": [ { "nome": "Caixa (base)", "descricao": "o que a peça tem e onde, citando ids dos parâmetros e as posições (ex.: janela da tela centrada em x=0,y=tela_y na face +Z; 4 torres M3 nos cantos a 5 mm das paredes)", "impressao": "como imprimir", "imprimir_rot": [0,0,0] } ],
+  "montagem": [ "passo curto" ], "conferir": [ "o que medir antes" ] }
+No máximo 6 peças. Defina bem o sistema de coordenadas comum (onde fica a origem) na descrição da primeira peça.`;
+
+const FORMATO_PECA = `ETAPA 2 — UMA PEÇA (só o JSON, compacto, sem crases)
+{ "forma": { ... árvore de formas da peça pedida, usando os ids dos parâmetros do plano ... }, "parametros_novos": [ só se precisar de medida que o plano não tinha ] }`;
+
+async function chamar(system: string, texto: string, chave: string, h: Record<string, string>, max: number) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODELO, max_tokens: 16000, system: PROMPT_PROJETO, messages: [{ role: "user", content: partes.join("\n\n") }] }),
+    body: JSON.stringify({ model: MODELO, max_tokens: max, system, messages: [{ role: "user", content: texto }] }),
   });
   if (!r.ok) {
     console.error("anthropic", r.status, (await r.text()).slice(0, 500));
@@ -166,8 +162,24 @@ async function projeto(p: Record<string, string>, chave: string, h: Record<strin
     return new Response(JSON.stringify(JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1))), { headers: h });
   } catch {
     console.error("json", dados.stop_reason, t.slice(0, 300));
-    return new Response(JSON.stringify({ erro: dados.stop_reason === "max_tokens" ? "Projeto grande demais de uma vez. Peça uma peça por vez (ex.: só a caixa)." : "A IA não conseguiu montar as peças. Tente explicar de outro jeito." }), { status: 422, headers: h });
+    return new Response(JSON.stringify({ erro: dados.stop_reason === "max_tokens" ? "Resposta grande demais. Peça menos detalhes de uma vez." : "A IA não conseguiu montar a resposta. Tente de novo." }), { status: 422, headers: h });
   }
+}
+
+
+async function projeto(p: Record<string, string>, chave: string, h: Record<string, string>) {
+  if (p.fase === "peca") {
+    const txt = `PLANO DO PROJETO (JSON):\n${(p.plano || "").slice(0, 30000)}\n\nGere a forma da peça número ${Number(p.indice) + 1}: "${(p.nome || "").slice(0, 200)}".${p.ajuste ? `\nAjuste pedido pelo usuário: ${p.ajuste.slice(0, 1500)}` : ""}\n\n${FORMATO_PECA}`;
+    return chamar(PROMPT_PROJETO, txt, chave, h, 8000);
+  }
+  const partes = [`Ideia: ${(p.ideia || "").slice(0, 3000)}`];
+  if (p.quadro) partes.push(`Notas do quadro de rascunhos:\n${p.quadro.slice(0, 4000)}`);
+  if (p.pedido) partes.push(`O que imprimir: ${p.pedido.slice(0, 1500)}`);
+  if (p.medidas) partes.push(`Medidas que o usuário já tem (origem "usuario"): ${p.medidas.slice(0, 1500)}`);
+  if (p.atual) partes.push(`Projeto atual (JSON):\n${p.atual.slice(0, 30000)}`);
+  if (p.ajuste) partes.push(`AJUSTE pedido: ${p.ajuste.slice(0, 1500)} — devolva o plano completo já ajustado, mantendo ids e valores que o usuário mudou.`);
+  partes.push(FORMATO_PLANO);
+  return chamar(PROMPT_PROJETO, partes.join("\n\n"), chave, h, 6000);
 }
 
 async function rascunho(pedido: string, contexto: string, chave: string, h: Record<string, string>) {

@@ -88,15 +88,41 @@
     const q = quadros().find((x) => x.id === P.quadro);
     const contexto = q ? q.objs.filter((o) => (o.t === 'nota' || o.t === 'texto') && o.texto?.trim()).map((o) => '- ' + o.texto.trim().replace(/\s+/g, ' ')).join('\n') : '';
     bts.forEach((b) => (b.disabled = true));
-    msg.textContent = ajuste ? '✨ Ajustando o projeto… (até 2 minutos)' : '🧩 Projetando as peças… (até 2 minutos)';
+    msg.textContent = ajuste ? '✨ Ajustando o projeto… (1 a 2 minutos)' : '🧩 Projetando as peças… (até 2 minutos)';
     window.tracoNuvem?.('Projetando as peças…');
     try {
-      const corpo = { projeto: { ideia: P.ideia || '', pedido: P.pedido || '', medidas: P.medidas || '', quadro: contexto } };
-      if (ajuste) { corpo.projeto.ajuste = ajuste; corpo.projeto.atual = JSON.stringify({ ...P.spec, parametros: (P.spec.parametros || []).map((p) => ({ ...p, valor: P.valores[p.id] ?? p.valor })) }); }
-      const j = await window.tracoChamarIA(corpo);
-      if (!Array.isArray(j?.pecas) || !j.pecas.length) throw new Error('A IA não devolveu peças. Explique melhor o que quer imprimir.');
-      P.spec = j; P.valores = {}; if (!ajuste && j.nome && /^(Meu primeiro projeto|Projeto \d+)$/.test(P.nome)) { P.nome = j.nome; listaSel(); }
-      salvar(); msg.textContent = ''; $('prjAjuste').value = ''; refazer();
+      // etapa 1: plano (medidas + lista de peças)
+      const base = { ideia: P.ideia || '', pedido: P.pedido || '', medidas: P.medidas || '', quadro: contexto };
+      if (ajuste) { base.ajuste = ajuste; base.atual = JSON.stringify({ ...P.spec, parametros: (P.spec.parametros || []).map((p) => ({ ...p, valor: P.valores[p.id] ?? p.valor })) }); }
+      const plano = await window.tracoChamarIA({ projeto: { ...base, fase: 'plano' } });
+      if (!Array.isArray(plano?.pecas) || !plano.pecas.length) throw new Error('A IA não devolveu peças. Explique melhor o que quer imprimir.');
+      // etapa 2: cada peça em paralelo
+      let prontas = 0; const n = plano.pecas.length;
+      msg.textContent = `🧩 Plano pronto (${n} peça${n > 1 ? 's' : ''}). Desenhando as peças… 0/${n}`;
+      const planoTxt = JSON.stringify(plano);
+      const umaPeca = async (pc, i) => {
+        for (let t = 0; t < 2; t++) {
+          try {
+            const r = await window.tracoChamarIA({ projeto: { fase: 'peca', plano: planoTxt, indice: String(i), nome: pc.nome || '', ajuste: ajuste || '' } });
+            if (r?.forma) { prontas++; msg.textContent = `🧩 Desenhando as peças… ${prontas}/${n}`; return r; }
+          } catch (e) { if (t) return { erro: String(e.message || e) }; }
+        }
+        return { erro: 'A IA não conseguiu desenhar esta peça.' };
+      };
+      const res = await Promise.all(plano.pecas.map(umaPeca));
+      const ids = new Set((plano.parametros || []).map((p) => p.id));
+      res.forEach((r, i) => {
+        plano.pecas[i].forma = r.forma || null; if (r.erro) plano.pecas[i].erroIA = r.erro;
+        for (const q of r.parametros_novos || []) if (q?.id && !ids.has(q.id)) { ids.add(q.id); (plano.parametros ||= []).push(q); }
+      });
+      if (!res.some((r) => r.forma)) throw new Error(res[0]?.erro || 'A IA não conseguiu desenhar as peças.');
+      const valoresAntes = ajuste ? P.valores : {};
+      P.spec = plano; P.valores = Object.fromEntries(Object.entries(valoresAntes).filter(([k]) => ids.has(k)));
+      if (!ajuste && plano.nome && /^(Meu primeiro projeto|Projeto \d+)$/.test(P.nome)) { P.nome = plano.nome; listaSel(); }
+      salvar(); $('prjAjuste').value = '';
+      const falhou = res.filter((r) => !r.forma).length;
+      msg.textContent = falhou ? `⚠️ ${falhou} peça(s) não saíram. Toque em ✨ Ajustar com "refazer as peças que faltaram".` : '';
+      refazer();
     } catch (e) { msg.textContent = String(e.message || e); }
     bts.forEach((b) => (b.disabled = false));
   }

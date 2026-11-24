@@ -209,7 +209,7 @@ self.onmessage = (e) => {
   const pecas = [], trans = [];
   (projeto.pecas || []).forEach((pc, i) => {
     const raiz = monta(pc.forma, P);
-    if (!raiz) { pecas.push({ i, erro: 'Forma vazia.' }); return; }
+    if (!raiz) { pecas.push({ i, erro: pc.erroIA || 'Forma vazia.' }); return; }
     const bb = caixaNo(raiz), tam = Math.max(bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]);
     if (!Number.isFinite(tam) || tam <= 0 || tam > 2000) { pecas.push({ i, erro: 'Tamanho inválido.' }); return; }
     let celula = fino ? Math.max(.4, tam / 170) : Math.max(.6, tam / 70);
