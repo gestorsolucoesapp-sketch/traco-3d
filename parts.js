@@ -1310,15 +1310,24 @@
     refresh();
   });
   // ---------- Espessura (offset do SketchUp): dá parede ao contorno aberto e fecha o perfil ----------
-  function offsetLinha(pts, d) {
-    const n = pts.length, nor = [];
-    for (let i = 0; i < n - 1; i++) { const dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1], L = Math.hypot(dx, dz) || 1; nor.push([-dz / L, dx / L]); }
+  // d = espessura (sinal escolhe o lado); ds = espessura por trecho (opcional, ex.: placa do fundo mais grossa)
+  function offsetLinha(pts, d, ds) {
+    const n = pts.length, nor = [], dd = [];
+    for (let i = 0; i < n - 1; i++) { const dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1], L = Math.hypot(dx, dz) || 1; nor.push([-dz / L, dx / L]); dd.push(ds ? Math.sign(d) * ds[i] : d); }
+    const lim = 4 * Math.max(...dd.map(Math.abs));
+    const r2 = (v) => Math.max(0, Math.round(v * 100) / 100);
     return pts.map((p, i) => {
-      const n1 = nor[Math.max(0, i - 1)], n2 = nor[Math.min(nor.length - 1, i)];
-      let mx = n1[0] + n2[0], mz = n1[1] + n2[1]; const ml = Math.hypot(mx, mz);
-      if (ml < 1e-6) { mx = n1[0]; mz = n1[1]; } else { mx /= ml; mz /= ml; }
-      const k = Math.min(4 * Math.abs(d), Math.abs(d / Math.max(.2, mx * n1[0] + mz * n1[1]))) * Math.sign(d);
-      return [Math.max(0, Math.round((p[0] + mx * k) * 100) / 100), Math.max(0, Math.round((p[1] + mz * k) * 100) / 100)];
+      const a = Math.max(0, i - 1), b = Math.min(nor.length - 1, i), n1 = nor[a], n2 = nor[b], d1 = dd[a], d2 = dd[b];
+      if (a === b || (Math.abs(d1 - d2) < 1e-9 && Math.abs(n1[0] * n2[1] - n1[1] * n2[0]) < 1e-6)) {
+        const nn = a === b ? n1 : n2, dv = a === b ? d1 : d2; return [r2(p[0] + nn[0] * dv), r2(p[1] + nn[1] * dv)];
+      }
+      // ponto que fica a d1 da reta 1 e a d2 da reta 2: resolve n1·v = d1, n2·v = d2
+      const det = n1[0] * n2[1] - n1[1] * n2[0];
+      let vx, vz;
+      if (Math.abs(det) < 1e-6) { vx = n2[0] * d2; vz = n2[1] * d2; } // trechos alinhados com espessuras diferentes: degrau
+      else { vx = (d1 * n2[1] - d2 * n1[1]) / det; vz = (n1[0] * d2 - n2[0] * d1) / det; }
+      const m = Math.hypot(vx, vz); if (m > lim) { vx *= lim / m; vz *= lim / m; }
+      return [r2(p[0] + vx), r2(p[1] + vz)];
     });
   }
   // tira os laços que a linha paralela faz em detalhes mais finos que a parede (aba, degrau): ali fica maciço
@@ -1353,10 +1362,22 @@
   function espCalc() {
     const t = number(espBox.querySelector('#espT')?.value);
     if (t == null || t <= 0 || part.profile.length < 2) { part.espPrev = null; render(); return null; }
-    const a = offsetLinha(part.profile, t), b = offsetLinha(part.profile, -t);
+    const tf = number(espBox.querySelector('#espF')?.value);
+    const ds = tf > 0 && tf !== t ? espessuras(part.profile, t, tf) : null;
+    const a = offsetLinha(part.profile, t, ds), b = offsetLinha(part.profile, -t, ds);
     const media = (q) => q.reduce((s2, p) => s2 + p[0], 0) / q.length;
     const dentro = media(a) <= media(b) ? a : b, fora = dentro === a ? b : a; // dentro = lado mais perto do eixo
     part.espPrev = limpaLacos(espLado === 'dentro' ? dentro : fora); render(); return part.espPrev;
+  }
+  // placa do fundo: trechos quase horizontais que saem do eixo (centro do fundo) levam a espessura do fundo
+  function espessuras(pts, t, tf) {
+    const ds = []; let noFundo = Math.abs(pts[0][0]) < .01;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1];
+      if (noFundo && Math.abs(dz) > Math.abs(dx) * .09) noFundo = false; // até ~5°: ainda é a placa
+      ds.push(noFundo ? tf : t);
+    }
+    return ds;
   }
   function abrirEsp() {
     if (part.mode !== 'custom' || part.closed || part.profile.length < 2) {
@@ -1364,12 +1385,14 @@
     }
     espBox.innerHTML = `<b>Espessura da parede</b>
       <label>Espessura <input id="espT" inputmode="decimal" value="${espBox.dataset.t || '2'}" /> mm</label>
+      <label>Fundo (placa do centro) <input id="espF" inputmode="decimal" value="${espBox.dataset.f || ''}" placeholder="igual" /> mm</label>
       <div class="esp-lado"><button type="button" data-l="dentro">Para dentro</button><button type="button" data-l="fora">Para fora</button></div>
       <div><button type="button" class="primary-button" data-e="ok">Aplicar e fechar</button> <button type="button" class="secondary-button" data-e="x">Cancelar</button></div>
       <small>A linha tracejada mostra a parede. "Para dentro" vai na direção do eixo.</small>`;
     const pinta = () => espBox.querySelectorAll('[data-l]').forEach((b) => b.classList.toggle('on', b.dataset.l === espLado));
     espBox.querySelectorAll('[data-l]').forEach((b) => (b.onclick = () => { espLado = b.dataset.l; pinta(); espCalc(); }));
     espBox.querySelector('#espT').addEventListener('input', espCalc);
+    espBox.querySelector('#espF').addEventListener('input', espCalc);
     espBox.querySelector('#espT').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); aplicarEsp(); } if (e.key === 'Escape') fecharEsp(); });
     espBox.querySelector('[data-e=ok]').onclick = aplicarEsp;
     espBox.querySelector('[data-e=x]').onclick = fecharEsp;
@@ -1379,7 +1402,7 @@
   function fecharEsp() { espBox.hidden = true; part.espPrev = null; render(); }
   function aplicarEsp() {
     const off = espCalc(); if (!off) { $('profileStatus').textContent = 'Digite a espessura em mm.'; return; }
-    espBox.dataset.t = espBox.querySelector('#espT').value;
+    espBox.dataset.t = espBox.querySelector('#espT').value; espBox.dataset.f = espBox.querySelector('#espF').value;
     const antes = part.profile.map((p) => [...p]);
     part.profile = [...part.profile, ...off.slice().reverse()];
     part.espPrev = null; espBox.hidden = true; part.closed = false;
@@ -1391,7 +1414,7 @@
   }
   btnEsp.addEventListener('click', () => (espBox.hidden ? abrirEsp() : fecharEsp()));
   // usado pela leitura de foto: dá a parede direto (para dentro) num contorno aberto
-  window.tracoEspessuraAuto = (t) => { abrirEsp(); if (espBox.hidden) return false; espBox.querySelector('#espT').value = String(t).replace('.', ','); espLado = 'dentro'; aplicarEsp(); return part.closed; };
+  window.tracoEspessuraAuto = (t, tf) => { abrirEsp(); if (espBox.hidden) return false; espBox.querySelector('#espT').value = String(t).replace('.', ','); espBox.querySelector('#espF').value = tf > 0 ? String(tf).replace('.', ',') : ''; espLado = 'dentro'; aplicarEsp(); return part.closed; };
 
   // ---------- Cotar: acerta comprimento e ângulo de qualquer linha do perfil ----------
   const btnCotar = document.createElement('button');

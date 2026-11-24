@@ -83,7 +83,8 @@
     });
     if (tipo === 'peca') {
       const p = j.peca || {};
-      return { tipo, foto, avisos, parede: null,
+      const esp = (v) => (Number.isFinite(+v) && +v > 0 && +v < 50 ? +v : null);
+      return { tipo, foto, avisos, parede: esp(p.parede_mm), paredeFundo: esp(p.parede_fundo_mm),
         operacao: p.operacao === 'revolucao' ? 'revolucao' : 'extrusao',
         profundidade: Number.isFinite(+p.profundidade_mm) && +p.profundidade_mm > 0 ? +p.profundidade_mm : null,
         contornos: [{ fechado: true, segmentos: (p.segmentos || []).map((s) => seg(s, 'comprimento_mm')) }] };
@@ -120,8 +121,9 @@
       ${peca ? `<div class="foto-peca">
         <label>Como virar 3D <select data-k="operacao"><option value="extrusao" ${L.operacao === 'extrusao' ? 'selected' : ''}>Extrusão</option><option value="revolucao" ${L.operacao === 'revolucao' ? 'selected' : ''}>Revolução 360°</option></select></label>
         <label class="${L.operacao === 'extrusao' && L.profundidade == null ? 'falta' : ''}" ${L.operacao === 'extrusao' ? '' : 'hidden'}>Profundidade (mm) <input data-k="profundidade" inputmode="decimal" value="${fmt(L.profundidade, 1)}" placeholder="falta" /></label>
-        <label ${L.operacao === 'revolucao' ? '' : 'hidden'}>Parede (pote oco) <input data-k="parede" inputmode="decimal" value="${fmt(L.parede, 2)}" placeholder="maciço" /> mm</label></div>
-        <p class="foto-sub" ${L.operacao === 'revolucao' ? '' : 'hidden'}>Parede: deixe vazio para peça maciça. Com espessura, o app usa o contorno de fora e faz a parede para dentro (fundo e lateral), com a boca aberta em cima.</p>` : ''}
+        <label class="${L.paredeFundo && !L.parede ? 'falta' : ''}" ${L.operacao === 'revolucao' ? '' : 'hidden'}>Parede (pote oco) <input data-k="parede" inputmode="decimal" value="${fmt(L.parede, 2)}" placeholder="maciço" /> mm</label>
+        <label ${L.operacao === 'revolucao' ? '' : 'hidden'}>Fundo (placa do centro) <input data-k="paredeFundo" inputmode="decimal" value="${fmt(L.paredeFundo, 2)}" placeholder="igual" /> mm</label></div>
+        <p class="foto-sub" ${L.operacao === 'revolucao' ? '' : 'hidden'}>Parede: deixe vazio para peça maciça. Com espessura, o app usa o contorno de fora e faz a parede para dentro (fundo e lateral), com a boca aberta em cima. Fundo: espessura só da placa plana do centro (vazio = igual à parede).</p>` : ''}
       <p id="fotoFecho" class="foto-fecho"></p>
       <div class="foto-acoes"><button type="button" class="secondary-button" data-x="fechar">Cancelar</button>
         <button type="button" class="primary-button" data-x="gerar">Gerar 3D</button></div>`);
@@ -132,6 +134,8 @@
       if (k === 'operacao') { L.operacao = el.value; conferir(); return; }
       if (k === 'profundidade') L.profundidade = num(el.value);
       else if (k === 'parede') L.parede = num(el.value) > 0 ? num(el.value) : null;
+      else if (k === 'paredeFundo') L.paredeFundo = num(el.value) > 0 ? num(el.value) : null;
+      if (k === 'parede' || k === 'paredeFundo') dlg.querySelector('[data-k=parede]')?.closest('label')?.classList.toggle('falta', Boolean(L.paredeFundo && !L.parede));
       else {
         const s = L.contornos[+el.dataset.c].segmentos[+el.dataset.s];
         if (k === 'angulo') s.angulo = +el.value; else s.valor = num(el.value);
@@ -267,7 +271,7 @@
       if (Math.abs(p[0][0]) > tolE) { dlg.querySelector('#fotoFecho').textContent = 'Para fazer a parede, o perfil precisa começar no eixo (no centro do fundo).'; return; }
       $('partsTab').click();
       window.tracoAbrirPeca({ mode: 'custom', profile: lin, closed: false, operation: 'revolve', extrudeDepth: 20, shapeType: null, holeDiameter: 0 });
-      const ok = window.tracoEspessuraAuto?.(L.parede);
+      const ok = window.tracoEspessuraAuto?.(L.parede, L.paredeFundo);
       if (!ok) { window.tracoAbrirPeca({ mode: 'custom', profile: p, closed: true, operation: 'revolve', extrudeDepth: 20, shapeType: null, holeDiameter: 0 });
         notify('Com essa parede as linhas se cruzam. Gerei a peça maciça; use ⧉ Espessura com um valor menor.'); window.tracoNuvem?.(); }
       fechar(); return;

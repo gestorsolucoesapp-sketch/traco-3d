@@ -43,7 +43,8 @@ FORMATO (responda só o JSON, sem texto em volta)
   "tipo": "planta" | "peca",
   "planta": { "contornos": [ { "fechado": true|false, "segmentos": [ { "angulo": 0, "comprimento_m": 2.5 | null, "texto_lido": "2,50" | null } ] } ] },
   "peca": { "segmentos": [ { "angulo": 0, "comprimento_mm": 40 | null, "texto_lido": "40" | null } ],
-            "operacao": "extrusao" | "revolucao", "profundidade_mm": 20 | null, "texto_profundidade": "20" | null },
+            "operacao": "extrusao" | "revolucao", "profundidade_mm": 20 | null, "texto_profundidade": "20" | null,
+            "parede_mm": 0.5 | null, "parede_fundo_mm": 1 | null },
   "avisos": [ "frase curta em português" ]
 }
 - Preencha só o bloco do tipo escolhido; o outro fica null.
@@ -54,6 +55,8 @@ DESENHO TÉCNICO (CAD, com cotas de diâmetro Ø, alturas, espessuras)
 - Pode ser peça de revolução (pote, copo, tampa, flange): use "revolucao" e descreva MEIO perfil começando no eixo (x = 0) na base, raio = Ø/2.
 - Pode calcular comprimentos e ângulos a partir das COTAS ESCRITAS (soma, subtração, metade do Ø, ângulo de parede inclinada por atan das cotas). Isso não é estimar. O que não sair das cotas escritas fica null com aviso.
 - Seja econômico: no máximo 60 segmentos; detalhes pequenos sem cota (raios de canto, chanfros) podem ser simplificados, avisando.
+- FUNDO DE POTE TERMOFORMADO / INJETADO (muito comum): o centro do fundo costuma ser uma PLACA levantada (rebaixo por baixo), com uma cota de altura do chão até a face de cima da placa (ex.: 3,00), uma cota de espessura da placa (ex.: 1,00) e DOIS diâmetros próximos na borda da placa (ex.: Ø55 e Ø57: o menor é a face de cima, o maior é a face de baixo), e o pé/anel de apoio num Ø maior (ex.: Ø81) encostado no chão. NÃO simplifique esse fundo como plano. O contorno de FORA (o que você devolve) passa por BAIXO da placa: comece no eixo na altura (altura da face de cima − espessura da placa) (ex.: 3 − 1 = 2), vá para a direita até o raio do Ø MAIOR da borda (ex.: 28,5), desça em rampa até o raio do pé no chão (ex.: 40,5 na altura 0) e depois siga a parede. O último segmento volta pelo eixo até a altura em que começou.
+- "parede_fundo_mm": espessura da placa do centro do fundo, só se estiver cotada (ex.: 1,00). "parede_mm": espessura da parede lateral, só se estiver cotada; senão null. Explique nos avisos qual cota virou o quê.
 - Responda SÓ o JSON, sem crases nem explicação.`;
 
 const PROMPT_NARRAR = `O usuário descreveu, falando ou escrevendo, peças mecânicas que quer modelar em 3D.
