@@ -71,6 +71,7 @@
     listaSel(); listaQuadros();
     $('prjIdeia').value = P.ideia || ''; $('prjPedido').value = P.pedido || ''; $('prjMedidas').value = P.medidas || ''; $('prjMsg').textContent = '';
     malhas = []; mostraResultado(); if (P.spec) refazer();
+    document.dispatchEvent(new Event('traco-projeto'));
   }
   for (const [id, k] of [['prjIdeia', 'ideia'], ['prjPedido', 'pedido'], ['prjMedidas', 'medidas']]) $(id).addEventListener('input', (e) => { P[k] = e.target.value; salvar(); });
   $('prjQuadro').addEventListener('change', (e) => { P.quadro = e.target.value; salvar(); });
@@ -317,6 +318,8 @@
   for (const id of ['architectureTab', 'partsTab', 'rascunhosTab']) $(id)?.addEventListener('click', () => mostrar(false));
   // chamado pelo quadro de Rascunhos: "🧩 Projeto"
   window.tracoProjetos = {
+    atual: () => P,
+    salvar: () => salvar(),
     doQuadro(q) {
       if (!P) return;
       let p = lista.find((x) => x.quadro === q.id);

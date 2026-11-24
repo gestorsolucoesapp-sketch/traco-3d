@@ -240,6 +240,19 @@ async function pesquisar(p: Record<string, string>, chave: string, h: Record<str
   return new Response(JSON.stringify(j), { headers: h });
 }
 
+const PROMPT_CANVAS = `Você é especialista no Project Model Canvas (PM Canvas, José Finocchio Jr.), usado em cursos de gestão de projetos (ex.: FDC).
+Blocos e ids: justificativas (problemas/situação atual, passado), objetivo (objetivo SMART: específico, mensurável, atingível, relevante, com prazo), beneficios (ganhos futuros após o projeto), produto (o que será entregue, 1 nota), requisitos (o que o produto precisa ter/atender), stakeholders (partes interessadas externas e fatores externos), equipe (papéis/pessoas do projeto), premissas (o que se assume como verdade fora do controle), entregas (grupos de entregas/pacotes, substantivos), restricoes (limitações impostas: prazo, verba, norma), riscos (eventos incertos que afetam o projeto, "pode acontecer X causando Y"), linha_do_tempo (marcos com datas/semanas, na ordem), custos (estimativa por grupo de entrega).
+Regras: post-its CURTOS (até ~12 palavras, estilo post-it), 2 a 6 por bloco, coerentes entre si (cada entrega com custo e marco; riscos ligados a premissas). Português do Brasil.
+Não invente números como fato: quando estimar valor ou data, escreva "estimado" no post-it.`;
+
+async function canvasIA(p: Record<string, string>, chave: string, h: Record<string, string>) {
+  const ctx = [`Projeto: ${(p.nome || "").slice(0, 200)}`, `Ideia: ${(p.ideia || "").slice(0, 3000)}`, p.quadro ? `Notas do quadro de rascunhos:\n${p.quadro.slice(0, 4000)}` : "", p.pecas ? `Peças/produto já projetados:\n${p.pecas.slice(0, 3000)}` : "", p.canvas ? `Canvas atual (JSON, blocos com post-its já escritos pelo usuário):\n${p.canvas.slice(0, 8000)}` : ""].filter(Boolean).join("\n\n");
+  if (p.fase === "pitch") {
+    return chamar(PROMPT_CANVAS, `${ctx}\n\nEscreva o PITCH do projeto lendo o canvas na ordem do método (por quê → o quê → quem → como → quando/quanto), em 1ª pessoa do plural, para falar em 2 a 3 minutos (~300 palavras), frases curtas. FORMATO (só o JSON): { "pitch": "texto com \\n entre parágrafos", "lacunas": ["bloco vazio ou fraco que vale completar"] }`, chave, h, 6000, "medium");
+  }
+  return chamar(PROMPT_CANVAS, `${ctx}\n\nPreencha o canvas. Mantenha o que o usuário já escreveu (não repita) e SUGIRA só post-its novos para completar cada bloco. ${p.bloco ? `Só o bloco "${p.bloco}".` : ""} FORMATO (só o JSON, compacto): { "justificativas": ["..."], "objetivo": ["..."], "beneficios": [], "produto": [], "requisitos": [], "stakeholders": [], "equipe": [], "premissas": [], "entregas": [], "restricoes": [], "riscos": [], "linha_do_tempo": [], "custos": [] }`, chave, h, 8000, "medium");
+}
+
 async function rascunho(pedido: string, contexto: string, chave: string, h: Record<string, string>) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -294,10 +307,11 @@ Deno.serve(async (req) => {
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
   if (!chave) return new Response(JSON.stringify({ erro: "Servidor sem ANTHROPIC_API_KEY." }), { status: 500, headers: h });
 
-  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string; rascunho?: string; contexto?: string; projeto?: Record<string, string>; pesquisa?: Record<string, string> };
+  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string; rascunho?: string; contexto?: string; projeto?: Record<string, string>; pesquisa?: Record<string, string>; canvas?: Record<string, string> };
   try { corpo = await req.json(); } catch {
     return new Response(JSON.stringify({ erro: "Corpo inválido." }), { status: 400, headers: h });
   }
+  if (corpo.canvas && typeof corpo.canvas === "object") return canvasIA(corpo.canvas, chave, h);
   if (corpo.pesquisa && typeof corpo.pesquisa === "object") return pesquisar(corpo.pesquisa, chave, h);
   if (corpo.projeto && typeof corpo.projeto === "object") return projeto(corpo.projeto, chave, h);
   if (typeof corpo.rascunho === "string" && corpo.rascunho.trim()) return rascunho(corpo.rascunho.trim(), typeof corpo.contexto === "string" ? corpo.contexto : "", chave, h);
