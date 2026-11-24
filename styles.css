@@ -542,3 +542,7 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .pesq-esp,.pesq-vazio{font-size:14px;color:#555;margin:12px 0}.pesq-rod{font-size:11px;color:#777;margin-top:14px}
 .prj-comp{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border:1px solid #eceee8;background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:6px;font:600 13px DM Sans,Arial,sans-serif;color:#111}
 .prj-comp small{display:block;color:#666;font-size:11px;font-weight:500}.prj-comp em{font-style:normal;font-weight:800;color:#2e6fd8;white-space:nowrap}.prj-comp.outro{border-style:dashed;color:#2e6fd8}
+.ras-wrap .ras-sel{position:absolute;z-index:3;display:flex;gap:4px;padding:5px;background:#fff;border:1px solid #dfe4db;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.ras-wrap .ras-sel[hidden]{display:none}
+.ras-wrap .ras-sel button{flex:0 0 auto;border:0;background:#f4f5f1;color:#111;border-radius:10px;min-width:40px;height:40px;padding:0 10px;font:800 14px DM Sans,Arial,sans-serif}
+.ras-wrap .ras-sel button[data-s=pesq]{background:#e8f0fb;color:#2c5aa0}.ras-wrap .ras-sel button[hidden]{display:none}

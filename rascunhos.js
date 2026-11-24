@@ -48,14 +48,15 @@
         <button type="button" data-l="2" class="ras-larg" title="Fino"><i style="width:4px;height:4px"></i></button>
         <button type="button" data-l="5" class="ras-larg" title="Médio"><i style="width:8px;height:8px"></i></button>
         <button type="button" data-l="12" class="ras-larg" title="Grosso"><i style="width:14px;height:14px"></i></button>
-        <span class="ras-sel" hidden><span class="ras-sep"></span>
-          <button type="button" data-s="pesq" title="Pesquisar na internet (preço, links, medidas)">🔎</button>
+
+      </div>
+      <div class="ras-wrap"><canvas id="rasCanvas"></canvas><div class="ras-sel" hidden>
+          <button type="button" data-s="pesq" title="Pesquisar na internet (preço, links, medidas)">🔎 Pesquisar</button>
+          <button type="button" data-s="edit" title="Escrever">✎</button>
           <button type="button" data-s="link" title="Abrir link">🔗</button>
           <button type="button" data-s="dup" title="Duplicar">⧉</button>
           <button type="button" data-s="frente" title="Trazer para frente">⬆</button>
-          <button type="button" data-s="del" title="Apagar">🗑</button></span>
-      </div>
-      <div class="ras-wrap"><canvas id="rasCanvas"></canvas><textarea id="rasEdit" hidden></textarea>
+          <button type="button" data-s="del" title="Apagar">🗑</button></div><textarea id="rasEdit" hidden></textarea>
         <div class="ras-zoom"><button type="button" data-z="-">−</button><span id="rasZ">100%</span><button type="button" data-z="+">＋</button></div>
         <p class="ras-dica" id="rasDica"></p></div>
       <input type="file" id="rasFoto" accept="image/*" hidden />
@@ -212,6 +213,18 @@
       if (sel.length === 1 && sel[0].t !== 'traco' && sel[0].t !== 'texto') { const r = 9 / z; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b[2] + 6 / z, b[3] + 6 / z, r, 0, 7); ctx.fill(); ctx.stroke(); }
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    posBarra();
+  }
+  // barra flutuante em cima do que está selecionado (como no Freeform)
+  function posBarra() {
+    const bar = painel.querySelector('.ras-sel');
+    if (!sel?.length || arraste?.tipo === 'mover' || arraste?.tipo === 'tam' || edit) { bar.hidden = true; return; }
+    bar.hidden = false;
+    const b = caixaSel(), [x1, y1] = tela(b[0], b[1]), [x2, y2] = tela(b[2], b[3]);
+    const w = bar.offsetWidth || 260, h = bar.offsetHeight || 44;
+    let x = (x1 + x2) / 2 - w / 2, y = y1 - h - 14;
+    if (y < 6) y = y2 + 16; if (y + h > H - 6) y = Math.max(6, Math.min(H - h - 6, y1 + 6));
+    bar.style.left = Math.max(6, Math.min(W - w - 6, x)) + 'px'; bar.style.top = y + 'px';
   }
   function caixaSel() { const bs = sel.map(caixa); return [Math.min(...bs.map((b) => b[0])), Math.min(...bs.map((b) => b[1])), Math.max(...bs.map((b) => b[2])), Math.max(...bs.map((b) => b[3]))]; }
   function tamanho() {
@@ -345,10 +358,11 @@
     cv.style.cursor = f === 'mao' ? 'grab' : f === 'sel' ? 'default' : 'crosshair'; dica(DICAS[f] || ''); desenhar();
   }
   function atualizaSel() {
-    painel.querySelector('.ras-sel').hidden = !sel?.length;
     const um = sel?.length === 1 ? sel[0] : null;
     painel.querySelector('[data-s=pesq]').hidden = !(um && (um.t === 'nota' || um.t === 'texto') && um.texto?.trim());
     painel.querySelector('[data-s=link]').hidden = !um?.link;
+    painel.querySelector('[data-s=edit]').hidden = !(um && (um.t === 'nota' || um.t === 'texto'));
+    posBarra();
   }
   painel.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => escolher(b.dataset.f)));
   painel.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => {
@@ -360,6 +374,7 @@
     larg = +b.dataset.l; painel.querySelectorAll('[data-l]').forEach((q) => q.classList.toggle('on', q === b));
     if (sel?.length) { marca(); for (const o of sel) if ('larg' in o) o.larg = o.marca ? larg * 4 : o.t === 'traco' ? larg : Math.max(2, larg * .7); else if (o.t === 'texto') o.tam = { 2: 16, 5: 24, 12: 40 }[larg]; salvar(); desenhar(); }
   }));
+  painel.querySelector('[data-s=edit]').onclick = (e) => { e.stopImmediatePropagation(); if (sel?.[0]) abrirEdicao(sel[0]); };
   painel.querySelector('[data-s=link]').onclick = (e) => { e.stopImmediatePropagation(); const u = sel?.[0]?.link; if (u) window.open(u, '_blank', 'noopener'); };
   painel.querySelector('[data-s=pesq]').onclick = (e) => {
     e.stopImmediatePropagation(); const o = sel?.[0]; if (!o?.texto) return;
