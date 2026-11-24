@@ -563,3 +563,5 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .pmc-nota button{position:absolute;top:2px;right:3px;border:0;background:transparent;font-size:15px;color:#0007;width:18px;height:18px;padding:0}
 .pmc-dlg{width:min(640px,95vw);max-height:88dvh;overflow:auto}.pmc-pitch p{font-size:15px;line-height:1.55;margin:0 0 10px}
 .pmc-nota{filter:var(--filtro-cru,none)}
+html{touch-action:manipulation}
+.pmc-zoom{display:inline-flex;align-items:center;gap:4px;margin-left:auto}.pmc-zoom b{min-width:44px;text-align:center;font-size:12px}.pmc-zoom button{width:38px;padding:9px 0!important}

@@ -33,6 +33,7 @@
       <button type="button" data-c="pitch">🎤 Pitch</button>
       <button type="button" data-c="png">⬇ Imagem</button>
       <button type="button" data-c="limpaia" title="Apagar só os post-its azuis (sugeridos pela IA)">🧹 Tirar sugestões da IA</button>
+      <span class="pmc-zoom"><button type="button" data-z="-">−</button><b id="pmcZ">100%</b><button type="button" data-z="+">＋</button></span>
       <span class="pmc-msg" id="pmcMsg"></span>
     </div>
     <p class="pmc-dica">Amarelo = seu · azul = sugestão da IA (toque para editar; apague o que não servir). Deslize para o lado no celular.</p>
@@ -50,7 +51,7 @@
   const notas = (p, k) => ((p.canvas ||= {})[k] ||= []);
   const novoId = () => Math.random().toString(36).slice(2, 9);
 
-  function monta() {
+  let monta = function () {
     const p = P(); if (!p) return;
     $('pmcGrade').innerHTML = BLOCOS.map(([k, t, ic, q, c, l, a]) => `
       <section class="pmc-bloco" data-k="${k}" style="grid-column:${c};grid-row:${l} / span ${a}">
@@ -58,7 +59,7 @@
         <div class="pmc-notas">${notas(p, k).map((n) => `<div class="pmc-nota" data-id="${n.id}" style="background:${n.ia ? COR.ia : COR.usuario}"><textarea rows="2" data-k="${k}" data-id="${n.id}">${esc(n.t)}</textarea><button type="button" data-del="${n.id}" data-k="${k}" title="Apagar">×</button></div>`).join('')}</div>
       </section>`).join('');
     $('pmcGrade').querySelectorAll('textarea').forEach(ajusta);
-  }
+  };
   function ajusta(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
   $('pmcGrade').addEventListener('input', (e) => {
     const ta = e.target; if (ta.tagName !== 'TEXTAREA') return;
@@ -139,6 +140,28 @@
     }
     c.toBlob((bl) => { const u = URL.createObjectURL(bl), a = document.createElement('a'); a.href = u; a.download = `canvas-${p.nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').toLowerCase()}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 3000); });
   };
+
+  // ---------- zoom do canvas (botões e pinça com dois dedos) ----------
+  let zoom = 1; try { zoom = +localStorage.getItem('traco-pmc-zoom') || 1; } catch { /* */ }
+  function aplicaZoom(z, cx, cy) {
+    const rola = area.querySelector('.pmc-rola'), g = $('pmcGrade'), antes = zoom;
+    zoom = Math.max(.4, Math.min(2.5, z)); g.style.zoom = zoom; $('pmcZ').textContent = Math.round(zoom * 100) + '%';
+    if (cx != null) { const r = rola.getBoundingClientRect(), px = cx - r.left; rola.scrollLeft = (rola.scrollLeft + px) * zoom / antes - px; }
+    try { localStorage.setItem('traco-pmc-zoom', String(zoom)); } catch { /* */ }
+  }
+  area.querySelectorAll('[data-z]').forEach((b) => (b.onclick = () => aplicaZoom(zoom * (b.dataset.z === '+' ? 1.2 : 1 / 1.2))));
+  const toques = new Map(); let d0 = 0;
+  const rola = area.querySelector('.pmc-rola');
+  rola.addEventListener('touchstart', (e) => { if (e.touches.length === 2) { const [a, b] = e.touches; d0 = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); } }, { passive: true });
+  rola.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 2 || !d0) return; e.preventDefault();
+    const [a, b] = e.touches, d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    aplicaZoom(zoom * d / d0, (a.clientX + b.clientX) / 2); d0 = d;
+  }, { passive: false });
+  rola.addEventListener('touchend', (e) => { if (e.touches.length < 2) d0 = 0; });
+  rola.addEventListener('wheel', (e) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); aplicaZoom(zoom * Math.exp(-e.deltaY * .01), e.clientX); }, { passive: false });
+  void toques;
+  const montaAntes = monta; monta = function () { montaAntes(); aplicaZoom(zoom); };
 
   // trocou de projeto → redesenha se o canvas estiver aberto
   document.addEventListener('traco-projeto', () => { if (!area.hidden) monta(); });
