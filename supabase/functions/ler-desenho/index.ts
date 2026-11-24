@@ -159,7 +159,8 @@ async function chamar(system: string, texto: string, chave: string, h: Record<st
   const dados = await r.json();
   const t: string = (dados.content ?? []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("\n").replace(/```(?:json)?/gi, "");
   try {
-    return new Response(JSON.stringify(JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1))), { headers: h });
+    const j = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)); j._uso = { ...dados.usage, tipos: (dados.content ?? []).map((c: { type: string }) => c.type) };
+    return new Response(JSON.stringify(j), { headers: h });
   } catch {
     console.error("json", dados.stop_reason, JSON.stringify(dados.usage), t.slice(0, 300));
     return new Response(JSON.stringify({ erro: dados.stop_reason === "max_tokens" ? "Resposta grande demais. Peça menos detalhes de uma vez." : "A IA não conseguiu montar a resposta. Tente de novo." }), { status: 422, headers: h });
