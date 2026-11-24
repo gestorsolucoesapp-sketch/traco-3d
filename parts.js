@@ -1357,6 +1357,7 @@
     if (!part.closed) { part.profile = antes; $('profileHint').textContent = 'Com essa espessura as linhas se cruzam. Tente uma espessura menor ou o outro lado.'; save(); refresh(); return; }
     if (part.operation !== 'revolve') { $('partOperation').value = 'revolve'; $('partOperation').dispatchEvent(new Event('change')); }
     $('profileHint').textContent = 'Parede criada e perfil fechado. A peça foi girada (Revolução 360°).';
+    window.tracoNuvem('Montando a parede…');
   }
   btnEsp.addEventListener('click', () => (espBox.hidden ? abrirEsp() : fecharEsp()));
   // usado pela leitura de foto: dá a parede direto (para dentro) num contorno aberto
@@ -1862,8 +1863,13 @@
     part.shapeType = null; part.holeDiameter = 0;
     part.selected = [...(part.profile.at(-1) ?? [0, 0])]; save(); refresh();
   });
-  $('closeProfile').addEventListener('click', () => {
-    if (part.simetrico) { const erro = espelharPerfil(); if (erro) { $('profileStatus').textContent = erro; $('profileHint').textContent = erro; } return; }
+  // nuvem de partículas montando a peça (a mesma da narração) quando o 3D nasce
+  window.tracoNuvem = (titulo = 'Montando sua peça…') => {
+    const tris = meshBase(); if (!tris?.length || !window.tracoRedemoinho) return;
+    setTimeout(() => { window.tracoRedemoinho(tris, titulo); }, 60);
+  };
+  $('closeProfile').addEventListener('click', (ev) => {
+    if (part.simetrico) { const erro = espelharPerfil(); if (erro) { $('profileStatus').textContent = erro; $('profileHint').textContent = erro; } else if (ev.isTrusted) window.tracoNuvem(); return; }
     if (part.fecharEm > 0 && !part.closed) { part.profile = part.profile.slice(part.fecharEm); part.fecharEm = null; }
     if (part.profile.length < 3 || Math.abs(signedArea(part.profile)) < .001 ||
         !simpleProfile(part.profile) ||
@@ -1873,6 +1879,7 @@
     }
     part.closed = true; part.pending = false; part.drawLine = false; part.freehand = false; part.solto = false;
     save(); refresh();
+    if (ev.isTrusted) window.tracoNuvem(); // só quando a pessoa fechou (não nos fechamentos internos)
   });
   model.addEventListener('pointerdown', (event) => {
     if (window.tracoPintura?.ativa && window.tracoPintura.clique(event)) return;

@@ -1,5 +1,5 @@
 // Versão do app. Mude aqui a cada publicação.
-window.TRACO_VERSAO = { numero: '7.5', data: '23/11/2026' };
+window.TRACO_VERSAO = { numero: '7.6', data: '23/11/2026' };
 (() => {
   const v = window.TRACO_VERSAO, txt = `v${v.numero}`;
   const poe = () => {

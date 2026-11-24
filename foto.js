@@ -269,7 +269,7 @@
       window.tracoAbrirPeca({ mode: 'custom', profile: lin, closed: false, operation: 'revolve', extrudeDepth: 20, shapeType: null, holeDiameter: 0 });
       const ok = window.tracoEspessuraAuto?.(L.parede);
       if (!ok) { window.tracoAbrirPeca({ mode: 'custom', profile: p, closed: true, operation: 'revolve', extrudeDepth: 20, shapeType: null, holeDiameter: 0 });
-        notify('Com essa parede as linhas se cruzam. Gerei a peça maciça; use ⧉ Espessura com um valor menor.'); }
+        notify('Com essa parede as linhas se cruzam. Gerei a peça maciça; use ⧉ Espessura com um valor menor.'); window.tracoNuvem?.(); }
       fechar(); return;
     }
     try {
@@ -277,7 +277,7 @@
       window.tracoAbrirPeca({ mode: 'custom', profile: p, closed: true,
         operation: L.operacao === 'revolucao' ? 'revolve' : 'extrude',
         extrudeDepth: L.profundidade ?? 20, shapeType: null, holeDiameter: 0 });
-      fechar();
+      fechar(); window.tracoNuvem?.('Montando sua peça…');
     } catch {
       dlg.querySelector('#fotoFecho').textContent = 'Esse contorno se cruza ou não forma uma peça válida. Confira as direções.';
     }
