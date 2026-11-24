@@ -212,12 +212,14 @@
   const wrap = document.querySelector('.part-model-wrap'); if (!wrap) return;
   const so = (b, ic) => { if (!b || b.dataset.icone) return; b.title = b.title || b.textContent.trim(); b.dataset.icone = ic; };
   const lado = document.createElement('div'); lado.className = 'canto-3d';
-  lado.innerHTML = '<button type="button" data-a="mov" title="Movimentar o mecanismo">⚙️</button><button type="button" data-a="sim" title="Simular montagem">▶</button><button type="button" data-a="an" title="Análise de engenharia">🔬</button>';
+  lado.innerHTML = '<button type="button" data-a="mov" title="Movimentar o mecanismo">⚙️</button><button type="button" data-a="sim" title="Simular montagem">▶</button><button type="button" data-a="an" title="Análise de engenharia">🔬</button><button type="button" data-a="corte" title="Corte: abre a peça ao meio para ver por dentro (fundo, parede)">✂️</button>';
   wrap.appendChild(lado);
   lado.addEventListener('pointerdown', (e) => e.stopPropagation());
   const sim = lado.querySelector('[data-a=sim]');
   sim.onclick = () => document.getElementById('simularMontagem')?.click();
   lado.querySelector('[data-a=an]').onclick = () => window.tracoAnalise?.abrir();
+  const corte = lado.querySelector('[data-a=corte]');
+  corte.onclick = () => { const api = window.tracoPeca, p = api?.part; if (!p) return; p.corte = !p.corte; corte.classList.toggle('on', p.corte); if (p.corte) { p.yaw = Math.PI; p.pitch = .18; } api.refresh ? api.refresh() : api.render(); };
   // ⚙️ anima o mecanismo narrado (engrenagens, cremalheira, biela, came, dobradiça, polias)
   const mov = lado.querySelector('[data-a=mov]'); let laco = 0, t0 = 0;
   const parar = () => { const p = window.tracoPeca?.part; if (p) p.anim = null; cancelAnimationFrame(laco); window.tracoPeca?.render(); };
@@ -232,6 +234,7 @@
   setInterval(() => {
     const P0 = window.tracoPeca?.part, meca = P0?.operation === 'narrado' && window.tracoNarrado?.temMeca?.(P0.narrado);
     mov.hidden = !meca; if (!meca && P0?.anim) parar();
+    corte.hidden = !(P0 && P0.closed && P0.operation === 'revolve' && P0.mode === 'custom'); corte.classList.toggle('on', !!P0?.corte);
     mov.textContent = P0?.anim ? (P0.anim.pausa ? '▶' : '⏸') : '⚙️'; mov.classList.toggle('on', !!P0?.anim);
     if (meca) { const txt = P0.narrado.pecas.filter((q) => window.tracoMeca?.eh(q.tipo)).map((q) => window.tracoMeca.info(q)).join(' · ');
       const dim = document.getElementById('partDimensions'); if (dim && !P0.sim && dim.textContent !== txt) dim.textContent = txt; }

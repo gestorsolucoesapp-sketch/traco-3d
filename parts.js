@@ -652,6 +652,7 @@
     return JSON.stringify([part.mode, part.operation, part.profile, part.closed, part.extrudeDepth, part.holeDiameter, part.shapeType, part.helix, part.cup, part.narrado, part.enfeite || null]);
   }
   function mesh() {
+    if (part.corte && !part.sim && part.closed && part.operation === 'revolve' && part.mode === 'custom') return malhaCorte();
     if (!part.sim) { const fe = window.tracoFEA?.malha?.(); if (fe) return fe; }
     const tris = meshBase();
     if (part.sim || !part.paint || part.paint.key !== geomKey()) return tris;
@@ -693,6 +694,35 @@
       }
     }
     return triangles;
+  }
+  // ✂️ Corte (só na tela): meia peça (y ≥ 0) com a face cortada à mostra — para ver fundo, parede, ressaltos
+  function malhaCorte() {
+    const meia = meshEsboco().filter((t) => (t.points[0][1] + t.points[1][1] + t.points[2][1]) / 3 >= -1e-6);
+    for (const lado of [1, -1]) for (const [p, q, s2] of orelhas(part.profile)) {
+      let pts = [p, q, s2].map(([r, z]) => [r * lado, 0, z]); let n = normal(...pts); if (!n) continue;
+      if (n[1] > 0) { pts = [pts[0], pts[2], pts[1]]; n = normal(...pts); }
+      meia.push({ points: pts, normal: n, cor: '#C98F6E' });
+    }
+    if (part.plano === 'frontal') return meia;
+    const T = PLANO_T[part.plano]; return meia.map((t) => ({ ...t, points: t.points.map(T), normal: T(t.normal) }));
+  }
+  function orelhas(poly) { // triangula um polígono simples (corte de orelhas)
+    const pts = signedArea(poly) < 0 ? poly.slice().reverse() : poly.slice(), idx = pts.map((_, i) => i), out = [];
+    const cr = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    const dentro = (p, a, b, c) => cr(a, b, p) >= 0 && cr(b, c, p) >= 0 && cr(c, a, p) >= 0;
+    let guarda = 0;
+    while (idx.length > 3 && guarda++ < 5000) {
+      let achou = false;
+      for (let k = 0; k < idx.length; k++) {
+        const ia = idx[(k + idx.length - 1) % idx.length], ib = idx[k], ic = idx[(k + 1) % idx.length], a = pts[ia], b = pts[ib], c = pts[ic];
+        if (cr(a, b, c) <= 1e-12) continue;
+        if (idx.some((j) => j !== ia && j !== ib && j !== ic && dentro(pts[j], a, b, c))) continue;
+        out.push([a, b, c]); idx.splice(k, 1); achou = true; break;
+      }
+      if (!achou) break;
+    }
+    if (idx.length === 3) out.push(idx.map((i) => pts[i]));
+    return out;
   }
 
   function project(v, width, height, unit, centerZ) {
@@ -1067,7 +1097,7 @@
       d.showModal();
       return;
     }
-    const triangles = mesh();
+    const triangles = meshBase(); // peça inteira (o corte é só para ver)
     if (!triangles.length) return;
     const buffer = new ArrayBuffer(84 + triangles.length * 50);
     const view = new DataView(buffer);
