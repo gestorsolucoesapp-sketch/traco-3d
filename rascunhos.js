@@ -49,6 +49,8 @@
         <button type="button" data-l="5" class="ras-larg" title="Médio"><i style="width:8px;height:8px"></i></button>
         <button type="button" data-l="12" class="ras-larg" title="Grosso"><i style="width:14px;height:14px"></i></button>
         <span class="ras-sel" hidden><span class="ras-sep"></span>
+          <button type="button" data-s="pesq" title="Pesquisar na internet (preço, links, medidas)">🔎</button>
+          <button type="button" data-s="link" title="Abrir link">🔗</button>
           <button type="button" data-s="dup" title="Duplicar">⧉</button>
           <button type="button" data-s="frente" title="Trazer para frente">⬆</button>
           <button type="button" data-s="del" title="Apagar">🗑</button></span>
@@ -173,6 +175,7 @@
       ctx.shadowColor = 'rgba(0,0,0,.18)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4; ctx.fillStyle = o.cor; ctx.fillRect(o.x, o.y, o.w, o.h);
       ctx.shadowColor = 'transparent'; ctx.beginPath(); ctx.rect(o.x, o.y, o.w, o.h); ctx.clip();
       textoEm(o.texto || (o === edit ? '' : 'Toque duas vezes para escrever'), o.x + 12, o.y + 12, 16, o.texto ? '#1b1b1b' : 'rgba(0,0,0,.35)', o.w - 24);
+      if (o.link) { ctx.font = '16px sans-serif'; ctx.textBaseline = 'bottom'; ctx.fillText('🔗', o.x + o.w - 26, o.y + o.h - 6); }
     } else if (o.t === 'texto') textoEm(o.texto || 'Texto', o.x, o.y, o.tam, o.texto ? o.cor : '#9aa0a0');
     else if (o.t === 'img') { const i = img(o.src);
       if (escuro && o.src.startsWith('data:image/svg')) { ctx.fillStyle = '#f4f2ec'; ctx.beginPath(); ctx.roundRect?.(o.x - 6, o.y - 6, o.w + 12, o.h + 12, 10); ctx.fill(); } /* desenho da IA num cartão claro */
@@ -228,7 +231,7 @@
   const quem = (x, y, tol) => { for (let i = Q.objs.length - 1; i >= 0; i--) if (acerta(Q.objs[i], x, y, tol)) return Q.objs[i]; return null; };
 
   // ---------- toques ----------
-  const dedos = new Map(); let atual = null, gesto = null, laco = null, arraste = null, ultimoToque = 0;
+  const dedos = new Map(); let atual = null, gesto = null, laco = null, arraste = null, ultimoToque = 0, ultimoAlvo = null;
   const pos = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   cv.addEventListener('pointerdown', (e) => {
     if (edit) fecharEdicao();
@@ -246,7 +249,7 @@
     if (f === 'caneta' || f === 'marca') { atual = { t: 'traco', cor, larg: f === 'marca' ? larg * 4 : larg, marca: f === 'marca', pts: [[x, y, e.pointerType === 'pen' ? e.pressure : .5]] }; desenhar(); return; }
     if (f === 'borr') { marca(); arraste = { tipo: 'borr' }; apagaEm(x, y); return; }
     if (f === 'sel') {
-      const agora = Date.now(), duplo = agora - ultimoToque < 330; ultimoToque = agora;
+      const agora = Date.now(), alvo = quem(x, y, tol), duplo = agora - ultimoToque < 330 && alvo && alvo === ultimoAlvo; ultimoToque = agora; ultimoAlvo = alvo; // toque duplo só no mesmo objeto
       if (sel?.length === 1 && sel[0].t !== 'traco' && sel[0].t !== 'texto') { const b = caixa(sel[0]); if (Math.hypot(x - b[2] - 6 / V().z, y - b[3] - 6 / V().z) < 16 / V().z) { marca(); arraste = { tipo: 'tam', o: sel[0], b }; return; } }
       const o = quem(x, y, tol);
       if (o && duplo && (o.t === 'nota' || o.t === 'texto')) { abrirEdicao(o); return; }
@@ -341,7 +344,12 @@
     if (f !== 'sel') { sel = null; atualizaSel(); }
     cv.style.cursor = f === 'mao' ? 'grab' : f === 'sel' ? 'default' : 'crosshair'; dica(DICAS[f] || ''); desenhar();
   }
-  function atualizaSel() { painel.querySelector('.ras-sel').hidden = !sel?.length; }
+  function atualizaSel() {
+    painel.querySelector('.ras-sel').hidden = !sel?.length;
+    const um = sel?.length === 1 ? sel[0] : null;
+    painel.querySelector('[data-s=pesq]').hidden = !(um && (um.t === 'nota' || um.t === 'texto') && um.texto?.trim());
+    painel.querySelector('[data-s=link]').hidden = !um?.link;
+  }
   painel.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => escolher(b.dataset.f)));
   painel.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => {
     cor = b.dataset.c; painel.querySelectorAll('[data-c]').forEach((q) => q.classList.toggle('on', q === b));
@@ -352,7 +360,19 @@
     larg = +b.dataset.l; painel.querySelectorAll('[data-l]').forEach((q) => q.classList.toggle('on', q === b));
     if (sel?.length) { marca(); for (const o of sel) if ('larg' in o) o.larg = o.marca ? larg * 4 : o.t === 'traco' ? larg : Math.max(2, larg * .7); else if (o.t === 'texto') o.tam = { 2: 16, 5: 24, 12: 40 }[larg]; salvar(); desenhar(); }
   }));
-  painel.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => {
+  painel.querySelector('[data-s=link]').onclick = (e) => { e.stopImmediatePropagation(); const u = sel?.[0]?.link; if (u) window.open(u, '_blank', 'noopener'); };
+  painel.querySelector('[data-s=pesq]').onclick = (e) => {
+    e.stopImmediatePropagation(); const o = sel?.[0]; if (!o?.texto) return;
+    window.tracoPesquisar?.({ item: o.texto, contexto: `Quadro "${Q.nome}"`, aoColar: (r) => colarPesquisa(o, r) });
+  };
+  function colarPesquisa(perto, r) {
+    const p = (r.precos || [])[0], b = caixa(perto);
+    const texto = [r.nome, p ? `${p.preco} · ${p.loja || ''}` : '', (r.precos || []).length > 1 ? `+${r.precos.length - 1} loja(s)` : ''].filter(Boolean).join('\n');
+    marca();
+    const o = { t: 'nota', id: novoId(), x: b[2] + 24, y: b[1], w: 160, h: 160, cor: NOTAS[3], texto, link: p?.link || r.links?.[0]?.link || '', pesquisa: { nome: r.nome, precos: (r.precos || []).slice(0, 5), links: (r.links || []).slice(0, 5), quando: r._quando } };
+    Q.objs.push(o); escolher('sel'); sel = [o]; atualizaSel(); salvar(); desenhar();
+  }
+  painel.querySelectorAll('[data-s]').forEach((b) => (b.onclick ??= () => {
     if (!sel?.length) return; marca();
     if (b.dataset.s === 'del') { Q.objs = Q.objs.filter((o) => !sel.includes(o)); sel = null; }
     else if (b.dataset.s === 'frente') { Q.objs = [...Q.objs.filter((o) => !sel.includes(o)), ...sel]; }

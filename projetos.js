@@ -36,6 +36,8 @@
           </div>
           <h4>Peças</h4><div id="prjPecas"></div>
           <div class="prj-baixa"><button type="button" class="primary-button" id="prjTodas">⬇ Baixar todas (STL)</button></div>
+          <h4>Componentes para comprar <small>toque para pesquisar preço, links e medidas</small></h4>
+          <div id="prjComp"></div>
           <h4>Medidas do projeto <small>mude e o 3D refaz na hora</small></h4>
           <div id="prjParams"></div>
           <div id="prjConf"></div>
@@ -170,6 +172,10 @@
       <td><b>${esc(p.nome || p.id)}</b>${p.obs ? `<small>${esc(p.obs)}</small>` : ''}</td>
       <td><input data-par="${esc(p.id)}" inputmode="decimal" value="${esc(String(P.valores[p.id] ?? p.valor).replace('.', ','))}" title="${esc(String(P.valores[p.id] ?? p.valor))}" /> <span>${esc(p.unidade || 'mm')}</span>${/[A-Za-z_]/.test(String(P.valores[p.id] ?? p.valor)) && Number.isFinite(calc[p.id]) ? `<small>= ${fmt(calc[p.id], 2)}</small>` : ''}</td>
       <td><em>${o[0]}</em></td></tr>`; }).join('')}</tbody></table>` : '';
+    const comps = S.componentes || [];
+    $('prjComp').innerHTML = comps.map((c, i) => `<button type="button" class="prj-comp" data-comp="${i}"><span>${c.qtd > 1 ? `<b>${esc(c.qtd)}×</b> ` : ''}${esc(c.nome)}${c.funcao ? `<small>${esc(c.funcao)}</small>` : ''}</span><em>${pesquisado(c.nome) ? '✓ ' : ''}🔎</em></button>`).join('')
+      + `<button type="button" class="prj-comp outro" data-comp="-1"><span>🔎 Pesquisar outro componente…</span></button>`;
+    painel.querySelectorAll('[data-comp]').forEach((b) => (b.onclick = () => pesquisarComp(+b.dataset.comp < 0 ? '' : comps[+b.dataset.comp].nome)));
     const conf = [...(S.conferir || []), ...(P._erros || [])];
     $('prjConf').innerHTML = conf.length ? `<div class="prj-aviso"><b>Confira antes de imprimir</b><ul>${conf.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : '';
     $('prjMont').innerHTML = (S.montagem || []).length ? `<h4>Montagem</h4><ol class="prj-mont">${S.montagem.map((m) => `<li>${esc(m)}</li>`).join('')}</ol>` : '';
@@ -179,6 +185,23 @@
     }));
     const tot = malhas.reduce((s, m) => s + (m.vol || 0), 0);
     $('prjCalc').textContent = malhas.length ? `${(S.pecas || []).length} peça(s) · ${fmt(tot / 1000, 1)} cm³ no total` : '';
+  }
+  function pesquisado(nome) { try { return JSON.stringify(JSON.parse(localStorage.getItem('traco-pesquisas') || '{}')).toLowerCase().includes(`"nome":${JSON.stringify(nome).toLowerCase()}`); } catch { return false; } }
+  function pesquisarComp(nome) {
+    const S = P.spec, ps = (S.parametros || []).filter((p) => p.origem === 'componente' || p.origem === 'estimado');
+    window.tracoPesquisar?.({
+      item: nome, auto: Boolean(nome), contexto: `${S.nome || P.nome}: ${S.resumo || P.ideia || ''}`.slice(0, 600),
+      parametros: ps.map((p) => `${p.id}: ${p.nome} = ${P.valores[p.id] ?? p.valor} mm${p.obs ? ` (${p.obs})` : ''}`).join('\n'),
+      parametrosIds: ps.map((p) => p.id), nomeParam: (id) => ps.find((p) => p.id === id)?.nome || id,
+      aoAplicar: (lista) => {
+        for (const m of lista) {
+          const p = S.parametros.find((q) => q.id === m.id); if (!p || !Number.isFinite(+m.valor)) continue;
+          P.valores[m.id] = String(+m.valor); p.origem = 'componente';
+          try { p.obs = `pesquisado em ${new URL(m.fonte).host.replace(/^www\./, '')}`; } catch { /* */ }
+        }
+        salvar(); mostraResultado(); refazer();
+      },
+    });
   }
   $('prjTodas').onclick = () => baixar((P.spec?.pecas || []).map((_, i) => i));
 

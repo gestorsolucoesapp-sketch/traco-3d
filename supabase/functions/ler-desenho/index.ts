@@ -140,7 +140,9 @@ const FORMATO_PLANO = `ETAPA 1 — PLANO (só o JSON, compacto, sem crases)
 { "nome": "nome curto", "resumo": "1 frase",
   "parametros": [ ... as medidas que as peças vão usar, no máximo 30; "obs" só quando ajudar, até 60 caracteres ],
   "pecas": [ { "nome": "Caixa (base)", "descricao": "até 400 caracteres: o que a peça tem e onde, citando ids dos parâmetros e as posições (ex.: janela da tela centrada em x=0,y=tela_y na face +Z; 4 torres M3 nos cantos a 5 mm das paredes)", "impressao": "como imprimir", "imprimir_rot": [0,0,0] } ],
+  "componentes": [ {"nome":"Sensor térmico MLX90640 (módulo GY-MLX90640)","qtd":1,"funcao":"curta"} ],
   "montagem": [ "passo curto" ], "conferir": [ "o que medir antes" ] }
+"componentes" = tudo que o usuário precisa COMPRAR (eletrônica, parafusos, insertos, bateria), com nome que dá para pesquisar na loja.
 No máximo 6 peças; montagem e conferir com no máximo 6 itens curtos cada. JSON numa linha só, sem espaços sobrando. Defina bem o sistema de coordenadas comum (onde fica a origem) na descrição da primeira peça.`;
 
 const FORMATO_PECA = `ETAPA 2 — UMA PEÇA (só o JSON, compacto, sem crases)
@@ -182,6 +184,60 @@ async function projeto(p: Record<string, string>, chave: string, h: Record<strin
   if (p.ajuste) partes.push(`AJUSTE pedido: ${p.ajuste.slice(0, 1500)} — devolva o plano completo já ajustado, mantendo ids e valores que o usuário mudou.`);
   partes.push(FORMATO_PLANO);
   return chamar(PROMPT_PROJETO, partes.join("\n\n"), chave, h, 12000, p.pensar || "medium");
+}
+
+const PROMPT_PESQUISA = `Você pesquisa na internet um componente/produto citado num projeto de um engenheiro no Brasil e devolve um resumo prático.
+Use a busca (web_search): preço no Brasil (Mercado Livre, Shopee, AliExpress com entrega no Brasil, lojas de eletrônica/maker), ficha técnica/datasheet e MEDIDAS físicas (mm) do módulo mais comum.
+Regras: só cite links que apareceram na busca (nunca invente URL). Preço sempre em texto como apareceu ("R$ 189,90"), com a loja. Se não achar algo, deixe vazio — não chute.
+Se receber "Parâmetros do projeto", devolva em "para_parametros" só as medidas que a busca confirmou, com o id do parâmetro, o valor em mm e o link da fonte.
+FORMATO (só o JSON no fim, sem crases):
+{ "nome": "nome do item", "o_que_e": "1–2 frases", "specs": [ {"nome":"Resolução","valor":"32×24 px"} ],
+  "medidas": [ {"nome":"Placa","valor":"25 × 28 × 9 mm","fonte":"url"} ],
+  "precos": [ {"loja":"Mercado Livre","preco":"R$ 289,90","link":"url","obs":"módulo GY-MLX90640 55°"} ],
+  "links": [ {"titulo":"Datasheet","link":"url"} ],
+  "alternativas": [ {"nome":"AMG8833","por_que":"mais barato, 8×8 px"} ],
+  "para_parametros": [ {"id":"sens_L","valor":25,"fonte":"url"} ],
+  "avisos": [ "preços mudam; confira na loja" ] }`;
+
+async function pesquisar(p: Record<string, string>, chave: string, h: Record<string, string>) {
+  const texto = [`Item: ${(p.item || "").slice(0, 500)}`, p.contexto ? `Contexto do projeto: ${p.contexto.slice(0, 2000)}` : "", p.parametros ? `Parâmetros do projeto (id: nome = valor atual):\n${p.parametros.slice(0, 3000)}` : ""].filter(Boolean).join("\n\n");
+  const msgs: unknown[] = [{ role: "user", content: texto }];
+  let dados: any = null;
+  const urls = new Set<string>();
+  for (let volta = 0; volta < 3; volta++) {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODELO, max_tokens: 8000, system: PROMPT_PESQUISA, messages: msgs, output_config: { effort: "medium" },
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5, user_location: { type: "approximate", country: "BR", timezone: "America/Sao_Paulo" } }] }),
+    });
+    if (!r.ok) {
+      console.error("anthropic", r.status, (await r.text()).slice(0, 500));
+      return new Response(JSON.stringify({ erro: [429, 500, 502, 503, 529].includes(r.status) ? "A IA está ocupada agora (" + r.status + "). Tente de novo em instantes." : `IA respondeu ${r.status}.` }), { status: [429, 500, 502, 503, 529].includes(r.status) ? 503 : 502, headers: h });
+    }
+    dados = await r.json();
+    for (const c of dados.content ?? []) {
+      if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const w of c.content) if (w.url) urls.add(w.url);
+      for (const ci of c.citations ?? []) if (ci.url) urls.add(ci.url);
+    }
+    if (dados.stop_reason !== "pause_turn") break;
+    msgs.push({ role: "assistant", content: dados.content });
+  }
+  const t: string = (dados.content ?? []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("").replace(/```(?:json)?/gi, "");
+  let j: any;
+  try { j = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)); } catch {
+    console.error("json", dados.stop_reason, t.slice(0, 300));
+    return new Response(JSON.stringify({ erro: "A pesquisa não voltou organizada. Tente de novo." }), { status: 422, headers: h });
+  }
+  // só deixa link que veio de verdade da busca (mesma página ou mesmo site)
+  const hosts = new Set([...urls].map((u) => { try { return new URL(u).host; } catch { return ""; } }));
+  const ok = (u: unknown) => { try { const x = new URL(String(u)); return (x.protocol === "https:" || x.protocol === "http:") && (urls.has(x.href) || hosts.has(x.host)); } catch { return false; } };
+  for (const k of ["precos", "links"]) if (Array.isArray(j[k])) j[k] = j[k].filter((x: any) => ok(x?.link));
+  for (const k of ["medidas", "para_parametros"]) if (Array.isArray(j[k])) j[k] = j[k].map((x: any) => (ok(x?.fonte) ? x : { ...x, fonte: "" }));
+  if (Array.isArray(j.para_parametros)) j.para_parametros = j.para_parametros.filter((x: any) => x?.fonte);
+  j.fontes = [...urls].slice(0, 12);
+  j.buscas = dados.usage?.server_tool_use?.web_search_requests ?? null;
+  return new Response(JSON.stringify(j), { headers: h });
 }
 
 async function rascunho(pedido: string, contexto: string, chave: string, h: Record<string, string>) {
@@ -238,10 +294,11 @@ Deno.serve(async (req) => {
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
   if (!chave) return new Response(JSON.stringify({ erro: "Servidor sem ANTHROPIC_API_KEY." }), { status: 500, headers: h });
 
-  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string; rascunho?: string; contexto?: string; projeto?: Record<string, string> };
+  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string; rascunho?: string; contexto?: string; projeto?: Record<string, string>; pesquisa?: Record<string, string> };
   try { corpo = await req.json(); } catch {
     return new Response(JSON.stringify({ erro: "Corpo inválido." }), { status: 400, headers: h });
   }
+  if (corpo.pesquisa && typeof corpo.pesquisa === "object") return pesquisar(corpo.pesquisa, chave, h);
   if (corpo.projeto && typeof corpo.projeto === "object") return projeto(corpo.projeto, chave, h);
   if (typeof corpo.rascunho === "string" && corpo.rascunho.trim()) return rascunho(corpo.rascunho.trim(), typeof corpo.contexto === "string" ? corpo.contexto : "", chave, h);
   if (typeof corpo.texto === "string" && corpo.texto.trim()) return narrar(corpo.texto.trim(), chave, h);

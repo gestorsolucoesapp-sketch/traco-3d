@@ -532,3 +532,13 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .prj-mont{font-size:13px;padding-left:20px;line-height:1.6}
 .prj-ajuste{display:flex;gap:8px;margin-top:14px}.prj-ajuste input{flex:1;min-width:0}
 @media(max-width:860px){.prj-corpo{grid-template-columns:1fr;padding:12px}.prj-tab td:nth-child(3){display:none}}
+/* Pesquisa */
+.pesq-dlg{width:min(600px,95vw);max-height:88dvh;overflow:auto}.pesq-topo{display:flex;align-items:center;justify-content:space-between}.pesq-x{border:0;background:#f1f2ee;border-radius:50%;width:34px;height:34px;font-size:15px;color:#111}
+.pesq-item{display:flex;flex-direction:column;gap:5px;font:800 12px DM Sans,Arial,sans-serif;margin:8px 0}.pesq-item input{border:1px solid #dfe4db;border-radius:10px;padding:10px;font:600 15px DM Sans,Arial,sans-serif}
+.pesq-dlg h4{margin:14px 0 6px;font:800 14px Manrope,Arial,sans-serif}.pesq-oq{font-size:14px;line-height:1.45;margin:8px 0}
+.pesq-lista{margin:0;padding-left:18px;font-size:14px;line-height:1.55}.pesq-lista small{display:block;color:#666;font-size:12px}.pesq-dlg a{color:#2e6fd8;font-weight:700;word-break:break-word}
+.pesq-tab{width:100%;border-collapse:collapse;font-size:13px}.pesq-tab td{border-bottom:1px solid #f0f1ec;padding:5px 4px}.pesq-tab td:first-child{color:#555;width:42%}
+.pesq-aplica{margin-top:12px;background:#e9f6ee;border:1px solid #bfe3cb;border-radius:12px;padding:10px 12px;font-size:13px}.pesq-aplica ul{margin:6px 0 0;padding-left:18px}
+.pesq-esp,.pesq-vazio{font-size:14px;color:#555;margin:12px 0}.pesq-rod{font-size:11px;color:#777;margin-top:14px}
+.prj-comp{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border:1px solid #eceee8;background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:6px;font:600 13px DM Sans,Arial,sans-serif;color:#111}
+.prj-comp small{display:block;color:#666;font-size:11px;font-weight:500}.prj-comp em{font-style:normal;font-weight:800;color:#2e6fd8;white-space:nowrap}.prj-comp.outro{border-style:dashed;color:#2e6fd8}
