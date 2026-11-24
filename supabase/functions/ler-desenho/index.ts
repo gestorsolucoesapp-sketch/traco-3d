@@ -138,10 +138,10 @@ ETAPAS: o app pede em duas etapas para responder rápido. Siga o FORMATO da etap
 
 const FORMATO_PLANO = `ETAPA 1 — PLANO (só o JSON, compacto, sem crases)
 { "nome": "nome curto", "resumo": "1 frase",
-  "parametros": [ ... TODAS as medidas que as peças vão usar, até ~40 ],
-  "pecas": [ { "nome": "Caixa (base)", "descricao": "o que a peça tem e onde, citando ids dos parâmetros e as posições (ex.: janela da tela centrada em x=0,y=tela_y na face +Z; 4 torres M3 nos cantos a 5 mm das paredes)", "impressao": "como imprimir", "imprimir_rot": [0,0,0] } ],
+  "parametros": [ ... as medidas que as peças vão usar, no máximo 30; "obs" só quando ajudar, até 60 caracteres ],
+  "pecas": [ { "nome": "Caixa (base)", "descricao": "até 400 caracteres: o que a peça tem e onde, citando ids dos parâmetros e as posições (ex.: janela da tela centrada em x=0,y=tela_y na face +Z; 4 torres M3 nos cantos a 5 mm das paredes)", "impressao": "como imprimir", "imprimir_rot": [0,0,0] } ],
   "montagem": [ "passo curto" ], "conferir": [ "o que medir antes" ] }
-No máximo 6 peças. Defina bem o sistema de coordenadas comum (onde fica a origem) na descrição da primeira peça.`;
+No máximo 6 peças; montagem e conferir com no máximo 6 itens curtos cada. JSON numa linha só, sem espaços sobrando. Defina bem o sistema de coordenadas comum (onde fica a origem) na descrição da primeira peça.`;
 
 const FORMATO_PECA = `ETAPA 2 — UMA PEÇA (só o JSON, compacto, sem crases)
 { "forma": { ... árvore de formas da peça pedida, usando os ids dos parâmetros do plano ... }, "parametros_novos": [ só se precisar de medida que o plano não tinha ] }`;
@@ -161,7 +161,7 @@ async function chamar(system: string, texto: string, chave: string, h: Record<st
   try {
     return new Response(JSON.stringify(JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1))), { headers: h });
   } catch {
-    console.error("json", dados.stop_reason, t.slice(0, 300));
+    console.error("json", dados.stop_reason, JSON.stringify(dados.usage), t.slice(0, 300));
     return new Response(JSON.stringify({ erro: dados.stop_reason === "max_tokens" ? "Resposta grande demais. Peça menos detalhes de uma vez." : "A IA não conseguiu montar a resposta. Tente de novo." }), { status: 422, headers: h });
   }
 }
@@ -170,7 +170,7 @@ async function chamar(system: string, texto: string, chave: string, h: Record<st
 async function projeto(p: Record<string, string>, chave: string, h: Record<string, string>) {
   if (p.fase === "peca") {
     const txt = `PLANO DO PROJETO (JSON):\n${(p.plano || "").slice(0, 30000)}\n\nGere a forma da peça número ${Number(p.indice) + 1}: "${(p.nome || "").slice(0, 200)}".${p.ajuste ? `\nAjuste pedido pelo usuário: ${p.ajuste.slice(0, 1500)}` : ""}\n\n${FORMATO_PECA}`;
-    return chamar(PROMPT_PROJETO, txt, chave, h, 8000);
+    return chamar(PROMPT_PROJETO, txt, chave, h, 12000);
   }
   const partes = [`Ideia: ${(p.ideia || "").slice(0, 3000)}`];
   if (p.quadro) partes.push(`Notas do quadro de rascunhos:\n${p.quadro.slice(0, 4000)}`);
@@ -179,7 +179,7 @@ async function projeto(p: Record<string, string>, chave: string, h: Record<strin
   if (p.atual) partes.push(`Projeto atual (JSON):\n${p.atual.slice(0, 30000)}`);
   if (p.ajuste) partes.push(`AJUSTE pedido: ${p.ajuste.slice(0, 1500)} — devolva o plano completo já ajustado, mantendo ids e valores que o usuário mudou.`);
   partes.push(FORMATO_PLANO);
-  return chamar(PROMPT_PROJETO, partes.join("\n\n"), chave, h, 6000);
+  return chamar(PROMPT_PROJETO, partes.join("\n\n"), chave, h, 12000);
 }
 
 async function rascunho(pedido: string, contexto: string, chave: string, h: Record<string, string>) {
