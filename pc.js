@@ -98,6 +98,7 @@
       ['Janela', [
         ['🏠 Arquitetura · ambientes', '#architectureTab'],
         ['⚙️ Mecânica · peças', '#partsTab'],
+        ['✏️ Rascunhos · quadro livre', '#rascunhosTab'],
         null,
         ['📱 Sair do modo PC', '#__sair'],
       ]],

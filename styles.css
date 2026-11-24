@@ -485,3 +485,20 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .foto-2d canvas{width:100%;display:block}
 .foto-2d small{color:#666;font-size:11px}
 .foto-tab tbody tr{cursor:pointer}
+/* Rascunhos (quadro livre) */
+.ras-panel{background:#fff;border:1px solid #e1e2da;border-radius:19px;overflow:hidden;box-shadow:0 14px 35px rgba(46,55,42,.035)}
+.ras-topo,.ras-ferr{display:flex;align-items:center;gap:6px;padding:10px 12px;overflow-x:auto;scrollbar-width:none}
+.ras-topo{border-bottom:1px solid #eceee8}.ras-topo select{border:1px solid #dfe4db;border-radius:9px;padding:9px 10px;font:700 13px DM Sans,Arial,sans-serif;background:#fafbf8;color:#111;max-width:46vw}
+.ras-topo button,.ras-ferr button,.ras-zoom button{flex:0 0 auto;border:1px solid #dfe4db;background:#fff;color:#111;border-radius:9px;min-width:38px;height:38px;padding:0 9px;font-size:16px;font-weight:800;display:grid;place-items:center}
+.ras-topo button[data-q=novo],.ras-topo button[data-a=png]{font-size:12px}
+.ras-ferr button.on{background:#f6eae2;border-color:#d76845;color:#965236}
+.ras-ferr .ras-cor{min-width:28px;width:28px;height:28px;border-radius:50%;padding:0;border:2px solid #dfe4db}.ras-ferr .ras-cor.on{outline:3px solid #d76845;outline-offset:1px}
+.ras-larg i{display:block;border-radius:50%;background:#111}
+.ras-sep{flex:0 0 1px;height:24px;background:#e2e4dd;margin:0 3px}.ras-esp{flex:1}.ras-sel{display:flex;gap:6px;align-items:center}
+.ras-wrap{position:relative;height:calc(100dvh - 260px);min-height:440px;border-top:1px solid #eceee8;overflow:hidden}
+#rasCanvas{touch-action:none;cursor:crosshair;width:100%;height:100%}
+#rasEdit{position:absolute;border:2px solid #2e6fd8;border-radius:4px;resize:none;outline:0;font-family:DM Sans,Arial,sans-serif;font-weight:600;line-height:1.25;box-sizing:border-box;z-index:2}
+.ras-zoom{position:absolute;left:12px;bottom:12px;display:flex;align-items:center;gap:6px;background:#ffffffe0;border:1px solid #dfe4db;border-radius:12px;padding:5px;font:800 12px DM Sans,Arial,sans-serif}
+.ras-zoom span{min-width:42px;text-align:center}
+.ras-dica{position:absolute;left:150px;bottom:12px;margin:0;max-width:calc(100% - 240px);font-size:11px;color:#555;background:#ffffffd0;padding:6px 9px;border-radius:8px;pointer-events:none}
+@media(max-width:760px){.ras-wrap{height:calc(100dvh - 230px);min-height:400px}.ras-dica{display:none}}
