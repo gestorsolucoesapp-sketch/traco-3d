@@ -567,3 +567,12 @@ html{touch-action:manipulation}
 .pmc-zoom{display:inline-flex;align-items:center;gap:4px;margin-left:auto}.pmc-zoom b{min-width:44px;text-align:center;font-size:12px}.pmc-zoom button{width:38px;padding:9px 0!important}
 .ras-wrap{filter:var(--filtro-cru,none)}
 #rasCanvas,#partSketchCanvas,#sketchCanvas,#partModelCanvas,#modelCanvas,#prjCanvas{touch-action:none}
+/* trilho lateral mais nítido */
+.pc-lateral.tambor .pc-ferr{background:#fff;border:1px solid #ddd6cc;box-shadow:0 1px 3px rgba(0,0,0,.08);color:#111}
+.pc-lateral.tambor .pc-ic{font-size:22px;filter:saturate(1.25) contrast(1.15);opacity:1}
+.pc-lateral.tambor::before,.pc-lateral.tambor::after{height:9%}
+.pc-lateral.tambor .pc-ferr:disabled{opacity:.45!important}
+/* Rascunhos e Projetos têm ferramentas próprias: o trilho some e a área cresce */
+body.aba-livre .pc-lateral,body.aba-livre .tambor-nome{display:none!important}
+body.trilho.aba-livre .app-shell,body.trilho.modo-pc.aba-livre .app-shell{padding-left:16px}
+@media(max-width:760px){body.trilho.aba-livre .app-shell{padding-left:8px}}

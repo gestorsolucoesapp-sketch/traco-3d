@@ -524,7 +524,7 @@
 
   // ---------- trocar de aba ----------
   function mostrar(sim) {
-    painel.hidden = !sim; tab.setAttribute('aria-selected', String(sim));
+    painel.hidden = !sim; tab.setAttribute('aria-selected', String(sim)); document.body.classList.toggle('aba-livre', sim || !(document.getElementById('projetosMode')?.hidden ?? true));
     if (sim) {
       $('architectureMode').hidden = true; $('partsMode').hidden = true;
       $('architectureTab').setAttribute('aria-selected', 'false'); $('partsTab').setAttribute('aria-selected', 'false');

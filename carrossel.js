@@ -26,6 +26,7 @@
     nome.textContent = txt; nome.style.top = `${r.top + r.height / 2}px`; nome.style.left = `${r.right + 8}px`;
     nome.classList.add('on'); tNome = performance.now();
   }
+  let ultTam = '', precisa = true;
   function desenha() {
     const H = lat.clientHeight, R = H * .44, c = H / 2, a = passo();
     const n = itens.length; if (!n) return;
@@ -35,8 +36,8 @@
       if (Math.abs(th) > 1.5) { el.style.visibility = 'hidden'; return; }
       const cs = Math.cos(th), y = c + R * Math.sin(th);
       el.style.visibility = 'visible';
-      el.style.transform = `translate(-50%, -50%) translateY(${y}px) rotateX(${(-th * 57.3).toFixed(1)}deg) scale(${(.5 + .62 * cs).toFixed(3)})`;
-      el.style.opacity = Math.max(0, Math.pow(cs, 1.6)).toFixed(3);
+      el.style.transform = `translate(-50%, -50%) translateY(${y}px) rotateX(${(-th * 57.3 * .7).toFixed(1)}deg) scale(${(.68 + .44 * cs).toFixed(3)})`;
+      el.style.opacity = Math.max(.6, Math.pow(Math.max(cs, 0), .7)).toFixed(3); // nítido até a ponta
       el.style.zIndex = String(Math.round(cs * 100));
       el.classList.toggle('centro', i === meio);
     });
@@ -44,8 +45,10 @@
   }
   function anima() {
     if (!ligado) { nome.classList.remove('on'); requestAnimationFrame(anima); return; }
+    const antes = pos;
     if (!arrasto) { const d = alvo - pos; pos += Math.abs(d) < .002 ? d : d * .22; }
-    desenha();
+    const tam = lat.clientHeight + ':' + lat.querySelectorAll('.pc-ferr').length;
+    if (pos !== antes || arrasto || tam !== ultTam || precisa) { ultTam = tam; precisa = false; desenha(); } // parado = não mexe em nada (economiza o iPad)
     if (nome.classList.contains('on') && !arrasto && performance.now() - tNome > 1300) nome.classList.remove('on');
     requestAnimationFrame(anima);
   }
@@ -85,7 +88,7 @@
   lat.addEventListener('wheel', (e) => { if (!ligado) return; e.preventDefault(); vaiPara(Math.round(alvo) + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
 
   // a coluna é refeita quando muda de aba: reorganiza e mostra a ferramenta em uso no meio
-  new MutationObserver(() => { if (!faixa.isConnected) lat.appendChild(faixa); lista(); if (modo() !== ultimoModo) { ultimoModo = modo(); ultimoAtivo = -1; } }).observe(lat, { childList: true });
+  new MutationObserver(() => { if (!faixa.isConnected) lat.appendChild(faixa); lista(); precisa = true; if (modo() !== ultimoModo) { ultimoModo = modo(); ultimoAtivo = -1; } }).observe(lat, { childList: true });
   setInterval(() => {
     const i = itens.findIndex((el) => el.classList.contains('on'));
     if (i >= 0 && i !== ultimoAtivo) { ultimoAtivo = i; if (!arrasto) vaiPara(i, false); }
