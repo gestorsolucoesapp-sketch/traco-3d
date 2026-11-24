@@ -174,10 +174,14 @@
     }
     const dir = document.createElement('div'); dir.className = 'pc-dir';
     const arq = modo() === 'arq';
-    dir.innerHTML = `<div class="pc-troca"><button type="button" data-m="arq" class="${arq ? 'on' : ''}">Arquitetura</button><button type="button" data-m="pecas" class="${arq ? '' : 'on'}">Peças</button></div>
+    const aba = $('rascunhosMode') && !$('rascunhosMode').hidden ? 'ras' : $('projetosMode') && !$('projetosMode').hidden ? 'prj' : arq ? 'arq' : 'pecas';
+    dir.innerHTML = `<div class="pc-troca"><button type="button" data-m="arq" class="${aba === 'arq' ? 'on' : ''}">Arquitetura</button><button type="button" data-m="pecas" class="${aba === 'pecas' ? 'on' : ''}">Peças</button><button type="button" data-m="ras" class="${aba === 'ras' ? 'on' : ''}">Rascunhos</button><button type="button" data-m="prj" class="${aba === 'prj' ? 'on' : ''}">Projetos</button></div>
       <button type="button" class="pc-sair" title="Voltar ao layout do celular">📱 Sair do modo PC</button>`;
     dir.querySelector('[data-m=arq]').onclick = () => $('architectureTab').click();
     dir.querySelector('[data-m=pecas]').onclick = () => $('partsTab').click();
+    dir.querySelector('[data-m=ras]').onclick = () => $('rascunhosTab')?.click();
+    dir.querySelector('[data-m=prj]').onclick = () => $('projetosTab')?.click();
+    for (const id of ['rascunhosTab', 'projetosTab']) $(id)?.addEventListener('click', () => dir.querySelectorAll('[data-m]').forEach((b) => b.classList.toggle('on', b.dataset.m === (id === 'rascunhosTab' ? 'ras' : 'prj'))));
     dir.querySelector('.pc-sair').onclick = () => liga(false);
     barra.appendChild(dir);
   }

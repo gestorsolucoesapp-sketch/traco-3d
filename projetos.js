@@ -88,7 +88,7 @@
     const q = quadros().find((x) => x.id === P.quadro);
     const contexto = q ? q.objs.filter((o) => (o.t === 'nota' || o.t === 'texto') && o.texto?.trim()).map((o) => '- ' + o.texto.trim().replace(/\s+/g, ' ')).join('\n') : '';
     bts.forEach((b) => (b.disabled = true));
-    msg.textContent = ajuste ? '✨ Ajustando o projeto… (1 a 2 minutos)' : '🧩 Projetando as peças… (até 2 minutos)';
+    msg.textContent = ajuste ? '✨ Ajustando o projeto… (1 a 2 minutos)' : '🧩 Projetando as peças… (1 a 2 minutos)';
     window.tracoNuvem?.('Projetando as peças…');
     try {
       // etapa 1: plano (medidas + lista de peças)
