@@ -150,7 +150,7 @@ async function chamar(system: string, texto: string, chave: string, h: Record<st
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODELO, max_tokens: max, system, messages: [{ role: "user", content: texto }], ...(pensar === "nao" ? { thinking: { type: "disabled" } } : pensar ? { thinking: { type: "enabled", budget_tokens: Number(pensar) || 2000 } } : {}) }),
+    body: JSON.stringify({ model: MODELO, max_tokens: max, system, messages: [{ role: "user", content: texto }], ...(["low", "medium", "high"].includes(pensar) ? { output_config: { effort: pensar } } : {}) }),
   });
   if (!r.ok) {
     console.error("anthropic", r.status, (await r.text()).slice(0, 500));
