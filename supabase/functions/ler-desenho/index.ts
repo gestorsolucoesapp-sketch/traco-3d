@@ -146,11 +146,11 @@ No máximo 6 peças; montagem e conferir com no máximo 6 itens curtos cada. JSO
 const FORMATO_PECA = `ETAPA 2 — UMA PEÇA (só o JSON, compacto, sem crases)
 { "forma": { ... árvore de formas da peça pedida, usando os ids dos parâmetros do plano ... }, "parametros_novos": [ só se precisar de medida que o plano não tinha ] }`;
 
-async function chamar(system: string, texto: string, chave: string, h: Record<string, string>, max: number) {
+async function chamar(system: string, texto: string, chave: string, h: Record<string, string>, max: number, pensar = "") {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODELO, max_tokens: max, system, messages: [{ role: "user", content: texto }] }),
+    body: JSON.stringify({ model: MODELO, max_tokens: max, system, messages: [{ role: "user", content: texto }], ...(pensar === "nao" ? { thinking: { type: "disabled" } } : pensar ? { thinking: { type: "enabled", budget_tokens: Number(pensar) || 2000 } } : {}) }),
   });
   if (!r.ok) {
     console.error("anthropic", r.status, (await r.text()).slice(0, 500));
@@ -171,7 +171,7 @@ async function chamar(system: string, texto: string, chave: string, h: Record<st
 async function projeto(p: Record<string, string>, chave: string, h: Record<string, string>) {
   if (p.fase === "peca") {
     const txt = `PLANO DO PROJETO (JSON):\n${(p.plano || "").slice(0, 30000)}\n\nGere a forma da peça número ${Number(p.indice) + 1}: "${(p.nome || "").slice(0, 200)}".${p.ajuste ? `\nAjuste pedido pelo usuário: ${p.ajuste.slice(0, 1500)}` : ""}\n\n${FORMATO_PECA}`;
-    return chamar(PROMPT_PROJETO, txt, chave, h, 12000);
+    return chamar(PROMPT_PROJETO, txt, chave, h, 12000, p.pensar || "");
   }
   const partes = [`Ideia: ${(p.ideia || "").slice(0, 3000)}`];
   if (p.quadro) partes.push(`Notas do quadro de rascunhos:\n${p.quadro.slice(0, 4000)}`);
@@ -180,7 +180,7 @@ async function projeto(p: Record<string, string>, chave: string, h: Record<strin
   if (p.atual) partes.push(`Projeto atual (JSON):\n${p.atual.slice(0, 30000)}`);
   if (p.ajuste) partes.push(`AJUSTE pedido: ${p.ajuste.slice(0, 1500)} — devolva o plano completo já ajustado, mantendo ids e valores que o usuário mudou.`);
   partes.push(FORMATO_PLANO);
-  return chamar(PROMPT_PROJETO, partes.join("\n\n"), chave, h, 12000);
+  return chamar(PROMPT_PROJETO, partes.join("\n\n"), chave, h, 12000, p.pensar || "");
 }
 
 async function rascunho(pedido: string, contexto: string, chave: string, h: Record<string, string>) {
