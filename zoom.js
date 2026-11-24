@@ -7,7 +7,14 @@
   // 2) pinça vira zoom da própria área (as áreas que já tratam a pinça sozinhas ficam fora: quadro, 3D dos projetos)
   const ALVOS = { sketchCanvas: 'suave', partSketchCanvas: 'suave', modelCanvas: 'passo', partModelCanvas: 'passo' };
   const dedos = new Map(); let pin = null;
-  const roda = (alvo, x, y, dy) => alvo.dispatchEvent(new WheelEvent('wheel', { deltaY: dy, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+  // junta o movimento e manda 1 zoom por quadro de tela (fluido mesmo com desenho pesado)
+  let fila = null, raf = 0;
+  const envia = (alvo, x, y, dy) => alvo.dispatchEvent(new WheelEvent('wheel', { deltaY: dy, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+  const roda = (alvo, x, y, dy, passo) => {
+    if (passo) { envia(alvo, x, y, dy); return; }
+    if (fila && fila.alvo === alvo) { fila.dy += dy; fila.x = x; fila.y = y; } else fila = { alvo, x, y, dy };
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; const f = fila; fila = null; if (f) envia(f.alvo, f.x, f.y, f.dy); });
+  };
   window.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch' || !ALVOS[e.target.id]) return;
     dedos.set(e.pointerId, [e.clientX, e.clientY]);
@@ -27,7 +34,7 @@
     if (pin.d < 10) { pin.d = d; return; }
     const r = Math.log(d / pin.d); pin.d = d;
     if (pin.modo === 'suave') roda(pin.alvo, cx, cy, -r / 0.01);
-    else { pin.acc += r; while (Math.abs(pin.acc) > Math.log(1.08)) { roda(pin.alvo, cx, cy, pin.acc > 0 ? -1 : 1); pin.acc -= Math.sign(pin.acc) * Math.log(1.08); } }
+    else { pin.acc += r; while (Math.abs(pin.acc) > Math.log(1.08)) { roda(pin.alvo, cx, cy, pin.acc > 0 ? -1 : 1, true); pin.acc -= Math.sign(pin.acc) * Math.log(1.08); } }
   }, { capture: true });
   const solta = (e) => {
     if (!dedos.has(e.pointerId)) return;

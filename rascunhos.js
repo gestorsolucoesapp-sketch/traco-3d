@@ -193,7 +193,18 @@
     }
     ctx.restore();
   }
-  function desenhar() {
+  // desenho no ritmo da tela: no máximo 1 por quadro; durante pinça/arraste da tela só estica a imagem já pronta
+  let raf = 0, snap = null;
+  function desenhar() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (snap) rapido(); else desenharJa(); }); }
+  function fotoTela() { if (snap || !W) return; const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.getContext('2d').drawImage(cv, 0, 0); snap = { c, v: { ...V() } }; }
+  function fimFoto() { if (!snap) return; snap = null; desenharJa(); }
+  function rapido() {
+    const z = V().z, k = z / snap.v.z;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = escuro ? '#1c1e1d' : '#fbfaf6'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(snap.c, (snap.v.x - V().x) * z * dpr, (snap.v.y - V().y) * z * dpr, cv.width * k, cv.height * k);
+    painel.querySelector('.ras-sel').hidden = true;
+  }
+  function desenharJa() {
     if (!Q || painel.hidden) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     escuro = Boolean(window.tracoAreaEscura);
@@ -248,17 +259,17 @@
   const pos = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   cv.addEventListener('pointerdown', (e) => {
     if (edit) fecharEdicao();
-    cv.setPointerCapture(e.pointerId);
+    try { cv.setPointerCapture(e.pointerId); } catch { /* */ }
     if (e.pointerType === 'pen') penVisto = true;
     dedos.set(e.pointerId, pos(e));
     if (dedos.size === 2) { // dois dedos: mover e dar zoom
       if (atual) { atual = null; } arraste = null; laco = null;
-      const [a, b] = [...dedos.values()]; gesto = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] }; desenhar(); return;
+      const [a, b] = [...dedos.values()]; gesto = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] }; desenharJa(); fotoTela(); return;
     }
     if (dedos.size > 2) return;
     const [sx, sy] = pos(e), [x, y] = mundo(sx, sy), tol = 8 / V().z;
     const f = (e.button === 1 || (penVisto && e.pointerType === 'touch' && ['caneta', 'marca', 'borr'].includes(ferr))) ? 'mao' : ferr; // com Apple Pencil, o dedo só move a tela
-    if (f === 'mao') { arraste = { tipo: 'mao', s: [sx, sy] }; return; }
+    if (f === 'mao') { arraste = { tipo: 'mao', s: [sx, sy] }; fotoTela(); return; }
     if (f === 'caneta' || f === 'marca') { atual = { t: 'traco', cor, larg: f === 'marca' ? larg * 4 : larg, marca: f === 'marca', pts: [[x, y, e.pointerType === 'pen' ? e.pressure : .5]] }; desenhar(); return; }
     if (f === 'borr') { marca(); arraste = { tipo: 'borr' }; apagaEm(x, y); return; }
     if (f === 'sel') {
@@ -299,18 +310,21 @@
   });
   const fim = (e) => {
     dedos.delete(e.pointerId);
-    if (gesto) { if (dedos.size < 2) { gesto = null; salvar(); } return; }
+    if (gesto) { if (dedos.size < 2) { gesto = null; fimFoto(); salvar(); } return; }
     if (atual) { const ok = atual.t === 'traco' || Math.hypot(atual.x2 - atual.x, atual.y2 - atual.y) > 4 / V().z; if (ok) { marca(); if (atual.t === 'traco') atual.pts = atual.pts.map(([a, b, c]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10, Math.round(c * 100) / 100]); Q.objs.push(atual); salvar(); } atual = null; desenhar(); return; }
     if (arraste?.tipo === 'laco') { const [a, b, c, d] = [Math.min(laco[0], laco[2]), Math.min(laco[1], laco[3]), Math.max(laco[0], laco[2]), Math.max(laco[1], laco[3])]; sel = Q.objs.filter((o) => { const k = caixa(o); return k[0] >= a && k[1] >= b && k[2] <= c && k[3] <= d; }); if (!sel.length) sel = null; laco = null; atualizaSel(); }
     else if (arraste?.tipo === 'mover' && !arraste.mexeu) pilhaD.pop();
     if (arraste && arraste.tipo !== 'mao' && arraste.tipo !== 'laco') salvar(); else if (arraste?.tipo === 'mao') salvar();
+    if (arraste?.tipo === 'mao') { arraste = null; fimFoto(); return; }
     arraste = null; desenhar();
   };
   cv.addEventListener('pointerup', fim); cv.addEventListener('pointercancel', fim);
   cv.addEventListener('dblclick', (e) => { const [x, y] = mundo(...pos(e)), o = quem(x, y, 6 / V().z); if (o && (o.t === 'nota' || o.t === 'texto')) { escolher('sel'); sel = [o]; atualizaSel(); abrirEdicao(o); } });
   cv.addEventListener('wheel', (e) => { e.preventDefault(); const [sx, sy] = pos(e);
+    fotoTela(); clearTimeout(tRoda); tRoda = setTimeout(() => { fimFoto(); salvar(); }, 160);
     if (e.ctrlKey || e.metaKey) zoomEm(sx, sy, Math.exp(-e.deltaY * .01)); else { V().x += e.deltaX / V().z; V().y += e.deltaY / V().z; }
-    desenhar(); salvar(); }, { passive: false });
+    desenhar(); }, { passive: false });
+  let tRoda = 0;
 
   function mover(o, dx, dy) { if (o.t === 'traco') o.pts.forEach((p) => { p[0] += dx; p[1] += dy; }); else { o.x += dx; o.y += dy; if ('x2' in o) { o.x2 += dx; o.y2 += dy; } } }
   function apagaEm(x, y) { const tol = 10 / V().z, antes = Q.objs.length; Q.objs = Q.objs.filter((o) => !(o.t === 'traco' || ['ret', 'circ', 'seta', 'linha'].includes(o.t)) || !acerta(o, x, y, tol)); if (Q.objs.length !== antes) { salvar(); desenhar(); } }
@@ -515,6 +529,7 @@
   $('architectureTab').addEventListener('click', () => mostrar(false));
   $('partsTab').addEventListener('click', () => mostrar(false));
   window.tracoRascunhos = { abrir: () => mostrar(true), quadros: () => quadros, render: () => desenhar() };
+  void desenharJa;
 
   escolher('caneta');
   painel.querySelector('[data-c="#111111"]').classList.add('on'); painel.querySelector('[data-l="5"]').classList.add('on');

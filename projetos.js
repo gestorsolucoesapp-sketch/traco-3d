@@ -266,7 +266,9 @@
     for (const { T, d } of ps) if (T) for (let i = 0; i < T.length; i += 30) for (let k = 0; k < 3; k++) { a[k] = Math.min(a[k], T[i + k] + d[k]); b[k] = Math.max(b[k], T[i + k] + d[k]); }
     caixa = { c: [0, 1, 2].map((k) => (a[k] + b[k]) / 2), r: Math.max(...[0, 1, 2].map((k) => b[k] - a[k])) || 1 };
   }
-  function desenhar() {
+  let rafD = 0;
+  function desenhar() { if (!rafD) rafD = requestAnimationFrame(() => { rafD = 0; desenharJa(); }); }
+  function desenharJa() {
     if (painel.hidden || !W) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#e8ebe4'; ctx.fillRect(0, 0, W, H);
     if (!caixa) return;
@@ -291,7 +293,7 @@
     for (const [A, B, C, , cor] of faces) { ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.closePath(); ctx.fillStyle = cor; ctx.fill(); ctx.strokeStyle = cor; ctx.lineWidth = .5; ctx.stroke(); }
   }
   const toque = new Map(); let gesto = null;
-  cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); toque.set(e.pointerId, [e.clientX, e.clientY]); if (toque.size === 2) { const [a, b] = [...toque.values()]; gesto = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
+  cv.addEventListener('pointerdown', (e) => { try { cv.setPointerCapture(e.pointerId); } catch { /* */ } toque.set(e.pointerId, [e.clientX, e.clientY]); if (toque.size === 2) { const [a, b] = [...toque.values()]; gesto = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
   cv.addEventListener('pointermove', (e) => {
     const ant = toque.get(e.pointerId); if (!ant) return; toque.set(e.pointerId, [e.clientX, e.clientY]);
     if (toque.size >= 2) { const [a, b] = [...toque.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (gesto) cam.zoom = Math.max(.3, Math.min(8, cam.zoom * d / gesto)); gesto = d; }
