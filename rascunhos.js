@@ -63,13 +63,14 @@
       <dialog class="ras-dlg" id="rasIA"><form method="dialog">
         <h3>✨ Gerar no quadro com IA</h3>
         <p class="ras-sub">Escreva o que você quer. A IA monta notas, textos, setas e desenhos e coloca no meio da tela.</p>
+        <p class="ras-sub ras-sub2">Marque o que quer (pode marcar vários) e escreva o tema:</p>
         <div class="ras-chips">
-          <button type="button" data-p="Ideias para ">💡 Ideias</button>
-          <button type="button" data-p="Desenhe ">✏️ Desenhar objeto</button>
-          <button type="button" data-p="Mapa mental sobre ">🧠 Mapa mental</button>
-          <button type="button" data-p="Fluxo do processo de ">🔀 Fluxo</button>
-          <button type="button" data-p="Lista de tarefas para ">✅ Tarefas</button>
-          <button type="button" data-p="Prós e contras de ">⚖️ Prós e contras</button>
+          <button type="button" data-p="ideias (brainstorm em notas adesivas)">💡 Ideias</button>
+          <button type="button" data-p="desenho do objeto (ilustração vetorial bem feita, com vistas se ajudar)">✏️ Desenhar objeto</button>
+          <button type="button" data-p="mapa mental">🧠 Mapa mental</button>
+          <button type="button" data-p="fluxo do processo (passos ligados por setas)">🔀 Fluxo</button>
+          <button type="button" data-p="lista de tarefas">✅ Tarefas</button>
+          <button type="button" data-p="prós e contras">⚖️ Prós e contras</button>
         </div>
         <textarea id="rasPedido" rows="3" placeholder="Ex.: ideias para tampa de pote que não vaza · desenhe um suporte de celular para mesa"></textarea>
         <label class="ras-ctx"><input type="checkbox" id="rasCtx" /> <span id="rasCtxTxt">Usar o que já está no quadro</span></label>
@@ -443,11 +444,13 @@
     $('rasCtxTxt').textContent = daSel ? `Usar o que está selecionado (${sel.length} item${sel.length > 1 ? 's' : ''})` : doQuadro ? 'Usar as notas e textos que já estão no quadro' : 'Usar o que já está no quadro (vazio)';
     $('rasMsg').textContent = ''; dlgIA.querySelector('[data-i=ok]').disabled = false; dlgIA.showModal(); setTimeout(() => $('rasPedido').focus(), 50);
   }
-  dlgIA.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { const t = $('rasPedido'); if (!t.value.trim() || dlgIA.querySelector(`[data-p="${t.value}"]`)) t.value = b.dataset.p; t.focus(); t.setSelectionRange(t.value.length, t.value.length); }));
+  dlgIA.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); b.setAttribute('aria-pressed', String(b.classList.contains('on'))); $('rasPedido').focus(); }));
   dlgIA.querySelector('[data-i=x]').onclick = () => dlgIA.close();
   dlgIA.querySelector('[data-i=ok]').onclick = async () => {
-    const pedido = $('rasPedido').value.trim(), msg = $('rasMsg'), bt = dlgIA.querySelector('[data-i=ok]');
-    if (pedido.length < 4) { msg.textContent = 'Escreva o que você quer gerar.'; return; }
+    const tema = $('rasPedido').value.trim(), msg = $('rasMsg'), bt = dlgIA.querySelector('[data-i=ok]');
+    const tipos = [...dlgIA.querySelectorAll('[data-p].on')].map((b) => b.dataset.p);
+    if (tema.length < 3 && !tipos.length) { msg.textContent = 'Escreva o tema ou marque o que quer gerar.'; return; }
+    const pedido = tipos.length ? `Monte no quadro: ${tipos.join(' + ')}. Tema: ${tema || '(use o que está no quadro)'}.${tipos.length > 1 ? ' Organize cada parte numa área separada do quadro, com título.' : ''}` : tema;
     const contexto = $('rasCtx').checked ? (sel?.length ? textosDoQuadro(sel) : textosDoQuadro(Q.objs)) : '';
     bt.disabled = true; msg.textContent = '✨ Pensando… (pode levar até 1 minuto)';
     try {

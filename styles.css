@@ -576,3 +576,5 @@ html{touch-action:manipulation}
 body.aba-livre .pc-lateral,body.aba-livre .tambor-nome{display:none!important}
 body.trilho.aba-livre .app-shell,body.trilho.modo-pc.aba-livre .app-shell{padding-left:16px}
 @media(max-width:760px){body.trilho.aba-livre .app-shell{padding-left:8px}}
+.ras-chips button.on{background:#2e6fd8;border-color:#2e6fd8;color:#fff}.ras-chips button.on::after{content:' ✓'}
+.ras-sub2{margin:4px 0 8px!important;font-weight:700;color:#222!important}
