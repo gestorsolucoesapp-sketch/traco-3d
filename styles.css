@@ -509,7 +509,7 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .ras-dlg textarea{width:100%;box-sizing:border-box;border:1px solid #dfe4db;border-radius:10px;padding:11px;font:500 15px DM Sans,Arial,sans-serif;resize:vertical}
 .ras-ctx{display:flex;gap:8px;align-items:center;margin:10px 0 4px;font-size:13px}.ras-msg{min-height:18px;font-size:13px;color:#8a3b22;margin:6px 0}
 .ras-acoes{display:flex;justify-content:flex-end;gap:8px}
-#rasCanvas{filter:var(--filtro-cru,none)}#prjCanvas{filter:var(--filtro-area,none)}
+#prjCanvas{filter:var(--filtro-area,none)}
 /* Projetos */
 .prj-panel{background:#fff;border:1px solid #e1e2da;border-radius:19px;overflow:hidden;box-shadow:0 14px 35px rgba(46,55,42,.035)}
 .prj-corpo{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:18px;padding:16px}
@@ -565,3 +565,5 @@ html.tema-escuro img,html.tema-escuro video{filter:invert(1) hue-rotate(180deg)}
 .pmc-nota{filter:var(--filtro-cru,none)}
 html{touch-action:manipulation}
 .pmc-zoom{display:inline-flex;align-items:center;gap:4px;margin-left:auto}.pmc-zoom b{min-width:44px;text-align:center;font-size:12px}.pmc-zoom button{width:38px;padding:9px 0!important}
+.ras-wrap{filter:var(--filtro-cru,none)}
+#rasCanvas,#partSketchCanvas,#sketchCanvas,#partModelCanvas,#modelCanvas,#prjCanvas{touch-action:none}

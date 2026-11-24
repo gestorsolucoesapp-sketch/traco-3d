@@ -141,6 +141,15 @@
     let i = imgs.get(src); if (i) return i;
     i = new Image(); i.onload = () => desenhar(); i.src = src; imgs.set(src, i); return i;
   }
+  // desenho vetorial (SVG) vira imagem pronta no tamanho certo: o Safari não precisa refazer a cada quadro
+  const prontas = new Map();
+  function pronta(i, o) {
+    if (!String(o.src).startsWith('data:image/svg')) return i;
+    const px = Math.min(2048, Math.max(64, 2 ** Math.ceil(Math.log2(o.w * V().z * dpr))));
+    const k = o.src.length + '|' + o.src.slice(-40) + '|' + px; let c = prontas.get(k);
+    if (!c) { c = document.createElement('canvas'); c.width = px; c.height = Math.max(1, Math.round(px * o.h / o.w)); c.getContext('2d').drawImage(i, 0, 0, c.width, c.height); prontas.set(k, c); if (prontas.size > 60) prontas.delete(prontas.keys().next().value); }
+    return c;
+  }
   function caixa(o) {
     if (o.t === 'traco') { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const [x, y] of o.pts) { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); } const m = o.larg / 2; return [a - m, b - m, c + m, d + m]; }
     if (o.t === 'texto') { const lin = (o.texto || ' ').split('\n'); ctx.font = `600 ${o.tam}px DM Sans, Arial, sans-serif`; const w = Math.max(...lin.map((l) => ctx.measureText(l).width), 20); return [o.x, o.y, o.x + w, o.y + lin.length * o.tam * 1.25]; }
@@ -180,7 +189,7 @@
     } else if (o.t === 'texto') textoEm(o.texto || 'Texto', o.x, o.y, o.tam, o.texto ? o.cor : '#9aa0a0');
     else if (o.t === 'img') { const i = img(o.src);
       if (escuro && o.src.startsWith('data:image/svg')) { ctx.fillStyle = '#f4f2ec'; ctx.beginPath(); ctx.roundRect?.(o.x - 6, o.y - 6, o.w + 12, o.h + 12, 10); ctx.fill(); } /* desenho da IA num cartão claro */
-      if (i.complete && i.naturalWidth) ctx.drawImage(i, o.x, o.y, o.w, o.h); else { ctx.fillStyle = '#ddd'; ctx.fillRect(o.x, o.y, o.w, o.h); } }
+      if (i.complete && i.naturalWidth) ctx.drawImage(pronta(i, o), o.x, o.y, o.w, o.h); else { ctx.fillStyle = '#ddd'; ctx.fillRect(o.x, o.y, o.w, o.h); } }
     else {
       ctx.strokeStyle = o.cor; ctx.lineWidth = o.larg; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath();
       if (o.t === 'ret') ctx.rect(Math.min(o.x, o.x2), Math.min(o.y, o.y2), Math.abs(o.x2 - o.x), Math.abs(o.y2 - o.y));
@@ -196,19 +205,18 @@
   // desenho no ritmo da tela: no máximo 1 por quadro; durante pinça/arraste da tela só estica a imagem já pronta
   let raf = 0, snap = null;
   function desenhar() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (snap) rapido(); else desenharJa(); }); }
-  function fotoTela() { if (snap || !W) return; const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.getContext('2d').drawImage(cv, 0, 0); snap = { c, v: { ...V() } }; }
-  function fimFoto() { if (!snap) return; snap = null; desenharJa(); }
+  // durante pinça/arraste: a placa de vídeo só move/estica o canvas (CSS), sem redesenhar nada
+  function fotoTela() { if (snap || !W) return; snap = { v: { ...V() } }; cv.style.transformOrigin = '0 0'; cv.style.willChange = 'transform'; painel.querySelector('.ras-sel').hidden = true; }
+  function fimFoto() { if (!snap) return; snap = null; cv.style.transform = ''; cv.style.willChange = ''; desenharJa(); }
   function rapido() {
     const z = V().z, k = z / snap.v.z;
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = escuro ? '#1c1e1d' : '#fbfaf6'; ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.drawImage(snap.c, (snap.v.x - V().x) * z * dpr, (snap.v.y - V().y) * z * dpr, cv.width * k, cv.height * k);
-    painel.querySelector('.ras-sel').hidden = true;
+    cv.style.transform = `translate(${(snap.v.x - V().x) * z}px, ${(snap.v.y - V().y) * z}px) scale(${k})`;
   }
   function desenharJa() {
     if (!Q || painel.hidden) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     escuro = Boolean(window.tracoAreaEscura);
-    ctx.fillStyle = escuro ? '#1c1e1d' : '#fbfaf6'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = escuro ? '#1c1e1d' : '#fbfaf6'; ctx.fillRect(0, 0, W, H); wrap.style.background = ctx.fillStyle;
     // pontinhos de fundo (quadriculado de papel)
     const z = V().z; let passo = 24; while (passo * z < 14) passo *= 2; while (passo * z > 60) passo /= 2;
     ctx.fillStyle = escuro ? '#3c403e' : '#c9ccc4';

@@ -2,7 +2,6 @@
 (() => {
   // 1) a página inteira não amplia (iPad/iPhone ignoram o "user-scalable", então bloqueia o gesto)
   for (const t of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
-  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
   // 2) pinça vira zoom da própria área (as áreas que já tratam a pinça sozinhas ficam fora: quadro, 3D dos projetos)
   const ALVOS = { sketchCanvas: 'suave', partSketchCanvas: 'suave', modelCanvas: 'passo', partModelCanvas: 'passo' };
