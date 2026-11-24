@@ -7,7 +7,7 @@ self.addEventListener('install', (e) => {
       const r = await fetch('./', { cache: 'no-store' }); const html = await r.clone().text(); await c.put('./', r);
       const urls = [...html.matchAll(/(?:src|href)="([^"#:]+)"/g)].map((m) => m[1]).filter((u) => !u.startsWith('http'));
       const v = (html.match(/fea\.js\?(v=\d+)/) || [])[1];
-      if (v) urls.push(`fea-worker.js?${v}`, `fea-nucleo.js?${v}`);
+      if (v) urls.push(`fea-worker.js?${v}`, `fea-nucleo.js?${v}`, `projeto-worker.js?${v}`);
       await Promise.all(urls.map((u) => c.add(u).catch(() => {})));
     } catch { /* sem rede na instalação: guarda conforme for usando */ }
     self.skipWaiting();

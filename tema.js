@@ -11,10 +11,11 @@
     const area = `${cfg.areaEscuro ? INV + ' ' : ''}brightness(${cfg.areaBrilho / 100}) brightness(${100 / cfg.brilho})${cfg.escuro ? ' hue-rotate(-180deg) invert(1)' : ''}`;
     const neutro = cfg.escuro === cfg.areaEscuro && cfg.brilho === cfg.areaBrilho;
     document.documentElement.style.setProperty('--filtro-area', neutro ? 'none' : area);
+    document.documentElement.style.setProperty('--filtro-cru', cfg.escuro || cfg.brilho !== 100 ? `brightness(${100 / cfg.brilho})${cfg.escuro ? ' hue-rotate(-180deg) invert(1)' : ''}` : 'none'); // cores reais (quadro de rascunhos)
     document.documentElement.classList.toggle('tema-escuro', cfg.escuro);
     window.tracoAreaEscura = !!cfg.areaEscuro; // a área escura inverte as cores do canvas; mapas de cor compensam
     window.tracoGrade = { mostrar: cfg.grade, forca: cfg.gradeForca, tam: cfg.gradeTam };
-    try { window.requestRender?.(); window.tracoPeca?.render(); } catch { /* */ }
+    try { window.requestRender?.(); window.tracoPeca?.render(); window.tracoRascunhos?.render?.(); } catch { /* */ }
     try { localStorage.setItem(CH, JSON.stringify(cfg)); } catch { /* */ }
     pinta();
   };

@@ -22,6 +22,7 @@
         <button type="button" data-q="nome" title="Renomear">✎</button>
         <button type="button" data-q="apagar" title="Apagar quadro">🗑</button>
         <button type="button" data-a="ia" class="ras-ia" title="Gerar com IA">✨ IA</button>
+        <button type="button" data-a="projeto" title="Transformar este quadro num projeto para imprimir em 3D">🧩 Projeto</button>
         <span class="ras-esp"></span>
         <button type="button" data-a="desfazer" title="Desfazer">↶</button>
         <button type="button" data-a="refazer" title="Refazer">↷</button>
@@ -79,7 +80,7 @@
   let quadros = [], Q = null, ferr = 'caneta', cor = '#111111', larg = 5, sel = null, edit = null;
   const pilhaD = [], pilhaR = [];
   const cv = $('rasCanvas'), wrap = painel.querySelector('.ras-wrap'), edt = $('rasEdit');
-  let ctx = cv.getContext('2d'), W = 0, H = 0, dpr = 1, penVisto = false;
+  let escuro = false, ctx = cv.getContext('2d'), W = 0, H = 0, dpr = 1, penVisto = false;
   const novoId = () => Math.random().toString(36).slice(2, 10);
   const vazio = (nome) => ({ id: novoId(), nome, objs: [], view: { x: 0, y: 0, z: 1 }, quando: Date.now() });
 
@@ -163,15 +164,19 @@
     }
     linhas.forEach((l, i) => ctx.fillText(l, x, y + i * tam * 1.25));
   }
+  const tinta = (c) => (escuro && /^#(111111|000000|1b1b1b)$/i.test(c) ? '#f1f1ee' : c); // no escuro, tinta preta vira branca (como no Freeform)
   function desenhaObj(o) {
     ctx.save();
+    if (escuro && o.cor && o.t !== 'nota') o = { ...o, cor: tinta(o.cor) };
     if (o.t === 'traco') { ctx.globalAlpha = o.marca ? .35 : 1; tracoPath(o); }
     else if (o.t === 'nota') {
       ctx.shadowColor = 'rgba(0,0,0,.18)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4; ctx.fillStyle = o.cor; ctx.fillRect(o.x, o.y, o.w, o.h);
       ctx.shadowColor = 'transparent'; ctx.beginPath(); ctx.rect(o.x, o.y, o.w, o.h); ctx.clip();
       textoEm(o.texto || (o === edit ? '' : 'Toque duas vezes para escrever'), o.x + 12, o.y + 12, 16, o.texto ? '#1b1b1b' : 'rgba(0,0,0,.35)', o.w - 24);
     } else if (o.t === 'texto') textoEm(o.texto || 'Texto', o.x, o.y, o.tam, o.texto ? o.cor : '#9aa0a0');
-    else if (o.t === 'img') { const i = img(o.src); if (i.complete && i.naturalWidth) ctx.drawImage(i, o.x, o.y, o.w, o.h); else { ctx.fillStyle = '#ddd'; ctx.fillRect(o.x, o.y, o.w, o.h); } }
+    else if (o.t === 'img') { const i = img(o.src);
+      if (escuro && o.src.startsWith('data:image/svg')) { ctx.fillStyle = '#f4f2ec'; ctx.beginPath(); ctx.roundRect?.(o.x - 6, o.y - 6, o.w + 12, o.h + 12, 10); ctx.fill(); } /* desenho da IA num cartão claro */
+      if (i.complete && i.naturalWidth) ctx.drawImage(i, o.x, o.y, o.w, o.h); else { ctx.fillStyle = '#ddd'; ctx.fillRect(o.x, o.y, o.w, o.h); } }
     else {
       ctx.strokeStyle = o.cor; ctx.lineWidth = o.larg; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath();
       if (o.t === 'ret') ctx.rect(Math.min(o.x, o.x2), Math.min(o.y, o.y2), Math.abs(o.x2 - o.x), Math.abs(o.y2 - o.y));
@@ -187,10 +192,11 @@
   function desenhar() {
     if (!Q || painel.hidden) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#fbfaf6'; ctx.fillRect(0, 0, W, H);
+    escuro = Boolean(window.tracoAreaEscura);
+    ctx.fillStyle = escuro ? '#1c1e1d' : '#fbfaf6'; ctx.fillRect(0, 0, W, H);
     // pontinhos de fundo (quadriculado de papel)
     const z = V().z; let passo = 24; while (passo * z < 14) passo *= 2; while (passo * z > 60) passo /= 2;
-    ctx.fillStyle = '#c9ccc4';
+    ctx.fillStyle = escuro ? '#3c403e' : '#c9ccc4';
     const x0 = Math.floor(V().x / passo) * passo, y0 = Math.floor(V().y / passo) * passo;
     for (let x = x0; x < V().x + W / z; x += passo) for (let y = y0; y < V().y + H / z; y += passo) { const [sx, sy] = tela(x, y); ctx.fillRect(sx - .8, sy - .8, 1.6, 1.6); }
     ctx.setTransform(dpr * z, 0, 0, dpr * z, -V().x * z * dpr, -V().y * z * dpr);
@@ -362,7 +368,7 @@
   function png() {
     if (!Q.objs.length) { dica('O quadro está vazio.'); return; }
     const bs = Q.objs.map(caixa), a = Math.min(...bs.map((b) => b[0])) - 30, b = Math.min(...bs.map((q) => q[1])) - 30, c = Math.max(...bs.map((q) => q[2])) + 30, d = Math.max(...bs.map((q) => q[3])) + 30;
-    const k = Math.min(3, 4000 / Math.max(c - a, d - b)), o = document.createElement('canvas'); o.width = Math.round((c - a) * k); o.height = Math.round((d - b) * k);
+    const k = Math.min(3, 4000 / Math.max(c - a, d - b)), o = document.createElement('canvas'); escuro = false; o.width = Math.round((c - a) * k); o.height = Math.round((d - b) * k);
     const oc = o.getContext('2d'); oc.fillStyle = '#fbfaf6'; oc.fillRect(0, 0, o.width, o.height); oc.setTransform(k, 0, 0, k, -a * k, -b * k);
     ctxTroca(oc, () => Q.objs.forEach(desenhaObj)); // mesmo desenho, noutro canvas
     o.toBlob((bl) => { const u = URL.createObjectURL(bl), l = document.createElement('a'); l.href = u; l.download = `rascunho-${Q.nome.replace(/[^\w-]+/g, '-')}.png`; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000); }, 'image/png');
@@ -439,6 +445,7 @@
     desenhar(); return novos.length;
   }
   painel.querySelector('[data-a=ia]').onclick = abrirIA;
+  painel.querySelector('[data-a=projeto]').onclick = () => { fecharEdicao(); if (window.tracoProjetos) window.tracoProjetos.doQuadro(Q); };
   painel.querySelector('[data-a=desfazer]').onclick = desfazer;
   painel.querySelector('[data-a=refazer]').onclick = refazer;
   painel.querySelector('[data-a=tudo]').onclick = verTudo;
@@ -472,7 +479,7 @@
   tab.addEventListener('click', () => mostrar(true));
   $('architectureTab').addEventListener('click', () => mostrar(false));
   $('partsTab').addEventListener('click', () => mostrar(false));
-  window.tracoRascunhos = { abrir: () => mostrar(true) };
+  window.tracoRascunhos = { abrir: () => mostrar(true), quadros: () => quadros, render: () => desenhar() };
 
   escolher('caneta');
   painel.querySelector('[data-c="#111111"]').classList.add('on'); painel.querySelector('[data-l="5"]').classList.add('on');

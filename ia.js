@@ -7,7 +7,7 @@ window.tracoChamarIA = async (corpo) => {
   let ultimo = null;
   for (let tent = 0; tent < 3; tent++) {
     try {
-      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 150000);
+      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 200000);
       const r = await fetch(window.TRACO_LER_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corpo), signal: ctl.signal });
       clearTimeout(tm);
       const j = await r.json().catch(() => ({ erro: `Resposta inválida do servidor (erro ${r.status}).` }));

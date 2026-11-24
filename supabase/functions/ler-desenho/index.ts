@@ -108,6 +108,68 @@ COMO ESCOLHER
 FORMATO (só o JSON, sem crases)
 { "titulo": "curto", "itens": [ ... ] }`;
 
+const PROMPT_PROJETO = `Você é um engenheiro de produto que projeta peças para IMPRESSÃO 3D FDM (impressoras Bambu Lab P2S / U1, mesa 256 × 256 × 256 mm).
+Recebe a ideia do projeto (e às vezes notas de um quadro de rascunhos) e devolve as peças como FORMAS SÓLIDAS com PARÂMETROS.
+
+PARÂMETROS (o mais importante)
+- Toda medida relevante vira um parâmetro com id curto (letras, números, _), ex.: {"id":"tela_L","nome":"Largura da placa da tela","valor":86,"unidade":"mm","origem":"componente","obs":"ILI9341 2,8\" módulo vermelho comum"}.
+- "origem": "usuario" (o usuário disse), "componente" (medida da ficha técnica de um componente comprado pronto — diga qual em obs), "projeto" (regra de projeto: parede, folga, raio), "estimado" (você chutou porque não sabe). Use "estimado" sempre que não tiver certeza — o app pinta de vermelho para o usuário conferir. NUNCA esconda uma suposição.
+- As formas usam os ids em expressões: "tela_L + 2*folga + 2*parede". Funções: min, max, sqrt, abs, round. Parâmetro pode depender de outro já declarado antes.
+
+FORMAS (mm, Z para cima, "centro" = centro geométrico da forma, "rot" = [rx, ry, rz] graus, opcional)
+- {"tipo":"caixa","tam":[x,y,z],"raio":r,"centro":[x,y,z]}  (raio arredonda as quinas; 0 = quina viva)
+- {"tipo":"cilindro","d":d,"h":h,"centro":[...]}  (eixo Z; para furo de lado use rot [0,90,0] ou [90,0,0])
+- {"tipo":"cone","d1":d_baixo,"d2":d_cima,"h":h,"centro":[...]}
+- {"tipo":"esfera","d":d,"centro":[...]}   {"tipo":"hexagono","s":medida_entre_faces,"h":h,"centro":[...]}   {"tipo":"toro","D":d_maior,"d":d_tubo,"centro":[...]}
+- {"op":"uniao","itens":[...]}  {"op":"diferenca","itens":[corpo, furo1, furo2, ...]} (primeiro menos os outros)  {"op":"intersecao","itens":[...]}
+- {"op":"repetir","item":forma,"n":[nx,ny,nz],"passo":[dx,dy,dz],"centro":[...]}  (cópias centradas; ótimo para furos de ventilação)
+- {"op":"espelho","eixo":"x","item":forma}  (a forma + a cópia espelhada)
+- Qualquer nó aceita "centro" e "rot" (move/gira o grupo inteiro).
+
+REGRAS DE IMPRESSÃO 3D
+- Parede mínima 1,6 mm (caixas: 2 a 2,4 mm). Folga de encaixe entre peças 0,2–0,3 mm; folga em volta de placas eletrônicas 0,5 mm.
+- Furo para parafuso M3 passante 3,4 mm; para M3 rosqueado direto no plástico 2,8 mm; inserto quente M3 = furo 4,0 mm × 5 mm de fundo. Torre de parafuso com Ø 7 mm.
+- Evite balanço maior que 45° e pontes longas. Cada peça deve ter uma face plana para apoiar na mesa; diga como imprimir em "impressao" e, se precisar girar para imprimir, "imprimir_rot":[rx,ry,rz].
+- Peças em posição de MONTAGEM (todas no mesmo sistema de coordenadas, encaixadas). O app separa e deita cada uma para imprimir.
+- Componentes eletrônicos e peças compradas (sensor, placa, bateria, parafuso) NÃO são impressos: não vire peça, só os espaços/fixações para eles.
+- Seja fiel à ideia: janelas para tela/sensor, furos de botões, conectores, ventilação, encaixes.
+
+FORMATO (só o JSON, sem crases)
+{ "nome": "nome curto do projeto",
+  "resumo": "1 frase",
+  "parametros": [ ... ],
+  "pecas": [ { "nome": "Caixa (base)", "forma": { ... }, "impressao": "PETG 0,2 mm, 3 paredes, 15% infill, sem suporte, deitada pela face de trás", "imprimir_rot": [0,0,0] } ],
+  "montagem": [ "passo curto", ... ],
+  "conferir": [ "o que o usuário precisa medir/confirmar antes de imprimir" ] }
+Seja econômico (a resposta precisa sair rápido): JSON compacto, sem espaços sobrando, no máximo ~40 parâmetros e 6 peças; textos curtos.
+Se receber o projeto atual e um pedido de AJUSTE, devolva o projeto completo já ajustado (mesmo formato), mantendo os ids dos parâmetros que continuam valendo e os valores que o usuário mudou.`;
+
+async function projeto(p: Record<string, string>, chave: string, h: Record<string, string>) {
+  const partes = [`Ideia: ${(p.ideia || "").slice(0, 3000)}`];
+  if (p.quadro) partes.push(`Notas do quadro de rascunhos:\n${p.quadro.slice(0, 4000)}`);
+  if (p.pedido) partes.push(`O que imprimir: ${p.pedido.slice(0, 1500)}`);
+  if (p.medidas) partes.push(`Medidas que o usuário já tem (origem "usuario"): ${p.medidas.slice(0, 1500)}`);
+  if (p.atual) partes.push(`Projeto atual (JSON):\n${p.atual.slice(0, 30000)}`);
+  if (p.ajuste) partes.push(`AJUSTE pedido: ${p.ajuste.slice(0, 1500)}`);
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": chave, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: MODELO, max_tokens: 16000, system: PROMPT_PROJETO, messages: [{ role: "user", content: partes.join("\n\n") }] }),
+  });
+  if (!r.ok) {
+    console.error("anthropic", r.status, (await r.text()).slice(0, 500));
+    return new Response(JSON.stringify({ erro: [429, 500, 502, 503, 529].includes(r.status) ? "A IA está ocupada agora (" + r.status + "). Tente de novo em instantes." : `IA respondeu ${r.status}.` }), { status: [429, 500, 502, 503, 529].includes(r.status) ? 503 : 502, headers: h });
+  }
+  const dados = await r.json();
+  const t: string = (dados.content ?? []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("\n").replace(/```(?:json)?/gi, "");
+  try {
+    return new Response(JSON.stringify(JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1))), { headers: h });
+  } catch {
+    console.error("json", dados.stop_reason, t.slice(0, 300));
+    return new Response(JSON.stringify({ erro: dados.stop_reason === "max_tokens" ? "Projeto grande demais de uma vez. Peça uma peça por vez (ex.: só a caixa)." : "A IA não conseguiu montar as peças. Tente explicar de outro jeito." }), { status: 422, headers: h });
+  }
+}
+
 async function rascunho(pedido: string, contexto: string, chave: string, h: Record<string, string>) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -162,10 +224,11 @@ Deno.serve(async (req) => {
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
   if (!chave) return new Response(JSON.stringify({ erro: "Servidor sem ANTHROPIC_API_KEY." }), { status: 500, headers: h });
 
-  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string; rascunho?: string; contexto?: string };
+  let corpo: { imagem?: string; tipo?: string; midia?: string; texto?: string; rascunho?: string; contexto?: string; projeto?: Record<string, string> };
   try { corpo = await req.json(); } catch {
     return new Response(JSON.stringify({ erro: "Corpo inválido." }), { status: 400, headers: h });
   }
+  if (corpo.projeto && typeof corpo.projeto === "object") return projeto(corpo.projeto, chave, h);
   if (typeof corpo.rascunho === "string" && corpo.rascunho.trim()) return rascunho(corpo.rascunho.trim(), typeof corpo.contexto === "string" ? corpo.contexto : "", chave, h);
   if (typeof corpo.texto === "string" && corpo.texto.trim()) return narrar(corpo.texto.trim(), chave, h);
   const imagem = (corpo.imagem ?? "").replace(/^data:[^,]+,/, "");
