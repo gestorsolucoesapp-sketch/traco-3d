@@ -57,7 +57,7 @@
           <button type="button" data-s="dup" title="Duplicar">⧉</button>
           <button type="button" data-s="frente" title="Trazer para frente">⬆</button>
           <button type="button" data-s="del" title="Apagar">🗑</button></div><textarea id="rasEdit" hidden></textarea>
-        <div class="ras-zoom"><button type="button" data-z="-">−</button><span id="rasZ">100%</span><button type="button" data-z="+">＋</button></div>
+        <div class="ras-zoom"><button type="button" data-z="-">−</button><span id="rasZ">100%</span><button type="button" data-z="+">＋</button><button type="button" data-z="tudo" class="ras-tudo" title="Ver tudo">⤢ Ver tudo</button></div>
         <p class="ras-dica" id="rasDica"></p></div>
       <input type="file" id="rasFoto" accept="image/*" hidden />
       <dialog class="ras-dlg" id="rasIA"><form method="dialog">
@@ -208,7 +208,12 @@
   function desenhar() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (snap) rapido(); else desenharJa(); }); }
   // durante pinça/arraste: a placa de vídeo só move/estica o canvas (CSS), sem redesenhar nada
   function fotoTela() { if (snap || !W) return; snap = { v: { ...V() } }; cv.style.transformOrigin = '0 0'; cv.style.willChange = 'transform'; painel.querySelector('.ras-sel').hidden = true; }
-  function fimFoto() { if (!snap) return; snap = null; cv.style.transform = ''; cv.style.willChange = ''; desenharJa(); }
+  function fimFoto() { if (!snap) return; snap = null; cv.style.transform = ''; cv.style.willChange = ''; desenharJa(); avisaPerdido(); }
+  function avisaPerdido() { // nada na tela? mostra o caminho de volta
+    if (!Q?.objs.length) return; const [a, b] = mundo(0, 0), [c, d] = mundo(W, H);
+    const algum = Q.objs.some((o) => { const k = caixa(o); return k[2] >= a && k[0] <= c && k[3] >= b && k[1] <= d; });
+    painel.querySelector('.ras-tudo').classList.toggle('pisca', !algum); if (!algum) dica('O desenho ficou fora da tela: toque em ⤢ Ver tudo.');
+  }
   function rapido() {
     const z = V().z, k = z / snap.v.z;
     cv.style.transform = `translate(${(snap.v.x - V().x) * z}px, ${(snap.v.y - V().y) * z}px) scale(${k})`;
@@ -421,7 +426,7 @@
     if (!Q.objs.length) { Q.view = { x: -W / 2, y: -H / 2, z: 1 }; }
     else { const bs = Q.objs.map(caixa), a = Math.min(...bs.map((b) => b[0])), b = Math.min(...bs.map((q) => q[1])), c = Math.max(...bs.map((q) => q[2])), d = Math.max(...bs.map((q) => q[3]));
       const z = Math.max(.1, Math.min(2, Math.min(W / (c - a + 80), H / (d - b + 80)))); Q.view = { z, x: (a + c) / 2 - W / 2 / z, y: (b + d) / 2 - H / 2 / z }; }
-    $('rasZ').textContent = Math.round(V().z * 100) + '%'; salvar(); desenhar();
+    $('rasZ').textContent = Math.round(V().z * 100) + '%'; salvar(); desenhar(); painel.querySelector('.ras-tudo')?.classList.remove('pisca');
   }
   function png() {
     if (!Q.objs.length) { dica('O quadro está vazio.'); return; }
@@ -510,7 +515,7 @@
   painel.querySelector('[data-a=refazer]').onclick = refazer;
   painel.querySelector('[data-a=tudo]').onclick = verTudo;
   painel.querySelector('[data-a=png]').onclick = png;
-  painel.querySelectorAll('[data-z]').forEach((b) => (b.onclick = () => { zoomEm(W / 2, H / 2, b.dataset.z === '+' ? 1.25 : .8); desenhar(); salvar(); }));
+  painel.querySelectorAll('[data-z]').forEach((b) => (b.onclick = () => { if (b.dataset.z === 'tudo') { verTudo(); return; } zoomEm(W / 2, H / 2, b.dataset.z === '+' ? 1.25 : .8); desenhar(); salvar(); }));
   $('rasQuadro').addEventListener('change', (e) => { fecharEdicao(); Q = quadros.find((q) => q.id === e.target.value) || Q; sel = null; pilhaD.length = pilhaR.length = 0; atualizaSel(); listaQuadros(); $('rasZ').textContent = Math.round(V().z * 100) + '%'; desenhar(); });
   painel.querySelector('[data-q=novo]').onclick = () => { const n = prompt('Nome do novo quadro:', `Quadro ${quadros.length + 1}`); if (n == null) return; Q = vazio(n.trim() || `Quadro ${quadros.length + 1}`); quadros.unshift(Q); pilhaD.length = pilhaR.length = 0; listaQuadros(); salvar(); verTudo(); };
   painel.querySelector('[data-q=nome]').onclick = () => { const n = prompt('Novo nome do quadro:', Q.nome); if (!n?.trim()) return; Q.nome = n.trim(); listaQuadros(); salvar(); };
