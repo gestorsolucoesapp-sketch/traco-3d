@@ -13,5 +13,5 @@ jobs:
           SR=$(curl -sS -f "https://api.supabase.com/v1/projects/$REF/api-keys?reveal=true" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -r '([.[] | select(.name=="service_role")][0].api_key) // empty')
           echo "::add-mask::$SR"
           curl -sS "https://$REF.supabase.co/auth/v1/admin/users?per_page=50" -H "apikey: $SR" -H "Authorization: Bearer $SR" \
-            | jq -r '.users[] | "\(.email | sub("^(?<a>..)[^@]*"; "\(.a)***")) | criada \(.created_at[0:16]) | confirmada \(.email_confirmed_at != null) | último acesso \(.last_sign_in_at // "nunca" | tostring | .[0:16]) | id \(.id[0:8])"'
+            | jq -r '.users[] | "\((.email // "(sem e-mail)") | sub("^(?<a>..)[^@]*"; "\(.a)***")) | criada \(.created_at[0:16]) | confirmada \(.email_confirmed_at != null) | último acesso \(.last_sign_in_at // "nunca" | tostring | .[0:16]) | id \(.id[0:8])"'
           echo "linhas na nuvem:"; curl -sS "https://$REF.supabase.co/rest/v1/traco_dados?select=user_id,tipo" -H "apikey: $SR" -H "Authorization: Bearer $SR" | jq -r 'group_by(.user_id)[] | "\(.[0].user_id[0:8]): \(length) itens"'
