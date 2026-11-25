@@ -176,6 +176,15 @@
   let rolando = false;
   for (const [a, b] of [['croTab', 'croGantt'], ['croGantt', 'croTab']]) $(a).addEventListener('scroll', () => { if (rolando) { rolando = false; return; } if (matchMedia('(max-width:760px)').matches) return; rolando = true; $(b).scrollTop = $(a).scrollTop; });
 
+
+  // redesenha a tabela depois do clique/toque ir para o próximo campo, e devolve o foco a ele
+  function redesenhaMantendoFoco(caixa, monta) {
+    setTimeout(() => {
+      const a = document.activeElement, tr = a?.closest?.('tr[data-i]'), k = a?.dataset?.k, i = tr?.dataset.i, dentro = caixa.contains(a);
+      monta();
+      if (dentro && k != null && i != null) { const el = caixa.querySelector(`tr[data-i="${i}"] [data-k="${k}"]`); if (el) { el.focus(); try { el.select(); } catch { /* */ } } }
+    }, 0);
+  }
   // ---------- edição ----------
   $('croTab').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-i]'); if (!tr) return; const i = +tr.dataset.i; if (i !== sel) { sel = i; $('croTab').querySelectorAll('tr[data-i]').forEach((r) => r.classList.toggle('sel', +r.dataset.i === sel)); gantt(C(), calcula(C())); } });
   $('croTab').addEventListener('change', (e) => {
@@ -184,7 +193,7 @@
     if (k === 'dur') t.dur = Math.max(0, Math.round(parseFloat(el.value.replace(',', '.')) || 0));
     else if (k === 'pct') t.pct = Math.max(0, Math.min(100, Math.round(+el.value || 0)));
     else t[k] = el.value.trim();
-    salvar(); monta();
+    salvar(); redesenhaMantendoFoco($('croTab'), monta);
   });
   $('croIni').addEventListener('change', (e) => { if (e.target.value) { C().inicio = e.target.value; salvar(); monta(); } });
   $('croUteis').addEventListener('change', (e) => { C().uteis = e.target.checked; salvar(); monta(); });
@@ -252,6 +261,7 @@
   };
   // usado pelo resumo, pelo relatório e pelo "Puxar do projeto"
   window.tracoCrono = {
+    calc(p) { const c = p.crono; if (!c?.tarefas?.length) return null; return { c, R: calcula(c), diaDe: (k) => diaDe(c, k), br, hoje: D(hojeISO()), folga: (dt) => folga(c, dt) }; },
     resumo(p) { const c = p.crono; if (!c?.tarefas?.length) return null; const R = calcula(c); let tot = 0, feito = 0;
       c.tarefas.forEach((t, i) => { if (!R.resumo[i]) { const d = Math.max(R.fim[i] - R.ini[i], .5); tot += d; feito += d * (+t.pct || 0) / 100; } });
       return { ini: br(diaDe(c, 0)), fim: br(diaDe(c, Math.max(0, R.fimProj - 1))), dias: R.fimProj, pct: tot ? Math.round(feito / tot * 100) : 0, n: c.tarefas.length, atrasadas: c.tarefas.filter((t, i) => !R.resumo[i] && (+t.pct || 0) < 100 && diaDe(c, Math.max(R.ini[i], R.fim[i] - 1)) < D(hojeISO())).length }; },

@@ -36,7 +36,8 @@
     const card = (ic, tit, val, sub, aba) => `<button type="button" class="prj-kpi" data-ir="${aba}"><span>${ic}</span><div><small>${tit}</small><b>${val}</b>${sub ? `<em>${sub}</em>` : ''}</div></button>`;
     resumo.innerHTML = `<div class="prj-kpis">
         ${card('🧩', 'Peças 3D', S ? `${(S.pecas || []).length} peça${(S.pecas || []).length > 1 ? 's' : ''}` : '—', g ? `≈ ${Math.round(g)} g de filamento (maciço)` : '', 'pecas')}
-        ${card('🛒', 'Compras', cp.length ? (tot ? brl(tot) : '—') : '—', cp.length ? `${cp.length} ite${cp.length > 1 ? 'ns' : 'm'}${semPreco ? ` · ${semPreco} sem preço` : ''}` : '', 'pecas')}
+        ${(() => { const cu = window.tracoCustos?.resumo(p); return cu ? card('💰', 'Custos', brl(cu.BAC), `gasto ${brl(cu.AC)}${Number.isFinite(cu.CPI) ? ` · IDC ${cu.CPI.toFixed(2).replace('.', ',')}` : ''}`, 'custos')
+          : card('🛒', 'Compras', cp.length ? (tot ? brl(tot) : '—') : '—', cp.length ? `${cp.length} ite${cp.length > 1 ? 'ns' : 'm'}${semPreco ? ` · ${semPreco} sem preço` : ''}` : '', 'pecas'); })()}
         ${card('📅', 'Prazo', cr ? `${cr.ini} → ${cr.fim}` : '—', cr ? `${cr.dias} dias · ${cr.pct}% concluído` : '', 'crono')}
         ${card('🗂️', 'Canvas', blocos.length ? `${cheios}/${blocos.length} blocos` : '—', '', 'canvas')}
         <button type="button" class="prj-kpi prj-rel" data-rel><span>📄</span><div><small>Relatório</small><b>Projeto inteiro</b><em>PDF / imprimir</em></div></button></div>
@@ -131,7 +132,7 @@
     let img3d = ''; try { const cv = $('prjCanvas'); if (cv.width > 10 && S.pecas) img3d = cv.toDataURL('image/png'); } catch { /* */ }
     const cp = compras(p), tot = cp.reduce((s, c) => s + (c.sub || 0), 0), cr = window.tracoCrono?.resumo(p);
     const blocos = window.tracoCanvas?.BLOCOS || [];
-    const crono = window.tracoCrono?.html(p) || '', pdm = window.tracoPdm?.html(p) || '';
+    const crono = window.tracoCrono?.html(p) || '', pdm = window.tracoPdm?.html(p) || '', custos = window.tracoCustos?.html(p) || '';
     const lista = (arr) => (arr || []).length ? `<ul>${arr.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(p.nome)} — relatório do projeto</title>
 <style>body{font:14px/1.45 -apple-system,Segoe UI,Arial,sans-serif;color:#111;margin:24px;max-width:1100px}h1{font-size:26px;margin:0}h2{font-size:18px;margin:26px 0 8px;border-bottom:2px solid #d76845;padding-bottom:4px}
@@ -139,7 +140,7 @@
 table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{border:1px solid #ddd;padding:5px 6px;text-align:left;vertical-align:top}th{background:#f4f5f1}
 .canvas{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.bl{border:1.5px solid #ccc;border-radius:8px;padding:6px;font-size:12px}.bl b{display:block;font-size:12.5px;margin-bottom:4px}.bl i{display:block;background:#ffe57a;margin:3px 0;padding:3px 5px;font-style:normal;border-radius:3px}
 .est{color:#a33b1e;font-weight:700}.img3d{max-width:100%;border:1px solid #ddd;border-radius:10px}.rel-crono input{border:0;background:none;font:inherit;width:auto}.rel-crono table{font-size:11.5px}.rel-gantt,.rel-pdm{overflow:auto;border:1px solid #ddd;border-radius:8px;margin-top:8px}
-.rel-crono button,.rel-pdmres button{display:none}.bar{position:sticky;top:0;background:#fff;padding:8px 0;margin-bottom:8px}.bar button{font:700 14px Arial;padding:9px 14px;border-radius:9px;border:1px solid #ccc;background:#111;color:#fff}
+.rel-crono button,.rel-pdmres button{display:none}.cus-rel>div:first-child{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.cus-kpi{border:1px solid #ddd;border-radius:8px;padding:6px 8px}.cus-kpi small,.cus-kpi em{display:block;font-size:11px;color:#666;font-style:normal}.cus-kpi b{font-size:14px}.cus-leg span{margin-left:10px;font-size:12px}.cus-leg i{display:inline-block;width:12px;height:4px;margin-right:4px;vertical-align:middle}.bar{position:sticky;top:0;background:#fff;padding:8px 0;margin-bottom:8px}.bar button{font:700 14px Arial;padding:9px 14px;border-radius:9px;border:1px solid #ccc;background:#111;color:#fff}
 @media print{.bar{display:none}body{margin:10mm}h2{break-after:avoid}.kpis{grid-template-columns:repeat(4,1fr)}}</style></head><body>
 <div class="bar"><button onclick="print()">🖨️ Imprimir / salvar PDF</button></div>
 <h1>${esc(p.nome)}</h1><p class="sub">Relatório do projeto · ${new Date().toLocaleDateString('pt-BR')} · Traço</p>
@@ -151,6 +152,7 @@ ${S.pecas ? `<h2>Peças 3D</h2>${img3d ? `<img class="img3d" src="${img3d}" alt=
 ${cp.length ? `<h2>Lista de compras</h2><table><tr><th>Qtd</th><th>Item</th><th>Loja</th><th>Subtotal</th></tr>${cp.map((c) => `<tr><td>${c.qtd}</td><td>${esc(c.nome)}</td><td>${c.link ? `<a href="${esc(c.link)}">${esc(c.loja)}</a>` : esc(c.loja || '—')}</td><td>${c.sub != null ? brl(c.sub) : 'sem preço'}</td></tr>`).join('')}<tr><th colspan="3">Total (sem frete)</th><th>${brl(tot)}</th></tr></table>` : ''}
 ${crono ? `<h2>Cronograma</h2>${crono}` : ''}
 ${pdm ? `<h2>Diagrama de precedência</h2>${pdm}` : ''}
+${custos && window.tracoCustos.resumo(p) ? `<h2>Custos e Curva S</h2><div class="cus-rel">${custos}</div>` : ''}
 ${(S.montagem || []).length ? `<h2>Montagem</h2><ol>${S.montagem.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
 ${(S.conferir || []).length ? `<h2>Conferir antes de imprimir</h2>${lista(S.conferir)}` : ''}
 </body></html>`;
