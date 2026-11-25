@@ -320,6 +320,7 @@
   for (const id of ['architectureTab', 'partsTab', 'rascunhosTab']) $(id)?.addEventListener('click', () => mostrar(false));
   // chamado pelo quadro de Rascunhos: "🧩 Projeto"
   window.tracoProjetos = {
+    gesto: () => Boolean(gesto),
     atual: () => P,
     salvar: () => salvar(),
     doQuadro(q) {

@@ -42,4 +42,27 @@
   };
   window.addEventListener('pointerup', solta, { capture: true });
   window.addEventListener('pointercancel', solta, { capture: true });
+
+  // 3) caminho reserva pelos eventos de toque (alguns iPhones não mandam os dois dedos como "pointer")
+  const TODOS = { ...ALVOS, rasCanvas: 'suave', prjCanvas: 'prj' };
+  const ativoPeloPointer = (id) => (ALVOS[id] ? Boolean(pin) : id === 'rasCanvas' ? Boolean(window.tracoRascunhos?.gesto?.()) : id === 'prjCanvas' ? Boolean(window.tracoProjetos?.gesto?.()) : false);
+  let tq = null;
+  const alvoDoToque = (e) => { for (let el = e.target; el; el = el.parentElement) if (TODOS[el.id]) return el; return null; };
+  document.addEventListener('touchstart', (e) => {
+    const alvo = alvoDoToque(e); if (!alvo || e.touches.length !== 2) { if (e.touches.length < 2) tq = null; return; }
+    const [a, b] = e.touches; tq = { alvo, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), c: [(a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2], acc: 0 };
+  }, { passive: true, capture: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!tq || e.touches.length !== 2) return;
+    e.preventDefault();
+    const [a, b] = e.touches, d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), c = [(a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2];
+    const r = Math.log(d / (tq.d || d)), dx = c[0] - tq.c[0], dy = c[1] - tq.c[1]; tq.d = d; tq.c = c;
+    if (ativoPeloPointer(tq.alvo.id)) return; // o caminho normal já está cuidando
+    const modo = TODOS[tq.alvo.id];
+    if (modo === 'passo') { tq.acc += r; while (Math.abs(tq.acc) > Math.log(1.08)) { envia(tq.alvo, c[0], c[1], tq.acc > 0 ? -1 : 1); tq.acc -= Math.sign(tq.acc) * Math.log(1.08); } return; }
+    if (modo === 'prj') { roda(tq.alvo, c[0], c[1], -r / 0.002); return; }
+    roda(tq.alvo, c[0], c[1], -r / 0.01);
+    if (tq.alvo.id === 'rasCanvas' && (dx || dy)) tq.alvo.dispatchEvent(new WheelEvent('wheel', { deltaX: -dx, deltaY: -dy, clientX: c[0], clientY: c[1], bubbles: true, cancelable: true })); // arrastar com 2 dedos
+  }, { passive: false, capture: true });
+  document.addEventListener('touchend', (e) => { if (e.touches.length < 2) tq = null; }, { passive: true, capture: true });
 })();

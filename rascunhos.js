@@ -544,7 +544,7 @@
   tab.addEventListener('click', () => mostrar(true));
   $('architectureTab').addEventListener('click', () => mostrar(false));
   $('partsTab').addEventListener('click', () => mostrar(false));
-  window.tracoRascunhos = { abrir: () => mostrar(true), quadros: () => quadros, render: () => desenhar() };
+  window.tracoRascunhos = { gesto: () => gesto, abrir: () => mostrar(true), quadros: () => quadros, render: () => desenhar() };
   void desenharJa;
 
   escolher('caneta');
