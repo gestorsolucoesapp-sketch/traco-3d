@@ -71,6 +71,7 @@
           <button type="button" data-p="fluxo do processo (passos ligados por setas)">🔀 Fluxo</button>
           <button type="button" data-p="lista de tarefas">✅ Tarefas</button>
           <button type="button" data-p="prós e contras">⚖️ Prós e contras</button>
+          <button type="button" data-p3d class="ras-3d">🧩 3D para imprimir</button>
         </div>
         <textarea id="rasPedido" rows="3" placeholder="Tema"></textarea>
         <label class="ras-ctx"><input type="checkbox" id="rasCtx" /> <span id="rasCtxTxt">Usar o que já está no quadro</span></label>
@@ -449,12 +450,13 @@
     $('rasCtxTxt').textContent = daSel ? `Usar o que está selecionado (${sel.length} item${sel.length > 1 ? 's' : ''})` : doQuadro ? 'Usar as notas e textos que já estão no quadro' : 'Usar o que já está no quadro (vazio)';
     $('rasMsg').textContent = ''; dlgIA.querySelector('[data-i=ok]').disabled = false; dlgIA.showModal(); setTimeout(() => $('rasPedido').focus(), 50);
   }
-  dlgIA.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); b.setAttribute('aria-pressed', String(b.classList.contains('on'))); $('rasPedido').focus(); }));
+  dlgIA.querySelectorAll('[data-p], [data-p3d]').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); b.setAttribute('aria-pressed', String(b.classList.contains('on'))); $('rasPedido').focus(); }));
   dlgIA.querySelector('[data-i=x]').onclick = () => dlgIA.close();
   dlgIA.querySelector('[data-i=ok]').onclick = async () => {
     const tema = $('rasPedido').value.trim(), msg = $('rasMsg'), bt = dlgIA.querySelector('[data-i=ok]');
-    const tipos = [...dlgIA.querySelectorAll('[data-p].on')].map((b) => b.dataset.p);
-    if (tema.length < 3 && !tipos.length) { msg.textContent = 'Escreva o tema ou marque o que quer gerar.'; return; }
+    const tipos = [...dlgIA.querySelectorAll('[data-p].on')].map((b) => b.dataset.p), quer3d = dlgIA.querySelector('[data-p3d]').classList.contains('on');
+    if (tema.length < 3 && !tipos.length && !quer3d) { msg.textContent = 'Escreva o tema ou marque o que quer gerar.'; return; }
+    if (quer3d && !tipos.length) { dlgIA.close(); $('rasPedido').value = ''; window.tracoProjetos?.doQuadro(Q, { ideia: tema, gerar: true }); return; } // só o 3D: vai direto para o projeto
     const pedido = tipos.length ? `Monte no quadro: ${tipos.join(' + ')}. Tema: ${tema || '(use o que está no quadro)'}.${tipos.length > 1 ? ' Organize cada parte numa área separada do quadro, com título.' : ''}` : tema;
     const contexto = $('rasCtx').checked ? (sel?.length ? textosDoQuadro(sel) : textosDoQuadro(Q.objs)) : '';
     bt.disabled = true; msg.textContent = '✨ Pensando… (pode levar até 1 minuto)';
@@ -463,6 +465,7 @@
       const n = colocarIA(j);
       if (!n) { msg.textContent = 'A IA não devolveu nada para colocar. Tente explicar de outro jeito.'; bt.disabled = false; return; }
       dlgIA.close(); $('rasPedido').value = ''; dica(`✨ ${n} itens colocados. Arraste para mudar de lugar; ↶ desfaz.`);
+      if (quer3d) window.tracoProjetos?.doQuadro(Q, { ideia: tema, gerar: true }); // depois do quadro, gera o 3D
     } catch (e) { msg.textContent = String(e.message || e); bt.disabled = false; }
   };
   function svgSeguro(txt) {

@@ -581,3 +581,4 @@ body.trilho.aba-livre .app-shell,body.trilho.modo-pc.aba-livre .app-shell{paddin
 .ras-zoom .ras-tudo{width:auto!important;padding:0 10px!important;font-size:12px!important;white-space:nowrap}
 .ras-tudo.pisca{background:#d76845!important;color:#fff!important;animation:rasPisca 1s ease-in-out 4}
 @keyframes rasPisca{50%{transform:scale(1.08)}}
+.ras-chips .ras-3d{border-color:#d76845;color:#965236}.ras-chips .ras-3d.on{background:#d76845;border-color:#d76845;color:#fff}

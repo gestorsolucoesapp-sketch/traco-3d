@@ -323,11 +323,16 @@
     gesto: () => Boolean(gesto),
     atual: () => P,
     salvar: () => salvar(),
-    doQuadro(q) {
+    // abre o projeto do quadro e, se ainda não tem 3D, já começa a gerar (ideia = tema pedido ou notas do quadro)
+    doQuadro(q, opc = {}) {
       if (!P) return;
       let p = lista.find((x) => x.quadro === q.id);
       if (!p) { p = vazio(q.nome); p.quadro = q.id; lista.unshift(p); }
-      P = p; salvar(); mostraProjeto(); tab.click(); $('prjIdeia').focus();
+      if (opc.ideia && !(p.ideia || '').includes(opc.ideia)) p.ideia = [p.ideia, opc.ideia].filter(Boolean).join('\n');
+      P = p; salvar(); mostraProjeto(); tab.click();
+      const temTexto = (p.ideia || '').trim() || q.objs.some((o) => (o.t === 'nota' || o.t === 'texto') && o.texto?.trim());
+      if (opc.gerar || (!p.spec && temTexto)) { $('prjGerar').scrollIntoView({ block: 'center' }); pedirIA(null); }
+      else if (!temTexto) { $('prjIdeia').focus(); $('prjMsg').textContent = 'Escreva a ideia do projeto e toque em 🧩 Gerar.'; }
     },
   };
   carregar().then(() => { try { if (localStorage.getItem('traco-active-mode') === 'projetos') mostrar(true); } catch { /* */ } });
