@@ -1,3 +1,14 @@
+// Relógio da sincronização: anota quando cada dado "traco-…" do aparelho mudou (para saber o que é mais novo).
+(() => {
+  const LOCAL = /^traco-(sessao|sync-|apagados|email|convite-sync|copia|versao|active-mode|prj-aba|projeto-atual|rascunho-atual|pmc-zoom|cro-escala|tema|modo-pc|tambor|roda)/;
+  const set = Storage.prototype.setItem, del = Storage.prototype.removeItem;
+  let mapa = null; const ler = () => { if (!mapa) { try { mapa = JSON.parse(localStorage.getItem('traco-sync-lsq') || '{}'); } catch { mapa = {}; } } return mapa; };
+  let t = 0; const grava = () => { clearTimeout(t); t = setTimeout(() => { try { set.call(localStorage, 'traco-sync-lsq', JSON.stringify(mapa)); } catch { /* */ } window.tracoSync?.mudou(); }, 400); };
+  const marca = (k) => { if (typeof k === 'string' && k.startsWith('traco-') && !LOCAL.test(k)) { ler()[k] = Date.now(); grava(); } };
+  Storage.prototype.setItem = function (k, v) { const r = set.call(this, k, v); if (this === localStorage && !window.__tracoSyncAplicando) marca(k); return r; };
+  Storage.prototype.removeItem = function (k) { const r = del.call(this, k); if (this === localStorage && !window.__tracoSyncAplicando) marca(k); return r; };
+  window.tracoLS = { LOCAL, mapa: ler, setCru: (k, v) => set.call(localStorage, k, v), delCru: (k) => del.call(localStorage, k), salvaMapa: () => set.call(localStorage, 'traco-sync-lsq', JSON.stringify(ler())) };
+})();
 // Socorro: se o app não abrir (erro ao carregar), mostra o motivo na tela e um jeito de abrir sem os dados salvos.
 (() => {
   const erros = [];

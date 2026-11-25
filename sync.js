@@ -34,31 +34,61 @@
 
   // ---------- telas de login e conta ----------
   const dlg = document.createElement('dialog'); dlg.className = 'ras-dlg sync-dlg'; document.body.appendChild(dlg);
-  function abreLogin(msg) {
+  function abreLogin(msg, modo) {
     if (!CFG) { dlg.innerHTML = `<form method="dialog"><h3>☁️ Sincronização</h3><p class="ras-sub">A sincronização está sendo ligada no servidor. Feche e abra o app em alguns minutos.</p><div class="ras-acoes"><button class="primary-button">Ok</button></div></form>`; dlg.showModal(); return; }
-    const email = LS.get('traco-email', '');
+    const novo = modo === 'criar', email = LS.get('traco-email', '');
     dlg.innerHTML = `<form method="dialog" id="sgForm">
       <div class="sync-logo">traço<span>.</span></div>
-      <h3>Entrar para sincronizar</h3>
-      <p class="ras-sub">Seus projetos e quadros ficam iguais no iPad, no celular e no PC. Sem senha: mandamos um link de acesso para o seu e-mail.</p>
-      <label class="sync-campo">E-mail<input type="email" id="sgEmail" autocomplete="email" inputmode="email" value="${esc(email)}" /></label>
+      <div class="sync-abas"><button type="button" data-m="entrar" class="${novo ? '' : 'on'}">Entrar</button><button type="button" data-m="criar" class="${novo ? 'on' : ''}">Criar conta</button></div>
+      <p class="ras-sub">${novo ? 'Crie sua conta uma vez e use o mesmo e-mail e senha no iPad, no celular e no PC.' : 'Entre com seu e-mail e senha: projetos, quadros e desenhos ficam iguais em todos os aparelhos.'}</p>
+      <label class="sync-campo">E-mail<input type="email" id="sgEmail" autocomplete="username" inputmode="email" value="${esc(email)}" /></label>
+      <label class="sync-campo">Senha<span class="sync-senha"><input type="password" id="sgSenha" autocomplete="${novo ? 'new-password' : 'current-password'}" minlength="6" /><button type="button" id="sgVer" aria-label="Mostrar senha">👁️</button></span></label>
+      ${novo ? '<label class="sync-campo">Repita a senha<input type="password" id="sgSenha2" autocomplete="new-password" /></label>' : '<button type="button" class="sync-link" id="sgEsq">Esqueci a senha</button>'}
       <p class="sync-msg" id="sgMsg">${esc(msg || '')}</p>
-      <div class="ras-acoes"><button type="button" class="secondary-button" data-x>Agora não</button><button type="submit" class="primary-button" id="sgOk">Enviar link</button></div></form>`;
-    dlg.showModal();
+      <div class="ras-acoes"><button type="button" class="secondary-button" data-x>Agora não</button><button type="submit" class="primary-button" id="sgOk">${novo ? 'Criar conta' : 'Entrar'}</button></div></form>`;
+    if (!dlg.open) dlg.showModal();
     const f = $('sgForm'), m = $('sgMsg'), ok = $('sgOk');
     dlg.querySelector('[data-x]').onclick = () => dlg.close();
+    dlg.querySelectorAll('[data-m]').forEach((b) => (b.onclick = () => { LS.set('traco-email', $('sgEmail').value.trim()); abreLogin('', b.dataset.m); }));
+    $('sgVer').onclick = () => { for (const id of ['sgSenha', 'sgSenha2']) { const el = $(id); if (el) el.type = el.type === 'password' ? 'text' : 'password'; } };
+    $('sgEsq')?.addEventListener('click', async () => {
+      const em = $('sgEmail').value.trim().toLowerCase(); if (!/^\S+@\S+\.\S+$/.test(em)) { m.textContent = 'Digite seu e-mail primeiro.'; return; }
+      m.textContent = 'Enviando…';
+      try { await api(`/auth/v1/recover?redirect_to=${encodeURIComponent(location.origin + location.pathname)}`, { method: 'POST', body: JSON.stringify({ email: em }) }); m.innerHTML = `✉️ Enviamos um link para <b>${esc(em)}</b>. Toque nele neste aparelho para criar uma senha nova.`; }
+      catch (e) { m.textContent = e.status === 429 ? 'Muitos pedidos seguidos. Espere alguns minutos.' : `Não deu para enviar: ${e.message}`; }
+    });
     f.onsubmit = async (e) => {
       e.preventDefault();
-      const em = $('sgEmail').value.trim().toLowerCase(); if (!/^\S+@\S+\.\S+$/.test(em)) { m.textContent = 'Digite um e-mail válido.'; return; }
-      ok.disabled = true; m.textContent = 'Enviando…';
+      const em = $('sgEmail').value.trim().toLowerCase(), se = $('sgSenha').value;
+      if (!/^\S+@\S+\.\S+$/.test(em)) { m.textContent = 'Digite um e-mail válido.'; return; }
+      if (se.length < 6) { m.textContent = 'A senha precisa de pelo menos 6 caracteres.'; return; }
+      if (novo && se !== $('sgSenha2').value) { m.textContent = 'As duas senhas não estão iguais.'; return; }
+      ok.disabled = true; m.textContent = novo ? 'Criando a conta…' : 'Entrando…';
       try {
-        const volta = location.origin + location.pathname;
-        await api(`/auth/v1/otp?redirect_to=${encodeURIComponent(volta)}`, { method: 'POST', body: JSON.stringify({ email: em, create_user: true }) });
-        LS.set('traco-email', em);
-        m.innerHTML = `✉️ Link enviado para <b>${esc(em)}</b>.<br>Abra o e-mail <b>neste aparelho</b> e toque no link de acesso: o Traço abre já conectado. Confira também o spam.`;
-        ok.textContent = 'Reenviar';
-      } catch (err) { m.textContent = err.status === 429 ? 'Muitos pedidos seguidos. Espere alguns minutos e tente de novo.' : `Não deu para enviar: ${err.message}`; }
+        let j;
+        if (novo) {
+          j = await api('/auth/v1/signup', { method: 'POST', body: JSON.stringify({ email: em, password: se }) });
+          if (!j.access_token) { m.innerHTML = 'Conta criada. Confirme pelo link que chegou no seu e-mail e depois toque em <b>Entrar</b>.'; ok.disabled = false; return; }
+        } else j = await api('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify({ email: em, password: se }) });
+        LS.set('traco-email', em); guarda(j, em); dlg.close(); pinta('sinc', 'Sincronizando…'); await sincroniza(true, true);
+      } catch (err) {
+        const t = String(err.message || '');
+        m.textContent = /invalid login|invalid_credentials/i.test(t) ? 'E-mail ou senha errados.' : /already registered|already exists/i.test(t) ? 'Esse e-mail já tem conta. Toque em Entrar.' : /not confirmed/i.test(t) ? 'Confirme o e-mail pelo link que chegou e tente de novo.' : /weak|password should/i.test(t) ? 'Senha fraca: use letras e números, com 6 ou mais caracteres.' : err.status === 429 ? 'Muitas tentativas seguidas. Espere alguns minutos.' : `Não deu: ${t}`;
+      }
       ok.disabled = false;
+    };
+    setTimeout(() => ($('sgEmail').value ? $('sgSenha') : $('sgEmail')).focus(), 60);
+  }
+  function novaSenha() {
+    dlg.innerHTML = `<form method="dialog" id="sgNova"><h3>🔑 Nova senha</h3><p class="ras-sub">Escolha a senha nova da sua conta.</p>
+      <label class="sync-campo">Senha nova<input type="password" id="sgN1" autocomplete="new-password" /></label><label class="sync-campo">Repita<input type="password" id="sgN2" autocomplete="new-password" /></label>
+      <p class="sync-msg" id="sgNm"></p><div class="ras-acoes"><button type="submit" class="primary-button">Salvar senha</button></div></form>`;
+    if (!dlg.open) dlg.showModal();
+    $('sgNova').onsubmit = async (e) => {
+      e.preventDefault(); const a1 = $('sgN1').value, m = $('sgNm');
+      if (a1.length < 6) { m.textContent = 'Pelo menos 6 caracteres.'; return; } if (a1 !== $('sgN2').value) { m.textContent = 'As duas não estão iguais.'; return; }
+      try { await api('/auth/v1/user', { method: 'PUT', headers: { Authorization: `Bearer ${await token()}` }, body: JSON.stringify({ password: a1 }) }); dlg.close(); toast('✅ Senha nova salva'); sincroniza(true, true); }
+      catch (err) { m.textContent = `Não deu: ${err.message}`; }
     };
   }
   // volta do link do e-mail: o endereço traz a sessão depois do "#"
@@ -68,12 +98,14 @@
     if (h.get('error_description')) { setTimeout(() => abreLogin(`O link não valeu (${h.get('error_description')}). Peça outro.`), 800); return; }
     const j = { access_token: h.get('access_token'), refresh_token: h.get('refresh_token'), expires_in: +h.get('expires_in') || 3600 };
     try { const u = await fetch(CFG.url + '/auth/v1/user', { headers: { apikey: CFG.chave, Authorization: `Bearer ${j.access_token}` } }).then((r) => r.json()); j.user = u; } catch { /* */ }
-    guarda(j, j.user?.email); pinta('sinc', 'Sincronizando…'); setTimeout(() => { toast('✅ Conectado — sincronizando seus projetos'); sincroniza(true); }, 600);
+    guarda(j, j.user?.email);
+    if (h.get('type') === 'recovery') { setTimeout(novaSenha, 700); return; }
+    pinta('sinc', 'Sincronizando…'); setTimeout(() => { toast('✅ Conectado — sincronizando seus projetos'); sincroniza(true, true); }, 600);
   }
   function abreConta() {
     const ult = LS.get('traco-sync-ult', 0);
     dlg.innerHTML = `<form method="dialog"><h3>☁️ Sua conta</h3>
-      <p class="ras-sub">Conectado como <b>${esc(sessao.email || '')}</b>. Projetos e quadros sincronizam sozinhos quando há internet.</p>
+      <p class="ras-sub">Conectado como <b>${esc(sessao.email || '')}</b>. Projetos, quadros e desenhos sincronizam sozinhos quando há internet.</p>
       <p class="sync-msg">${ult ? `Última sincronização: ${new Date(ult).toLocaleString('pt-BR')}` : 'Ainda não sincronizou.'}</p>
       <div class="ras-acoes"><button type="button" class="secondary-button" data-sair>Sair desta conta</button><button type="button" class="secondary-button" data-ag>Sincronizar agora</button><button class="primary-button">Fechar</button></div></form>`;
     dlg.showModal();
@@ -101,7 +133,9 @@
   // ---------- sincronizar: baixa o que mudou na nuvem, envia o que mudou aqui ----------
   let rodando = false, tPede = 0;
   function pede() { if (!sessao) return; clearTimeout(tPede); tPede = setTimeout(() => sincroniza(false), 2500); }
-  async function sincroniza(avisar) {
+  let primeira = true;
+  async function sincroniza(avisar, recarregar) {
+    const recarregarJa = recarregar || primeira; primeira = false;
     if (!sessao || !CFG || rodando) return; if (!navigator.onLine) { pinta('off', 'Sem internet · salvo aqui'); return; }
     rodando = true; pinta('sinc', 'Sincronizando…');
     try {
@@ -109,16 +143,26 @@
       const enviado = LS.get('traco-sync-env', {}); // tipo:id -> quando já enviado
       // 1) baixa
       const desde = LS.get('traco-sync-pull', '1970-01-01T00:00:00Z');
-      const rem = await api(`/rest/v1/traco_dados?select=tipo,id,dados,quando,apagado,atualizado&atualizado=gt.${encodeURIComponent(desde)}&order=atualizado.asc&limit=500`, { headers: H });
+      const rem = await api(`/rest/v1/traco_dados?select=tipo,id,dados,quando,apagado,atualizado&atualizado=gt.${encodeURIComponent(desde)}&order=atualizado.asc&limit=1000`, { headers: H });
       let maior = desde, mudouAqui = { projeto: false, quadro: false };
       const loc = { projeto: await locais('projeto'), quadro: await locais('quadro') };
       for (const r of rem || []) {
-        if (!BASES[r.tipo]) continue; if (r.atualizado > maior) maior = r.atualizado;
+        if (r.atualizado > maior) maior = r.atualizado; if (!BASES[r.tipo]) continue;
         const meu = loc[r.tipo].find((x) => x.id === r.id);
         if (r.apagado) { if (meu && (meu.quando || 0) <= r.quando) { await gravaLocal(r.tipo, r.id, true); mudouAqui[r.tipo] = true; } }
         else if (!meu || (meu.quando || 0) < r.quando) { await gravaLocal(r.tipo, r.dados); mudouAqui[r.tipo] = true; }
         enviado[`${r.tipo}:${r.id}`] = Math.max(enviado[`${r.tipo}:${r.id}`] || 0, r.quando);
       }
+      // dados soltos do aparelho (Arquitetura, Mecânica, peças salvas, pranchas, estilos…)
+      const lsq = window.tracoLS?.mapa() || {}; let lsMudou = false;
+      for (const r of rem || []) {
+        if (r.tipo !== 'ls' || !String(r.id).startsWith('traco-') || window.tracoLS?.LOCAL.test(r.id)) continue;
+        if ((lsq[r.id] || 0) >= r.quando) continue;
+        window.__tracoSyncAplicando = true;
+        try { if (r.apagado || r.dados?.v == null) window.tracoLS.delCru(r.id); else window.tracoLS.setCru(r.id, r.dados.v); } catch { /* */ }
+        window.__tracoSyncAplicando = false; lsq[r.id] = r.quando; lsMudou = true;
+      }
+      if (lsMudou) window.tracoLS.salvaMapa();
       LS.set('traco-sync-pull', maior);
       // 2) envia (o que é mais novo aqui do que o que já foi para a nuvem)
       const sobe = [];
@@ -126,12 +170,17 @@
         const vazio = tipo === 'quadro' ? !it.objs?.length && /^Meu primeiro quadro$/.test(it.nome) : /^Meu primeiro projeto$/.test(it.nome) && !it.ideia && !it.spec && !it.canvas && !it.crono;
         const q = it.quando || 0; if (!vazio && q > (enviado[`${tipo}:${it.id}`] || 0)) sobe.push({ tipo, id: it.id, dados: it, quando: q, apagado: false });
       }
+      for (const [k, q] of Object.entries(window.tracoLS?.mapa() || {})) {
+        if (window.tracoLS.LOCAL.test(k) || q <= (enviado[`ls:${k}`] || 0)) continue;
+        const v = localStorage.getItem(k); sobe.push({ tipo: 'ls', id: k, dados: v == null ? null : { v }, quando: q, apagado: v == null });
+      }
       for (const a of apagados) sobe.push({ tipo: a.tipo, id: a.id, dados: null, quando: a.quando, apagado: true });
       for (let i = 0; i < sobe.length; i += 20) {
         await api('/rest/v1/traco_dados?on_conflict=user_id,tipo,id', { method: 'POST', headers: { ...H, Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(sobe.slice(i, i + 20)) });
         for (const s of sobe.slice(i, i + 20)) enviado[`${s.tipo}:${s.id}`] = s.quando;
       }
       apagados.length = 0; LS.set('traco-apagados', []); LS.set('traco-sync-env', enviado); LS.set('traco-sync-ult', Date.now());
+      if (lsMudou) { if (recarregarJa) { toast('☁️ Trazendo seus desenhos de outro aparelho…'); setTimeout(() => location.reload(), 900); } else avisoAtualizar(); }
       if (mudouAqui.projeto) await window.tracoProjetos?.recarregar?.();
       if (mudouAqui.quadro) await window.tracoRascunhos?.recarregar?.();
       pinta('ok', 'Sincronizado');
@@ -141,6 +190,11 @@
       pinta('erro', e.status === 404 || /traco_dados/.test(e.message) ? 'Nuvem ainda sendo ligada' : 'Falha ao sincronizar · salvo aqui');
       console.warn('sync', e);
     } finally { rodando = false; }
+  }
+  function avisoAtualizar() {
+    if (document.querySelector('.sync-aviso')) return;
+    const d = document.createElement('div'); d.className = 'sync-aviso'; d.innerHTML = '☁️ Há desenhos novos de outro aparelho. <button type="button">Atualizar</button>';
+    d.querySelector('button').onclick = () => location.reload(); document.body.appendChild(d);
   }
   function toast(t) { const d = document.createElement('div'); d.className = 'sync-toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 3500); }
 
@@ -155,6 +209,6 @@
   // convite discreto na primeira vez que abrir Projetos ou Rascunhos sem conta
   for (const id of ['projetosTab', 'rascunhosTab']) $(id)?.addEventListener('click', () => {
     if (sessao || !CFG || LS.get('traco-convite-sync', false)) return; LS.set('traco-convite-sync', true);
-    setTimeout(() => abreLogin('Dica: entre com seu e-mail para ver estes projetos também no celular e no PC.'), 600);
+    setTimeout(() => abreLogin('Dica: crie uma conta para ver tudo também no celular e no PC.', 'criar'), 600);
   });
 })();

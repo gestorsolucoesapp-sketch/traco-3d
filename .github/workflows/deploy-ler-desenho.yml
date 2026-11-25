@@ -42,9 +42,9 @@ jobs:
           jq -Rs '{query: .}' supabase/sync.sql > /tmp/q.json
           curl -sS -f -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @/tmp/q.json
-      - name: Login por link no e-mail (endereços permitidos)
+      - name: Login com senha (sem esperar e-mail) e endereços permitidos
         run: |
-          jq -n '{site_url:"https://traco-estudio.vercel.app", uri_allow_list:"https://traco-estudio.vercel.app/**,https://gestorsolucoesapp-sketch.github.io/traco-3d/**"}' > /tmp/a.json
+          jq -n '{mailer_autoconfirm:true, external_email_enabled:true, password_min_length:6, site_url:"https://traco-estudio.vercel.app", uri_allow_list:"https://traco-estudio.vercel.app/**,https://gestorsolucoesapp-sketch.github.io/traco-3d/**"}' > /tmp/a.json
           COD=$(curl -sS -o /tmp/r.txt -w '%{http_code}' -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @/tmp/a.json)
           echo "auth config: $COD"; [ "$COD" -lt 300 ] || { head -c 800 /tmp/r.txt; exit 1; }
