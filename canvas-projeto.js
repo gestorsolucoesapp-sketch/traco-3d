@@ -41,10 +41,13 @@
     <dialog class="ras-dlg pmc-dlg" id="pmcPitch"><form method="dialog"><h3>🎤 Pitch do projeto</h3><div id="pmcPitchTxt" class="pmc-pitch"></div>
       <div class="ras-acoes"><button type="button" class="secondary-button" data-p="copiar">Copiar</button><button class="primary-button">Fechar</button></div></form></dialog>`;
   corpo.after(area);
-  abas.querySelectorAll('button').forEach((b) => (b.onclick = () => {
+  // abas internas do projeto (outras abas, como o Cronograma, entram aqui pelo mesmo clique)
+  abas.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-a]'); if (!b) return;
     abas.querySelectorAll('button').forEach((q) => q.classList.toggle('on', q === b));
-    const cv = b.dataset.a === 'canvas'; corpo.hidden = cv; area.hidden = !cv; if (cv) monta();
-  }));
+    corpo.hidden = b.dataset.a !== 'pecas'; area.hidden = b.dataset.a !== 'canvas'; if (!area.hidden) monta();
+    document.dispatchEvent(new CustomEvent('traco-prj-aba', { detail: b.dataset.a }));
+  });
 
   const P = () => window.tracoProjetos?.atual?.();
   const salvar = () => window.tracoProjetos?.salvar?.();

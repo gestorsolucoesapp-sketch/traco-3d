@@ -582,3 +582,22 @@ body.trilho.aba-livre .app-shell,body.trilho.modo-pc.aba-livre .app-shell{paddin
 .ras-tudo.pisca{background:#d76845!important;color:#fff!important;animation:rasPisca 1s ease-in-out 4}
 @keyframes rasPisca{50%{transform:scale(1.08)}}
 .ras-chips .ras-3d{border-color:#d76845;color:#965236}.ras-chips .ras-3d.on{background:#d76845;border-color:#d76845;color:#fff}
+/* Cronograma (estilo MS Project) */
+.cro{padding:12px 16px 16px}.cro-barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cro-barra label{display:flex;align-items:center;gap:6px;font:800 12px DM Sans,Arial,sans-serif}.cro-barra input[type=date]{border:1px solid #dfe4db;border-radius:9px;padding:7px;font:600 13px DM Sans,Arial,sans-serif}
+.cro-barra button{border:1px solid #dfe4db;background:#fff;border-radius:9px;padding:8px 11px;font:800 12.5px DM Sans,Arial,sans-serif;color:#111}.cro-barra .cro-ia{background:linear-gradient(135deg,#d76845,#8a4fd1);color:#fff;border:0}
+.cro-sep{width:1px;height:24px;background:#e2e4dd}.cro-escala{display:inline-flex;margin-left:auto}.cro-escala button{border-radius:0}.cro-escala button:first-child{border-radius:9px 0 0 9px}.cro-escala button:last-child{border-radius:0 9px 9px 0}.cro-escala button.on{background:#f6eae2;border-color:#d76845;color:#965236}
+.cro-msg{font:700 13px DM Sans,Arial,sans-serif;color:#444;margin:8px 0}
+.cro-corpo{display:flex;border:1px solid #dfe4db;border-radius:12px;overflow:hidden;max-height:70vh}
+.cro-tab{flex:0 0 auto;max-width:62%;overflow:auto;border-right:2px solid #cfd4ca;background:#fff}.cro-gantt{flex:1;overflow:auto;background:#fff}
+.cro-tab table{border-collapse:collapse;font:600 12.5px DM Sans,Arial,sans-serif;white-space:nowrap}
+.cro-tab thead th{position:sticky;top:0;z-index:1;height:45px;background:#f4f5f1;border-bottom:1px solid #ccc;padding:0 6px;text-align:left;font-size:11.5px}
+.cro-tab td{height:33px;border-bottom:1px solid #f0f1ec;padding:0 5px}.cro-tab td.n{color:#888;text-align:right;width:24px}
+.cro-tab input{border:1px solid transparent;background:transparent;font:inherit;color:#111;padding:4px 5px;border-radius:5px;width:120px}.cro-tab input:focus{border-color:#2e6fd8;background:#fff;outline:0}
+.cro-tab td.nome input{width:190px}.cro-tab input.num{width:38px;text-align:right}.cro-tab input.num2{width:52px}
+.cro-tab tr.sel{background:#2e6fd814}.cro-tab tr.res td{font-weight:800}.cro-tab tr.res input{font-weight:800}.cro-tab tr.crit td.nome input{color:#b8283d}
+.cro-vazio{padding:16px;font-size:13px;color:#666}
+.cro-gantt svg{display:block}.cro-mes{font:800 11px DM Sans,Arial,sans-serif;fill:#333;text-transform:capitalize}.cro-dia{font:600 9.5px DM Sans,Arial,sans-serif;fill:#777}.cro-rot{font:600 10.5px DM Sans,Arial,sans-serif;fill:#555}
+.cro-leg{font-size:11.5px;color:#555;margin-top:8px}.cro-leg i{display:inline-block;width:14px;height:9px;border-radius:2px;margin:0 3px 0 8px;vertical-align:middle}
+.cro-leg .l1{background:#3d7bd6}.cro-leg .l2{background:#d1495b}.cro-leg .l3{background:#222}.cro-leg .l4{background:#222;transform:rotate(45deg);width:8px;height:8px}.cro-leg .l5{background:#d76845;width:3px}
+@media(max-width:760px){.cro-corpo{flex-direction:column;max-height:none}.cro-tab{max-width:none;border-right:0;border-bottom:2px solid #cfd4ca;max-height:50vh}.cro-escala{margin-left:0}}

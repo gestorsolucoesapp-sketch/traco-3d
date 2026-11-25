@@ -247,6 +247,11 @@ Não invente números como fato: quando estimar valor ou data, escreva "estimado
 
 async function canvasIA(p: Record<string, string>, chave: string, h: Record<string, string>) {
   const ctx = [`Projeto: ${(p.nome || "").slice(0, 200)}`, `Ideia: ${(p.ideia || "").slice(0, 3000)}`, p.quadro ? `Notas do quadro de rascunhos:\n${p.quadro.slice(0, 4000)}` : "", p.pecas ? `Peças/produto já projetados:\n${p.pecas.slice(0, 3000)}` : "", p.canvas ? `Canvas atual (JSON, blocos com post-its já escritos pelo usuário):\n${p.canvas.slice(0, 8000)}` : ""].filter(Boolean).join("\n\n");
+  if (p.fase === "crono") {
+    return chamar(PROMPT_CANVAS, `${ctx}${p.crono ? `\n\nCronograma atual (JSON):\n${p.crono.slice(0, 8000)}` : ""}\n\nMonte o CRONOGRAMA do projeto como no MS Project (EAP): tarefas-resumo para cada grupo de entrega (nivel 1) e tarefas (nivel 2, às vezes 3) com duração em DIAS ÚTEIS, predecessoras (número da linha, 1 = primeira tarefa da lista, só término-início) e um marco (dur 0) no fim de cada grupo e no fim do projeto. Use a linha do tempo do canvas se existir. Durações são estimativas: não escreva datas. Entre 12 e 40 linhas. ${p.pedido ? `Pedido do usuário: ${p.pedido.slice(0, 800)}` : ""}
+FORMATO (só o JSON, compacto): { "tarefas": [ {"nome":"Caixa impressa","nivel":1}, {"nome":"Modelar caixa","nivel":2,"dur":3,"pred":"","resp":"João"}, {"nome":"Imprimir","nivel":2,"dur":2,"pred":"2"}, {"nome":"Caixa pronta","nivel":2,"dur":0,"pred":"3"} ] }
+Tarefa-resumo (nivel 1 com filhas) não leva dur nem pred.`, chave, h, 8000, "medium");
+  }
   if (p.fase === "pitch") {
     return chamar(PROMPT_CANVAS, `${ctx}\n\nEscreva o PITCH do projeto lendo o canvas na ordem do método (por quê → o quê → quem → como → quando/quanto), em 1ª pessoa do plural, para falar em 2 a 3 minutos (~300 palavras), frases curtas. FORMATO (só o JSON): { "pitch": "texto com \\n entre parágrafos", "lacunas": ["bloco vazio ou fraco que vale completar"] }`, chave, h, 6000, "medium");
   }
