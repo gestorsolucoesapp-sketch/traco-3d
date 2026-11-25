@@ -58,8 +58,8 @@
     const p = P(); if (!p) return;
     $('pmcGrade').innerHTML = BLOCOS.map(([k, t, ic, q, c, l, a]) => `
       <section class="pmc-bloco" data-k="${k}" style="grid-column:${c};grid-row:${l} / span ${a}">
-        <header><span>${ic}</span><div><b>${esc(t)}</b><small>${esc(q)}</small></div><button type="button" data-add="${k}" title="Novo post-it">＋</button></header>
-        <div class="pmc-notas">${notas(p, k).map((n) => `<div class="pmc-nota" data-id="${n.id}" style="background:${n.ia ? COR.ia : COR.usuario}"><textarea rows="2" data-k="${k}" data-id="${n.id}">${esc(n.t)}</textarea><button type="button" data-del="${n.id}" data-k="${k}" title="Apagar">×</button></div>`).join('')}</div>
+        <header><span>${ic}</span><div><b>${esc(t)}</b><small>${esc(q)}${(() => { const v = notas(p, k).filter((n) => n.t?.trim()), f = v.filter((n) => n.ok).length; return v.length && f ? ` · <em class="pmc-feito">✓ ${f}/${v.length}</em>` : ''; })()}</small></div><button type="button" data-add="${k}" title="Novo post-it">＋</button></header>
+        <div class="pmc-notas">${notas(p, k).map((n) => `<div class="pmc-nota${n.ok ? ' ok' : ''}" data-id="${n.id}" style="background:${n.ia ? COR.ia : COR.usuario}"><button type="button" class="pmc-chk" data-chk="${n.id}" data-k="${k}" title="Marcar como feito" aria-pressed="${!!n.ok}">${n.ok ? '✓' : ''}</button><textarea rows="2" data-k="${k}" data-id="${n.id}">${esc(n.t)}</textarea><button type="button" class="pmc-x" data-del="${n.id}" data-k="${k}" title="Apagar">×</button></div>`).join('')}</div>
       </section>`).join('');
     $('pmcGrade').querySelectorAll('textarea').forEach(ajusta);
   };
@@ -74,7 +74,8 @@
     const p = P(), l = notas(p, ta.dataset.k), i = l.findIndex((x) => x.id === ta.dataset.id); if (i >= 0) { l.splice(i, 1); salvar(); setTimeout(monta, 0); }
   });
   $('pmcGrade').addEventListener('click', (e) => {
-    const add = e.target.closest('[data-add]'), del = e.target.closest('[data-del]'), p = P();
+    const add = e.target.closest('[data-add]'), del = e.target.closest('[data-del]'), chk = e.target.closest('[data-chk]'), p = P();
+    if (chk) { const n = notas(p, chk.dataset.k).find((x) => x.id === chk.dataset.chk); if (n) { n.ok = !n.ok; salvar(); monta(); } return; }
     if (add) { const n = { id: novoId(), t: '', ia: false }; notas(p, add.dataset.add).push(n); salvar(); monta(); $('pmcGrade').querySelector(`textarea[data-id="${n.id}"]`)?.focus(); }
     if (del) { const l = notas(p, del.dataset.k), i = l.findIndex((x) => x.id === del.dataset.del); if (i >= 0) { l.splice(i, 1); salvar(); monta(); } }
   });
@@ -138,7 +139,8 @@
         if (yy + nh > y + h - 8) { if (xx === x + 12) { xx += nw + 12; yy = y + 54; } else break; }
         if (yy + nh > y + h - 8) break;
         g.fillStyle = n.ia ? COR.ia : COR.usuario; g.fillRect(xx, yy, nw, nh); g.fillStyle = '#1b1b1b'; g.font = '600 19px DM Sans, Arial';
-        lin2.forEach((l, i) => g.fillText(l, xx + 10, yy + 9 + i * 23)); yy += nh + 10;
+        if (n.ok) { g.fillStyle = '#1f9d55'; g.font = '800 20px DM Sans, Arial'; g.fillText('✓', xx + nw - 24, yy + 8); g.fillStyle = '#1b1b1b99'; g.font = '600 19px DM Sans, Arial'; }
+        lin2.forEach((l, i) => { g.fillText(l, xx + 10, yy + 9 + i * 23); if (n.ok) g.fillRect(xx + 10, yy + 20 + i * 23, g.measureText(l).width, 2); }); yy += nh + 10;
       }
     }
     c.toBlob((bl) => { const u = URL.createObjectURL(bl), a = document.createElement('a'); a.href = u; a.download = `canvas-${p.nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').toLowerCase()}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 3000); });
