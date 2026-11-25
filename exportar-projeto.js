@@ -44,6 +44,12 @@
       ${A ? `<h2>Custos</h2><p class="obs">Contingência ${inp('custos.cont', 'cur', 'num')} % · a Curva S recalcula quando você importar de volta no Traço.</p>
         <div class="rola"><table class="cus"><tr><th>Categoria</th><th>Descrição</th><th>Qtd</th><th>Un.</th><th>V. unit.</th><th>Total</th><th>Tipo</th><th>Mês</th><th>Gasto real</th><th>Premissa</th><th></th></tr>${A.itens.map((it, i) => `<tr><td>${inp(`custos.itens.${i}.cat`)}</td><td>${inp(`custos.itens.${i}.desc`, 'larga')}</td><td>${inp(`custos.itens.${i}.qtd`, 'cur', 'num')}</td><td>${inp(`custos.itens.${i}.un`, 'cur')}</td><td>${inp(`custos.itens.${i}.vu`, 'med', 'num')}</td><td class="v" data-tot="${i}">${brl(num(it.qtd) * num(it.vu))}</td><td><select data-p="custos.itens.${i}.tipo">${['CAPEX', 'OPEX'].map((o) => `<option ${it.tipo === o ? 'selected' : ''}>${o}</option>`).join('')}</select></td><td>${inp(`custos.itens.${i}.mes`, 'cur', 'num')}</td><td>${inp(`custos.itens.${i}.real`, 'med', 'num')}</td><td>${ta(`custos.itens.${i}.premissa`)}</td><td><button class="x" data-del="custos.itens.${i}">×</button></td></tr>`).join('')}</table></div>
         <button class="mais lin" data-addcus>＋ Item</button><div class="tots" id="tots">${totaisHTML()}</div>${M.curva ? `<details><summary>Curva S e indicadores (como estavam ao exportar)</summary>${M.curva}</details>` : ''}` : ''}
+      ${D.agil?.itens ? `<h2>Ágil — backlog e sprints</h2><p class="obs">Situação: ${M.colsAgil.map(([c, t]) => `${t} ${D.agil.itens.filter((x) => x.col === c).length}`).join(' · ')}</p>
+        <div class="rola"><table><tr><th>História</th><th>Como… quero… para…</th><th>Pts</th><th>Prioridade</th><th>Sprint</th><th>Situação</th><th>Resp.</th><th></th></tr>${D.agil.itens.map((x, i) => `<tr><td>${inp(`agil.itens.${i}.titulo`, 'larga')}</td><td>${ta(`agil.itens.${i}.historia`)}</td><td>${inp(`agil.itens.${i}.pts`, 'cur', 'num')}</td>
+          <td><select data-p="agil.itens.${i}.prio">${['', 'Alta', 'Média', 'Baixa'].map((o) => `<option ${x.prio === o ? 'selected' : ''} value="${o}">${o || '—'}</option>`).join('')}</select></td>
+          <td><select data-p="agil.itens.${i}.sprint"><option value="">Backlog</option>${D.agil.sprints.map((s, j) => `<option value="${s.id}" ${x.sprint === s.id ? 'selected' : ''}>Sprint ${j + 1}</option>`).join('')}</select></td>
+          <td><select data-p="agil.itens.${i}.col">${M.colsAgil.map(([c, t]) => `<option value="${c}" ${x.col === c ? 'selected' : ''}>${t}</option>`).join('')}</select></td><td>${inp(`agil.itens.${i}.resp`)}</td><td><button class="x" data-del="agil.itens.${i}">×</button></td></tr>`).join('')}</table></div>
+        <button class="mais lin" data-addagil>＋ História</button>` : ''}
       ${(S.montagem || []).length ? `<h2>Montagem</h2><ol>${S.montagem.map((_, i) => `<li>${ta(`spec.montagem.${i}`)}</li>`).join('')}</ol>` : ''}
       ${(S.conferir || []).length ? `<h2>Conferir antes de imprimir</h2><ul>${S.conferir.map((_, i) => `<li>${ta(`spec.conferir.${i}`)}</li>`).join('')}</ul>` : ''}`;
     }
@@ -64,7 +70,8 @@
     document.getElementById('dica')?.remove();
     app.addEventListener('input', (e) => {
       const el = e.target, p = el.dataset.p; if (!p) return;
-      let v = el.value; if (/\.(nivel|dur|pct|qtd|mes)$/.test(p) && v.trim() !== '' && Number.isFinite(num(v))) v = num(v);
+      let v = el.value; if (/^agil\.itens\.\d+\.col$/.test(p)) { const x = pega(p.replace(/\.col$/, '')); if (v === 'feito' && x.col !== 'feito') x.feitoEm = new Date().toISOString().slice(0, 10); if (v !== 'feito') delete x.feitoEm; }
+      if (/\.(nivel|dur|pct|qtd|mes|pts)$/.test(p) && v.trim() !== '' && Number.isFinite(num(v))) v = num(v);
       if (/^custos\.itens\.\d+\.(vu|qtd|real)$/.test(p)) pega(p.replace(/\.\w+$/, '')).origem = 'informado';
       if (/\.t$/.test(p) && p.startsWith('canvas.')) { pega(p.replace(/\.t$/, '')).ia = false; el.parentElement.style.background = M.cor.usuario; }
       poe(p, v); marca(); if (el.tagName === 'TEXTAREA') cresce(el); if (p.startsWith('custos')) totais(); if (p === 'nome') document.title = v;
@@ -79,6 +86,7 @@
         T.forEach((t) => { t.pred = String(t.pred || '').split(/[;,\s]+/).filter(Boolean).map(Number).filter((x) => x !== n).map((x) => (x > n ? x - 1 : x)).join(';'); }); }
       else if ('addtar' in d) { const T = D.crono.tarefas; T.push({ id: id(), nome: 'Nova tarefa', nivel: T[T.length - 1]?.nivel || 1, dur: 1, pred: T.length ? String(T.length) : '', pct: 0, resp: '' }); }
       else if ('addpdm' in d) { const L = D.pdm.linhas; let k = 0, nid; do { nid = k < 26 ? String.fromCharCode(65 + k) : 'A' + String.fromCharCode(65 + (k % 26)); k++; } while (L.some((l) => String(l.id).toUpperCase() === nid)); L.push({ id: nid, desc: '', dur: '', pred: L[L.length - 1]?.id || '' }); }
+      else if ('addagil' in d) D.agil.itens.push({ id: id(), titulo: 'Nova história', historia: '', criterios: '', pts: '', prio: '', resp: '', col: 'backlog', sprint: '' });
       else if ('addcus' in d) D.custos.itens.push({ id: id(), cat: 'Outros', desc: '', qtd: 1, un: 'un', vu: '', tipo: 'OPEX', mes: 1, tarefa: '', pct: 0, real: '', premissa: '', origem: 'informado' });
       else return;
       marca(); const y = scrollY; render(); scrollTo(0, y);
@@ -100,7 +108,7 @@
   function exportar(sec = SECOES.map((x) => x[0])) {
     const p = P(); if (!p) return;
     const D = JSON.parse(JSON.stringify(p)), tem = (k) => sec.includes(k);
-    if (!tem('canvas')) delete D.canvas; if (!tem('crono')) delete D.crono; if (!tem('pdm')) delete D.pdm; if (!tem('custos')) delete D.custos;
+    if (!tem('canvas')) delete D.canvas; if (!tem('crono')) delete D.crono; if (!tem('pdm')) delete D.pdm; if (!tem('custos')) delete D.custos; if (!tem('agil')) delete D.agil;
     if (!tem('pecas')) { delete D.spec; delete D.valores; }
     let img3d = ''; try { const cv = $('prjCanvas'); if (cv?.width > 10 && p.spec?.pecas) img3d = cv.toDataURL('image/jpeg', 0.85); } catch { /* */ }
     const tira = (h) => (h || '').replace(/<button[\s\S]*?<\/button>/g, '').replace(/<input([^>]*)value="([^"]*)"[^>]*>/g, '$2');
@@ -109,7 +117,7 @@
     try { const tb = [...document.querySelectorAll('#projetosMode table')].find((t) => /Subtotal|Total \(sem frete\)/i.test(t.textContent)); if (tb) compras = tira(tb.outerHTML); } catch { /* */ }
     const M = {
       data: new Date().toLocaleString('pt-BR'), arquivo: `projeto-${slug(p.nome)}`,
-      blocos: window.tracoCanvas?.BLOCOS || [], cor: { usuario: '#ffe57a', ia: '#bfe0ff' }, img3d, compras,
+      blocos: window.tracoCanvas?.BLOCOS || [], colsAgil: window.tracoAgil?.COLS || [], cor: { usuario: '#ffe57a', ia: '#bfe0ff' }, img3d, compras,
       gantt: tem('crono') ? tira(gantt) : '', pdm: tem('pdm') ? tira(window.tracoPdm?.html(p) || '') : '', curva: tem('custos') && window.tracoCustos?.resumo(p) ? tira(window.tracoCustos.html(p)) : '',
     };
     if (!tem('compras')) M.compras = ''; if (!tem('pecas')) M.img3d = '';
@@ -150,8 +158,8 @@ ol li,ul li{margin:4px 0}.cus-kpi{border:1px solid #ddd;border-radius:8px;paddin
   }
 
   // ---------- escolher o que vai junto ----------
-  const SECOES = [['canvas', '🧩 Canvas do projeto'], ['pecas', '🖨️ Peças 3D, medidas e montagem'], ['compras', '🛒 Lista de compras'], ['crono', '📅 Cronograma'], ['pdm', '🔗 Diagrama de precedência'], ['custos', '💰 Custos e Curva S']];
-  const temDado = (p, k) => ({ canvas: () => (window.tracoCanvas?.BLOCOS || []).some(([b]) => window.tracoCanvas.notas(p, b).length), pecas: () => !!p.spec, compras: () => (p.spec?.componentes || []).length > 0, crono: () => !!p.crono?.tarefas?.length, pdm: () => !!p.pdm?.linhas?.length, custos: () => !!p.custos?.itens?.length }[k]());
+  const SECOES = [['canvas', '🧩 Canvas do projeto'], ['pecas', '🖨️ Peças 3D, medidas e montagem'], ['compras', '🛒 Lista de compras'], ['crono', '📅 Cronograma'], ['pdm', '🔗 Diagrama de precedência'], ['custos', '💰 Custos e Curva S'], ['agil', '🏃 Ágil (Scrum / Kanban)']];
+  const temDado = (p, k) => ({ canvas: () => (window.tracoCanvas?.BLOCOS || []).some(([b]) => window.tracoCanvas.notas(p, b).length), pecas: () => !!p.spec, compras: () => (p.spec?.componentes || []).length > 0, crono: () => !!p.crono?.tarefas?.length, pdm: () => !!p.pdm?.linhas?.length, custos: () => !!p.custos?.itens?.length, agil: () => !!p.agil?.itens?.length }[k]());
   const dlg = document.createElement('dialog'); dlg.className = 'ras-dlg exp-dlg'; document.body.appendChild(dlg);
   function escolher(titulo, faz) {
     const p = P(); if (!p) return;

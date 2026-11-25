@@ -154,6 +154,7 @@ ${cp.length ? `<h2>Lista de compras</h2><table><tr><th>Qtd</th><th>Item</th><th>
 ${crono ? `<h2>Cronograma</h2>${crono}` : ''}
 ${pdm ? `<h2>Diagrama de precedência</h2>${pdm}` : ''}
 ${custos && window.tracoCustos.resumo(p) ? `<h2>Custos e Curva S</h2><div class="cus-rel">${custos}</div>` : ''}
+${tem('agil') && window.tracoAgil?.html(p) ? `<h2>Ágil — backlog e sprints</h2>${window.tracoAgil.html(p)}` : ''}
 ${(S.montagem || []).length ? `<h2>Montagem</h2><ol>${S.montagem.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
 ${(S.conferir || []).length ? `<h2>Conferir antes de imprimir</h2>${lista(S.conferir)}` : ''}
 </body></html>`;
