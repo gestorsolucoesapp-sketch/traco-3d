@@ -416,7 +416,7 @@
       corpo = cats.map((c) => `<h4>${c}</h4><div class="lib-grade">${Object.entries(LIB).filter(([, l]) => l.cat === c).map(([k, l]) => `<button type="button" data-lib="${k}"><b>${l.nome}</b><small>${l.dims.map(nf).join(' × ')} m</small></button>`).join('')}</div>`).join('');
     } else if (aba === 'ph') {
       corpo = `<p class="foto-sub">Modelos 3D de domínio público (CC0) do Poly Haven. Toque para baixar e colocar.</p>
-        <input type="search" id="phBusca" class="lib-busca" placeholder="Buscar (ex.: chair, table, sofa, lamp, plant)" />
+        <input type="search" id="phBusca" class="lib-busca" placeholder="Buscar (em inglês)" />
         <div id="phLista" class="lib-grade ph">Carregando…</div>`;
     } else {
       corpo = `<p class="foto-sub">Abra um modelo baixado: <b>OBJ</b>, <b>GLB/glTF</b>, <b>DAE (Collada)</b> ou <b>STL</b>.<br>

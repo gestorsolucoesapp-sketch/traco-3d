@@ -72,7 +72,7 @@
           <button type="button" data-p="lista de tarefas">✅ Tarefas</button>
           <button type="button" data-p="prós e contras">⚖️ Prós e contras</button>
         </div>
-        <textarea id="rasPedido" rows="3" placeholder="Ex.: ideias para tampa de pote que não vaza · desenhe um suporte de celular para mesa"></textarea>
+        <textarea id="rasPedido" rows="3" placeholder="Tema"></textarea>
         <label class="ras-ctx"><input type="checkbox" id="rasCtx" /> <span id="rasCtxTxt">Usar o que já está no quadro</span></label>
         <p class="ras-msg" id="rasMsg"></p>
         <div class="ras-acoes"><button type="button" class="secondary-button" data-i="x">Cancelar</button><button type="button" class="primary-button" data-i="ok">Gerar</button></div>

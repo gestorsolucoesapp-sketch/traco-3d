@@ -471,7 +471,7 @@
   let ouvindo = null;
   function telaTexto() {
     abrir(`<h3>Narrar peça</h3>
-      <p class="foto-sub">Fale ou escreva o que quer criar, com as medidas. Ex.: <em>peça de diâmetro 20 mm e altura 15 mm, com rosca M6 de 7 mm de profundidade no topo, e um parafuso allen para essa rosca com 12 mm.</em></p>
+      <p class="foto-sub">Fale ou escreva o que quer criar, com as medidas.</p>
       <textarea id="narrarTexto" rows="5" class="narrar-texto" placeholder="Descreva a peça…">${esc(spec?.texto || '')}</textarea>
       <div class="foto-acoes narrar-acoes">
         ${Rec ? '<button type="button" class="secondary-button" data-x="mic">🎙️ Falar</button>' : ''}

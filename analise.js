@@ -156,7 +156,7 @@
         <label>Limite de resistência do material <span><input data-c="resist" inputmode="decimal" value="${cfg.resist}" placeholder="MPa" /> MPa</span></label></div>
       <div class="an-linha"><label>Carga que vai e volta (fadiga) <span><input data-c="fadigaCarga" inputmode="decimal" value="${cfg.fadigaCarga}" placeholder="N" /> N</span></label>
         <label>Limite de fadiga do material <span><input data-c="fadigaLim" inputmode="decimal" value="${cfg.fadigaLim}" placeholder="MPa" /> MPa</span></label>
-        <label>Kt (concentração na rosca) <span><input data-c="kt" inputmode="decimal" value="${cfg.kt}" placeholder="ex.: 3" /></span></label></div>
+        <label>Kt (concentração na rosca) <span><input data-c="kt" inputmode="decimal" value="${cfg.kt}" /></span></label></div>
       <div id="anResist"></div>
       <div class="foto-acoes"><span style="flex:1"></span><button type="button" class="secondary-button" data-x="limpar">Tirar destaque</button><button type="button" class="primary-button" data-x="ok">Fechar</button></div>`;
     dlg.querySelector('[data-x=ok]').onclick = () => dlg.close();

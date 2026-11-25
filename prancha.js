@@ -260,7 +260,7 @@
     modo = m;
     const campo = (k, rot, ph) => `<label>${rot}<input data-k="${k}" value="${esc(prefs[k] || '')}" placeholder="${ph}" /></label>`;
     dlg.innerHTML = `<h3>Prancha técnica · ${m === 'planta' ? 'Planta' : 'Peça'}</h3>
-      <div class="prancha-campos">${campo('titulo', 'Projeto', m === 'planta' ? 'Ex.: Área de lazer' : 'Ex.: Suporte com rosca M6')}${campo('cliente', 'Cliente', 'Nome do cliente')}${campo('resp', 'Responsável', 'Seu nome / registro')}${campo('obs', 'Observação', 'Confira as medidas na obra')}
+      <div class="prancha-campos">${campo('titulo', 'Projeto', 'Nome do projeto')}${campo('cliente', 'Cliente', 'Nome do cliente')}${campo('resp', 'Responsável', 'Seu nome / registro')}${campo('obs', 'Observação', '')}
         <label>Folha<select data-k="folha"><option ${prefs.folha !== 'A3' ? 'selected' : ''}>A4</option><option ${prefs.folha === 'A3' ? 'selected' : ''}>A3</option></select></label></div>
       <div id="pranchaPrev" class="prancha-prev"></div>
       <p id="pranchaMsg" class="foto-fecho"></p>

@@ -21,10 +21,10 @@
       </div>
       <div class="prj-corpo">
         <div class="prj-ideia">
-          <label>Ideia do projeto<textarea id="prjIdeia" rows="4" placeholder="Ex.: câmera térmica com sensor MLX90640, ESP32 e tela de 2,8&quot;, numa caixa impressa em 3D"></textarea></label>
+          <label>Ideia do projeto<textarea id="prjIdeia" rows="4" placeholder="Descreva a ideia"></textarea></label>
           <label>Quadro de rascunhos ligado <select id="prjQuadro"></select></label>
-          <label>O que imprimir <input id="prjPedido" placeholder="Ex.: caixa em 2 partes com tampa parafusada, janela para o sensor e furos dos botões" /></label>
-          <label>Medidas que você já tem <textarea id="prjMedidas" rows="2" placeholder="Ex.: placa da tela 86 × 50 × 4 mm · ESP32 51 × 28 mm · bateria 18650"></textarea></label>
+          <label>O que imprimir <input id="prjPedido" placeholder="Descreva a peça a imprimir" /></label>
+          <label>Medidas que você já tem <textarea id="prjMedidas" rows="2" placeholder="Medidas reais das suas peças"></textarea></label>
           <button type="button" class="primary-button prj-gerar" id="prjGerar">🧩 Gerar objeto para impressão 3D</button>
           <p class="prj-msg" id="prjMsg"></p>
         </div>
@@ -42,7 +42,7 @@
           <div id="prjParams"></div>
           <div id="prjConf"></div>
           <div id="prjMont"></div>
-          <div class="prj-ajuste"><input id="prjAjuste" placeholder="Ajustar com IA: ex. tampa com encaixe de pressão, furo do tripé 1/4&quot; embaixo" /><button type="button" class="secondary-button" id="prjAjBt">✨ Ajustar</button></div>
+          <div class="prj-ajuste"><input id="prjAjuste" placeholder="Ajustar com IA: o que mudar" /><button type="button" class="secondary-button" id="prjAjBt">✨ Ajustar</button></div>
         </div>
       </div>
     </section>`;
