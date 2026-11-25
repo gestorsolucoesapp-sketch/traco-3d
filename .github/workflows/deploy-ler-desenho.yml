@@ -1,4 +1,4 @@
-name: Publicar leitura de foto (Supabase)
+name: Publicar leitura de foto e sincronização (Supabase)
 
 # Publica a função ler-desenho no Supabase e grava o endereço dela em config.js.
 # Segredos do repositório (Settings → Secrets and variables → Actions):
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['supabase/functions/ler-desenho/**', '.github/workflows/deploy-ler-desenho.yml']
+    paths: ['supabase/functions/ler-desenho/**', 'supabase/sync.sql', '.github/workflows/deploy-ler-desenho.yml']
 
 permissions:
   contents: write
@@ -37,9 +37,22 @@ jobs:
         run: supabase secrets set --yes --project-ref "$REF" ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}"
       - name: Publicar ler-desenho
         run: supabase functions deploy ler-desenho --yes --project-ref "$REF" --no-verify-jwt --use-api
+      - name: Banco da sincronização (tabela + regras de acesso)
+        run: |
+          jq -Rs '{query: .}' supabase/sync.sql > /tmp/q.json
+          curl -sS -f -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @/tmp/q.json
+      - name: Login por código no e-mail
+        run: |
+          MODELO='<h2>Traço</h2><p>Seu código para entrar:</p><p style="font-size:30px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p><p>Digite esse código no app. Se não foi você, ignore este e-mail.</p>'
+          jq -n --arg m "$MODELO" '{site_url:"https://traco-estudio.vercel.app", uri_allow_list:"https://traco-estudio.vercel.app/**,https://gestorsolucoesapp-sketch.github.io/traco-3d/**", mailer_subjects_magic_link:"Seu código do Traço", mailer_templates_magic_link_content:$m, mailer_subjects_confirmation:"Seu código do Traço", mailer_templates_confirmation_content:$m}' > /tmp/a.json
+          curl -sS -f -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @/tmp/a.json > /dev/null
       - name: Gravar endereço no app (config.js)
         run: |
+          ANON=$(curl -sS -f "https://api.supabase.com/v1/projects/$REF/api-keys?reveal=true" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -r '([.[] | select(.name=="anon")][0].api_key) // ([.[] | select(.type=="publishable")][0].api_key) // empty')
           echo "window.TRACO_LER_URL = 'https://$REF.supabase.co/functions/v1/ler-desenho';" > config.js
+          [ -n "$ANON" ] && echo "window.TRACO_SUPA = { url: 'https://$REF.supabase.co', chave: '$ANON' };" >> config.js
           if ! git diff --quiet -- config.js; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"

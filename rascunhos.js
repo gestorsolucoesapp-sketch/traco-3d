@@ -113,9 +113,10 @@
     tSalva = setTimeout(() => {
       if (db) { try { db.transaction('quadros', 'readwrite').objectStore('quadros').put(Q); } catch { /* */ } }
       else try { localStorage.setItem('traco-rascunhos', JSON.stringify(quadros)); } catch { dica('Sem espaço para salvar neste aparelho.'); }
+      window.tracoSync?.mudou();
     }, 300);
   }
-  function apagarQuadro(id) { if (db) try { db.transaction('quadros', 'readwrite').objectStore('quadros').delete(id); } catch { /* */ } }
+  function apagarQuadro(id) { if (db) try { db.transaction('quadros', 'readwrite').objectStore('quadros').delete(id); } catch { /* */ } window.tracoSync?.apagou('quadro', id); }
   function listaQuadros() {
     const s = $('rasQuadro');
     s.innerHTML = quadros.map((q) => `<option value="${q.id}" ${q === Q ? 'selected' : ''}>${q.nome.replace(/</g, '&lt;')}</option>`).join('');
@@ -547,7 +548,7 @@
   tab.addEventListener('click', () => mostrar(true));
   $('architectureTab').addEventListener('click', () => mostrar(false));
   $('partsTab').addEventListener('click', () => mostrar(false));
-  window.tracoRascunhos = { abrirQuadro(id) { const q = quadros.find((x) => x.id === id); if (!q) return false; fecharEdicao(); Q = q; sel = null; listaQuadros(); tab.click(); requestAnimationFrame(() => verTudo()); return true; }, gesto: () => gesto, abrir: () => mostrar(true), quadros: () => quadros, render: () => desenhar() };
+  window.tracoRascunhos = { recarregar: () => carregar(), abrirQuadro(id) { const q = quadros.find((x) => x.id === id); if (!q) return false; fecharEdicao(); Q = q; sel = null; listaQuadros(); tab.click(); requestAnimationFrame(() => verTudo()); return true; }, gesto: () => gesto, abrir: () => mostrar(true), quadros: () => quadros, render: () => desenhar() };
   void desenharJa;
 
   escolher('caneta');

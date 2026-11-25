@@ -63,7 +63,7 @@
     P = lista.find((p) => p.id === u) || lista[0]; mostraProjeto();
   }
   let tS = 0;
-  function salvar() { P.quando = Date.now(); clearTimeout(tS); tS = setTimeout(() => { if (db) try { db.transaction('p', 'readwrite').objectStore('p').put(P); } catch { /* */ } else try { localStorage.setItem('traco-projetos', JSON.stringify(lista)); } catch { /* */ } }, 300); }
+  function salvar() { P.quando = Date.now(); clearTimeout(tS); tS = setTimeout(() => { if (db) try { db.transaction('p', 'readwrite').objectStore('p').put(P); } catch { /* */ } else try { localStorage.setItem('traco-projetos', JSON.stringify(lista)); } catch { /* */ } window.tracoSync?.mudou(); }, 300); }
   function listaSel() { $('prjSel').innerHTML = lista.map((p) => `<option value="${p.id}" ${p === P ? 'selected' : ''}>${esc(p.nome)}</option>`).join(''); try { localStorage.setItem('traco-projeto-atual', P.id); } catch { /* */ } }
   function quadros() { return window.tracoRascunhos?.quadros?.() || []; }
   function listaQuadros() { $('prjQuadro').innerHTML = `<option value="">— nenhum —</option>` + quadros().map((q) => `<option value="${q.id}" ${q.id === P.quadro ? 'selected' : ''}>${esc(q.nome)}</option>`).join(''); }
@@ -81,6 +81,7 @@
   painel.querySelector('[data-q=apagar]').onclick = () => {
     if (!confirm(`Apagar o projeto "${P.nome}"? Isso não tem volta.`)) return;
     if (db) try { db.transaction('p', 'readwrite').objectStore('p').delete(P.id); } catch { /* */ }
+    window.tracoSync?.apagou('projeto', P.id);
     lista = lista.filter((p) => p !== P); if (!lista.length) lista.push(vazio('Meu primeiro projeto')); P = lista[0]; salvar(); mostraProjeto();
   };
 
@@ -323,6 +324,7 @@
   window.tracoProjetos = {
     gesto: () => Boolean(gesto),
     atual: () => P,
+    recarregar: () => carregar(),
     malhas: () => malhas,
     gerar: () => pedirIA(null),
     mostra: () => mostraProjeto(),

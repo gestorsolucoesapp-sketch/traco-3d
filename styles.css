@@ -660,3 +660,10 @@ body.trilho.aba-livre .app-shell,body.trilho.modo-pc.aba-livre .app-shell{paddin
 #cusItens tr.tot td{font-weight:800;border-top:2px solid #ccc;background:#fafbf8}#cusItens td button{border:0;background:none;font-size:18px;color:#999}
 @media(max-width:900px){.cus-dois{grid-template-columns:1fr}}
 #cusItens input.desc,#cusItens input.prem,#cusItens input.un{text-align:left}
+/* Conta e sincronização */
+.sync-pill{cursor:pointer}.sync-pill[data-s=local] .status-light{background:#bbb}.sync-pill[data-s=sinc] .status-light{background:#2e6fd8;animation:rasPisca 1s infinite}
+.sync-pill[data-s=erro] .status-light,.sync-pill[data-s=off] .status-light{background:#e0a800}.sync-pill[data-s=local]{outline:2px solid #d7684555}
+.sync-dlg{width:min(440px,94vw)}.sync-logo{font:800 30px Manrope,Arial,sans-serif;color:#111;margin-bottom:4px}.sync-logo span{color:#d76845}
+.sync-campo{display:flex;flex-direction:column;gap:5px;font:800 12px DM Sans,Arial,sans-serif;margin:10px 0}.sync-campo input{border:1px solid #dfe4db;border-radius:10px;padding:12px;font:600 17px DM Sans,Arial,sans-serif}
+#sgCod{letter-spacing:8px;font-size:24px!important;text-align:center}.sync-link{border:0;background:none;color:#2e6fd8;font:700 13px DM Sans,Arial,sans-serif;text-decoration:underline;padding:0}
+.sync-msg{font-size:13px;color:#555;min-height:18px}.sync-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:12px;font:700 13px DM Sans,Arial,sans-serif;z-index:99999}
