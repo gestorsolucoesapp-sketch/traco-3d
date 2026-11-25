@@ -330,6 +330,13 @@
     mostra: () => mostraProjeto(),
     pesquisar: (nome) => pesquisarComp(nome),
     salvar: () => salvar(),
+    // projeto vindo de um HTML exportado: atualiza o mesmo projeto ou cria cópia
+    importar(d) {
+      const i = lista.findIndex((x) => x.id === d.id); let r = 'novo';
+      if (i >= 0) { if (confirm(`Atualizar o projeto "${lista[i].nome}" com o que foi editado no HTML?\n\nOK = substituir · Cancelar = importar como cópia`)) { lista[i] = d; r = 'atualizado'; } else { d.id = novoId(); d.nome += ' (cópia)'; lista.unshift(d); } }
+      else lista.unshift(d);
+      P = d; salvar(); mostraProjeto(); return r;
+    },
     // abre o projeto do quadro e, se ainda não tem 3D, já começa a gerar (ideia = tema pedido ou notas do quadro)
     doQuadro(q, opc = {}) {
       if (!P) return;

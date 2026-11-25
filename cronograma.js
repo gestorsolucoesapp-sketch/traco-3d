@@ -62,6 +62,17 @@
     let n = k; while (n > 0) { dt.setDate(dt.getDate() + 1); if (!folga(c, dt)) n--; }
     return dt;
   }
+  function idxDe(c, dt) { // quantos dias de trabalho do início do projeto até a data (1º dia útil nela ou depois)
+    const x = D(c.inicio); while (folga(c, x)) x.setDate(x.getDate() + 1);
+    let k = 0; while (x < dt && k < 4000) { x.setDate(x.getDate() + 1); if (!folga(c, x)) k++; }
+    return folga(c, x) ? k + 1 : k;
+  }
+  function leData(t, base) { // 02/09, 02/09/26, 02/09/2026, 2026-09-02
+    const s = String(t || '').trim(); let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s); if (m) return new Date(+m[1], m[2] - 1, +m[3]);
+    m = /^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/.exec(s); if (!m) return null;
+    let a = m[3] ? +m[3] : base.getFullYear(); if (a < 100) a += 2000; const d = new Date(a, m[2] - 1, +m[1]);
+    return d.getMonth() === m[2] - 1 ? d : null;
+  }
   const br = (dt) => `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getFullYear()).slice(2)}`;
 
   // ---------- cálculo (como o MS Project: término-início, resumo = filhas) ----------
@@ -71,6 +82,7 @@
     const resumo = filhos.map((f) => f.length > 0);
     const pred = T.map((t) => String(t.pred || '').split(/[;,\s]+/).map((x) => parseInt(x, 10) - 1).filter((x) => Number.isInteger(x) && x >= 0 && x < n));
     const ini = new Array(n).fill(0), fim = new Array(n).fill(0);
+    const lim = T.map((t) => (t.ini ? idxDe(c, D(t.ini)) + (+t.dur ? 0 : 1) : null)); // início fixado (não antes de)
     for (let volta = 0; volta < n + 2; volta++) {
       let mudou = false;
       for (let i = 0; i < n; i++) {
@@ -78,6 +90,7 @@
         let s = 0; for (const p of pred[i]) if (p !== i && !filhos[p]?.includes(i)) s = Math.max(s, fim[p]);
         // tarefa dentro de resumo que tem predecessora: herda o início do resumo
         for (let k = i - 1; k >= 0; k--) if (resumo[k] && filhos[k].includes(i)) for (const p of pred[k]) s = Math.max(s, fim[p]);
+        if (lim[i] != null) s = Math.max(s, lim[i]);
         const d = Math.max(0, +T[i].dur || 0), f = s + d;
         if (s !== ini[i] || f !== fim[i]) { ini[i] = s; fim[i] = f; mudou = true; }
       }
@@ -119,7 +132,7 @@
           <td class="n">${i + 1}</td>
           <td class="nome" style="padding-left:${6 + (t.nivel - 1) * 16}px">${R.resumo[i] ? '▾ ' : marco ? '◆ ' : ''}<input data-k="nome" value="${esc(t.nome)}" /></td>
           <td>${R.resumo[i] ? `<span>${R.fim[i] - R.ini[i]} d</span>` : `<input data-k="dur" inputmode="numeric" value="${esc(t.dur ?? 1)}" class="num" /> d`}</td>
-          <td>${br(ini)}</td><td>${br(marco ? ini : fim)}</td>
+          ${R.resumo[i] ? `<td>${br(ini)}</td><td>${br(fim)}</td>` : `<td class="dt"><input data-k="ini" class="data${t.ini ? ' fixo' : ''}" inputmode="numeric" value="${br(ini)}" title="${t.ini ? 'Início fixado (não começa antes desta data). Apague para voltar ao automático.' : 'Digite uma data para fixar o início'}" />${t.ini ? '<i>📌</i>' : ''}</td><td class="dt"><input data-k="fim" class="data" inputmode="numeric" value="${br(marco ? ini : fim)}" title="Mudar o término recalcula a duração" /></td>`}
           <td>${R.resumo[i] ? `<input data-k="pred" value="${esc(t.pred || '')}" class="num2" />` : `<input data-k="pred" value="${esc(t.pred || '')}" class="num2" />`}</td>
           <td>${R.resumo[i] ? `<span>${pctResumo(c, R, i)}%</span>` : `<input data-k="pct" inputmode="numeric" value="${esc(t.pct || 0)}" class="num" />`}</td>
           <td><input data-k="resp" value="${esc(t.resp || '')}" /></td></tr>`;
@@ -190,6 +203,14 @@
   $('croTab').addEventListener('change', (e) => {
     const el = e.target, tr = el.closest('tr[data-i]'); if (!tr || !el.dataset.k) return;
     const t = C().tarefas[+tr.dataset.i], k = el.dataset.k;
+    if (k === 'ini' || k === 'fim') {
+      const c = C(), R = calcula(c), i = +tr.dataset.i, v = el.value.trim(), marco = !(+t.dur);
+      if (k === 'ini' && !v) { delete t.ini; salvar(); redesenhaMantendoFoco($('croTab'), monta); return; }
+      const dt = leData(v, diaDe(c, R.ini[i])); if (!dt) { $('croMsg').textContent = '⚠️ Data inválida — use dd/mm/aa.'; el.value = el.defaultValue; return; }
+      if (k === 'ini' || marco) { t.ini = ISO(dt); if (idxDe(c, dt) === 0 && !marco) delete t.ini; }
+      else { const fi = idxDe(c, dt); if (fi < R.ini[i]) { $('croMsg').textContent = '⚠️ O término ficou antes do início — mude o início primeiro.'; el.value = el.defaultValue; return; } t.dur = fi - R.ini[i] + 1; }
+      salvar(); redesenhaMantendoFoco($('croTab'), monta); return;
+    }
     if (k === 'dur') t.dur = Math.max(0, Math.round(parseFloat(el.value.replace(',', '.')) || 0));
     else if (k === 'pct') t.pct = Math.max(0, Math.min(100, Math.round(+el.value || 0)));
     else t[k] = el.value.trim();
