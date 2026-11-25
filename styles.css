@@ -678,3 +678,5 @@ body.trilho.aba-livre .app-shell,body.trilho.modo-pc.aba-livre .app-shell{paddin
 .pmc-feito{font-style:normal;color:#1f9d55;font-weight:800}
 
 .cro-tab td.dt{white-space:nowrap}.cro-tab input.data{width:78px}.cro-tab input.data.fixo{color:#2e6fd8;font-weight:700}.cro-tab td.dt i{font-style:normal;font-size:11px}
+
+.exp-sec{display:grid;gap:4px;margin:6px 0 14px}.exp-sec label{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid #e3e6df;border-radius:11px;font:600 15px DM Sans,Arial,sans-serif;cursor:pointer}.exp-sec input{width:20px;height:20px;accent-color:#d76845}

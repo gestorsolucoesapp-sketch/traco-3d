@@ -43,7 +43,7 @@
         <button type="button" class="prj-kpi prj-rel" data-rel><span>📄</span><div><small>Relatório</small><b>Projeto inteiro</b><em>PDF / imprimir</em></div></button></div>
       ${falta.length ? `<div class="prj-falta"><b>Falta:</b> ${falta.map(([t, a]) => `<button type="button" data-ir="${a}">${esc(t)}</button>`).join('')}</div>` : `<div class="prj-falta ok">✓ Nada pendente no projeto.</div>`}`;
     resumo.querySelectorAll('[data-ir]').forEach((b) => (b.onclick = () => vaiAba(b.dataset.ir)));
-    resumo.querySelector('[data-rel]').onclick = relatorio;
+    resumo.querySelector('[data-rel]').onclick = () => (window.tracoExportar ? window.tracoExportar.escolher('📄 Relatório do projeto', relatorio) : relatorio());
     desenhaCompras(p, cp, tot, semPreco);
     cartaoQuadro(p);
   }
@@ -127,12 +127,13 @@
   document.addEventListener('traco-projeto', () => { passo = 0; mostraAssistente(); });
 
   // ---------- 5) relatório do projeto ----------
-  function relatorio() {
-    const p = P(), S = p.spec || {}, m = window.tracoProjetos.malhas?.() || [];
+  function relatorio(sec) {
+    const tem = (k) => !sec || sec.includes(k);
+    const p = P(), S = (tem('pecas') && p.spec) || {}, m = window.tracoProjetos.malhas?.() || [];
     let img3d = ''; try { const cv = $('prjCanvas'); if (cv.width > 10 && S.pecas) img3d = cv.toDataURL('image/png'); } catch { /* */ }
-    const cp = compras(p), tot = cp.reduce((s, c) => s + (c.sub || 0), 0), cr = window.tracoCrono?.resumo(p);
+    const cp = tem('compras') ? compras(p) : [], tot = cp.reduce((s, c) => s + (c.sub || 0), 0), cr = window.tracoCrono?.resumo(p);
     const blocos = window.tracoCanvas?.BLOCOS || [];
-    const crono = window.tracoCrono?.html(p) || '', pdm = window.tracoPdm?.html(p) || '', custos = window.tracoCustos?.html(p) || '';
+    const crono = tem('crono') ? window.tracoCrono?.html(p) || '' : '', pdm = tem('pdm') ? window.tracoPdm?.html(p) || '' : '', custos = tem('custos') ? window.tracoCustos?.html(p) || '' : '';
     const lista = (arr) => (arr || []).length ? `<ul>${arr.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(p.nome)} — relatório do projeto</title>
 <style>body{font:14px/1.45 -apple-system,Segoe UI,Arial,sans-serif;color:#111;margin:24px;max-width:1100px}h1{font-size:26px;margin:0}h2{font-size:18px;margin:26px 0 8px;border-bottom:2px solid #d76845;padding-bottom:4px}
@@ -146,7 +147,7 @@ table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{border:1px soli
 <h1>${esc(p.nome)}</h1><p class="sub">Relatório do projeto · ${new Date().toLocaleDateString('pt-BR')} · Traço</p>
 <div class="kpis"><div><small>Peças 3D</small><b>${(S.pecas || []).length || '—'}</b></div><div><small>Compras</small><b>${tot ? brl(tot) : '—'}</b></div><div><small>Prazo</small><b>${cr ? `${cr.ini} → ${cr.fim}` : '—'}</b></div><div><small>Concluído</small><b>${cr ? cr.pct + '%' : '—'}</b></div></div>
 <h2>Ideia</h2><p>${esc(p.ideia || '—').replace(/\n/g, '<br>')}</p>${p.pedido ? `<p><b>O que imprimir:</b> ${esc(p.pedido)}</p>` : ''}${S.resumo ? `<p>${esc(S.resumo)}</p>` : ''}
-${blocos.some(([k]) => window.tracoCanvas.notas(p, k).length) ? `<h2>Project Model Canvas</h2><div class="canvas">${blocos.map(([k, t, ic]) => `<div class="bl"><b>${ic} ${esc(t)}</b>${window.tracoCanvas.notas(p, k).map((n) => `<i>${esc(n.t)}</i>`).join('')}</div>`).join('')}</div>` : ''}
+${tem('canvas') && blocos.some(([k]) => window.tracoCanvas.notas(p, k).length) ? `<h2>Project Model Canvas</h2><div class="canvas">${blocos.map(([k, t, ic]) => `<div class="bl"><b>${ic} ${esc(t)}</b>${window.tracoCanvas.notas(p, k).map((n) => `<i>${esc(n.t)}</i>`).join('')}</div>`).join('')}</div>` : ''}
 ${S.pecas ? `<h2>Peças 3D</h2>${img3d ? `<img class="img3d" src="${img3d}" alt="3D">` : ''}<table><tr><th>Peça</th><th>Tamanho (mm)</th><th>Volume</th><th>Como imprimir</th></tr>${S.pecas.map((pc, i) => { const x = m.find((q) => q.i === i); return `<tr><td>${esc(pc.nome)}</td><td>${x?.bb ? `${Math.round(x.bb[3] - x.bb[0])} × ${Math.round(x.bb[4] - x.bb[1])} × ${Math.round(x.bb[5] - x.bb[2])}` : '—'}</td><td>${x?.vol ? `${(x.vol / 1000).toFixed(1).replace('.', ',')} cm³ · ≈ ${Math.round(x.vol / 1000 * 1.24)} g` : '—'}</td><td>${esc(pc.impressao || '')}</td></tr>`; }).join('')}</table>
 <h2>Medidas do projeto</h2><table><tr><th>Medida</th><th>Valor</th><th>Origem</th></tr>${(S.parametros || []).map((x) => `<tr><td>${esc(x.nome || x.id)}</td><td>${esc(p.valores?.[x.id] ?? x.valor)} ${esc(x.unidade || 'mm')}</td><td class="${x.origem === 'estimado' ? 'est' : ''}">${x.origem === 'estimado' ? 'estimado — conferir' : esc(x.origem || '')}</td></tr>`).join('')}</table>` : ''}
 ${cp.length ? `<h2>Lista de compras</h2><table><tr><th>Qtd</th><th>Item</th><th>Loja</th><th>Subtotal</th></tr>${cp.map((c) => `<tr><td>${c.qtd}</td><td>${esc(c.nome)}</td><td>${c.link ? `<a href="${esc(c.link)}">${esc(c.loja)}</a>` : esc(c.loja || '—')}</td><td>${c.sub != null ? brl(c.sub) : 'sem preço'}</td></tr>`).join('')}<tr><th colspan="3">Total (sem frete)</th><th>${brl(tot)}</th></tr></table>` : ''}

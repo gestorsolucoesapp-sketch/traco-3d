@@ -333,7 +333,7 @@
     // projeto vindo de um HTML exportado: atualiza o mesmo projeto ou cria cópia
     importar(d) {
       const i = lista.findIndex((x) => x.id === d.id); let r = 'novo';
-      if (i >= 0) { if (confirm(`Atualizar o projeto "${lista[i].nome}" com o que foi editado no HTML?\n\nOK = substituir · Cancelar = importar como cópia`)) { lista[i] = d; r = 'atualizado'; } else { d.id = novoId(); d.nome += ' (cópia)'; lista.unshift(d); } }
+      if (i >= 0) { if (confirm(`Atualizar o projeto "${lista[i].nome}" com o que foi editado no HTML?\n\nOK = substituir · Cancelar = importar como cópia`)) { d = { ...lista[i], ...d }; lista[i] = d; r = 'atualizado'; } else { d.id = novoId(); d.nome += ' (cópia)'; lista.unshift(d); } }
       else lista.unshift(d);
       P = d; salvar(); mostraProjeto(); return r;
     },

@@ -27,11 +27,11 @@
       app.innerHTML = `
       <header class="topo"><input data-p="nome" class="titulo" value="${esc(D.nome)}"><p class="sub">Projeto exportado do Traço em ${esc(M.data)} · tudo que está em caixa é editável</p></header>
       <h2>Ideia</h2>${ta('ideia', 'Descreva a ideia do projeto')}
-      ${D.pedido || S.pecas ? `<label>O que imprimir</label>${ta('pedido')}` : ''}${D.medidas ? `<label>Medidas informadas</label>${ta('medidas')}` : ''}
-      <h2>Project Model Canvas <small>✓ = feito</small></h2>
+      ${S.pecas ? `<label>O que imprimir</label>${ta('pedido')}` : ''}${D.medidas ? `<label>Medidas informadas</label>${ta('medidas')}` : ''}
+      ${D.canvas ? `<h2>Project Model Canvas <small>✓ = feito</small></h2>
       <div class="canvas">${M.blocos.map(([k, t, ic, q, c, l, a]) => { const n = cv[k] || [], f = n.filter((x) => x.ok).length;
         return `<section class="bl" style="grid-column:${c};grid-row:${l} / span ${a}"><header><span>${ic}</span><div><b>${esc(t)}</b><small>${esc(q)}${f ? ` · <em>✓ ${f}/${n.length}</em>` : ''}</small></div><button class="mais" data-add="canvas.${k}" title="Novo post-it">＋</button></header>
-        ${n.map((x, i) => `<div class="nota${x.ok ? ' ok' : ''}" style="background:${x.ia ? M.cor.ia : M.cor.usuario}"><button class="chk" data-ok="canvas.${k}.${i}">${x.ok ? '✓' : ''}</button>${ta(`canvas.${k}.${i}.t`)}<button class="x" data-del="canvas.${k}.${i}">×</button></div>`).join('')}</section>`; }).join('')}</div>
+        ${n.map((x, i) => `<div class="nota${x.ok ? ' ok' : ''}" style="background:${x.ia ? M.cor.ia : M.cor.usuario}"><button class="chk" data-ok="canvas.${k}.${i}">${x.ok ? '✓' : ''}</button>${ta(`canvas.${k}.${i}.t`)}<button class="x" data-del="canvas.${k}.${i}">×</button></div>`).join('')}</section>`; }).join('')}</div>` : ''}
       ${(S.parametros || []).length ? `<h2>Medidas do projeto</h2><table><tr><th>Medida</th><th>Valor</th><th>Un.</th><th>Origem</th></tr>${S.parametros.map((x) => { D.valores ||= {}; if (D.valores[x.id] == null) D.valores[x.id] = x.valor;
         return `<tr><td>${esc(x.nome || x.id)}</td><td>${inp(`valores.${x.id}`, 'n', 'num')}</td><td>${esc(x.unidade || 'mm')}</td><td class="${x.origem === 'estimado' ? 'est' : ''}">${x.origem === 'estimado' ? 'estimado — conferir' : esc(x.origem || '')}</td></tr>`; }).join('')}</table>` : ''}
       ${(S.pecas || []).length ? `<h2>Peças 3D</h2>${M.img3d ? `<img class="img3d" src="${M.img3d}" alt="3D">` : ''}<table><tr><th>Peça</th><th>Como imprimir</th></tr>${S.pecas.map((pc, i) => `<tr><td>${esc(pc.nome)}</td><td>${ta(`spec.pecas.${i}.impressao`)}</td></tr>`).join('')}</table>` : ''}
@@ -90,9 +90,11 @@
   }
 
   // ---------- montar e baixar ----------
-  function exportar() {
+  function exportar(sec = SECOES.map((x) => x[0])) {
     const p = P(); if (!p) return;
-    const D = JSON.parse(JSON.stringify(p));
+    const D = JSON.parse(JSON.stringify(p)), tem = (k) => sec.includes(k);
+    if (!tem('canvas')) delete D.canvas; if (!tem('crono')) delete D.crono; if (!tem('pdm')) delete D.pdm; if (!tem('custos')) delete D.custos;
+    if (!tem('pecas')) { delete D.spec; delete D.valores; }
     let img3d = ''; try { const cv = $('prjCanvas'); if (cv?.width > 10 && p.spec?.pecas) img3d = cv.toDataURL('image/jpeg', 0.85); } catch { /* */ }
     const tira = (h) => (h || '').replace(/<button[\s\S]*?<\/button>/g, '').replace(/<input([^>]*)value="([^"]*)"[^>]*>/g, '$2');
     const crono = window.tracoCrono?.calc(p) ? window.tracoCrono.html(p) : '', gantt = (/<div class="rel-gantt"[\s\S]*$/.exec(crono) || [''])[0];
@@ -101,9 +103,9 @@
     const M = {
       data: new Date().toLocaleString('pt-BR'), arquivo: `projeto-${slug(p.nome)}`,
       blocos: window.tracoCanvas?.BLOCOS || [], cor: { usuario: '#ffe57a', ia: '#bfe0ff' }, img3d, compras,
-      gantt: tira(gantt), pdm: tira(window.tracoPdm?.html(p) || ''), curva: window.tracoCustos?.resumo(p) ? tira(window.tracoCustos.html(p)) : '',
+      gantt: tem('crono') ? tira(gantt) : '', pdm: tem('pdm') ? tira(window.tracoPdm?.html(p) || '') : '', curva: tem('custos') && window.tracoCustos?.resumo(p) ? tira(window.tracoCustos.html(p)) : '',
     };
-    if (!D.canvas && M.blocos.length) D.canvas = {};
+    if (!tem('compras')) M.compras = ''; if (!tem('pecas')) M.img3d = '';
     const css = `*{box-sizing:border-box}body{font:14px/1.45 -apple-system,Segoe UI,Arial,sans-serif;color:#111;margin:0 auto;padding:0 18px 40px;max-width:1200px;background:#fafaf7}
 .barra{position:sticky;top:0;z-index:5;background:#fafaf7ee;backdrop-filter:blur(6px);padding:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #e3e3dc}
 .barra button{font:700 14px Arial;padding:9px 14px;border-radius:9px;border:1px solid #ccc;background:#fff;cursor:pointer}.barra #salvar{background:#d76845;border-color:#d76845;color:#fff}
@@ -139,6 +141,28 @@ ol li,ul li{margin:4px 0}.cus-kpi{border:1px solid #ddd;border-radius:8px;paddin
     aviso(`📤 Baixei <b>${M.arquivo}.html</b>. Abra no navegador, edite e toque em 💾 Salvar HTML. Depois traga de volta com 📥 Importar.`);
   }
 
+  // ---------- escolher o que vai junto ----------
+  const SECOES = [['canvas', '🧩 Canvas do projeto'], ['pecas', '🖨️ Peças 3D, medidas e montagem'], ['compras', '🛒 Lista de compras'], ['crono', '📅 Cronograma'], ['pdm', '🔗 Diagrama de precedência'], ['custos', '💰 Custos e Curva S']];
+  const temDado = (p, k) => ({ canvas: () => (window.tracoCanvas?.BLOCOS || []).some(([b]) => window.tracoCanvas.notas(p, b).length), pecas: () => !!p.spec, compras: () => (p.spec?.componentes || []).length > 0, crono: () => !!p.crono?.tarefas?.length, pdm: () => !!p.pdm?.linhas?.length, custos: () => !!p.custos?.itens?.length }[k]());
+  const dlg = document.createElement('dialog'); dlg.className = 'ras-dlg exp-dlg'; document.body.appendChild(dlg);
+  function escolher(titulo, faz) {
+    const p = P(); if (!p) return;
+    let ant = null; try { ant = JSON.parse(localStorage.getItem('traco-exp-secoes') || 'null'); } catch { /* */ }
+    const lista = SECOES.filter(([k]) => temDado(p, k));
+    dlg.innerHTML = `<form method="dialog"><h3>${titulo}</h3><p class="ras-sub">Escolha o que vai junto. Nome e ideia sempre vão.</p>
+      <div class="exp-sec">${lista.length ? lista.map(([k, t]) => `<label><input type="checkbox" value="${k}" ${!ant || ant.includes(k) ? 'checked' : ''}> ${t}</label>`).join('') : '<p class="ras-sub">Este projeto ainda só tem nome e ideia.</p>'}</div>
+      <div class="ras-acoes"><button type="button" class="secondary-button" data-t>Marcar tudo</button><button value="x" class="secondary-button">Cancelar</button><button value="ok" class="primary-button">Gerar</button></div></form>`;
+    dlg.querySelector('[data-t]').onclick = () => { const cs = dlg.querySelectorAll('input'), todos = [...cs].every((c) => c.checked); cs.forEach((c) => (c.checked = !todos)); };
+    dlg.onclose = () => {
+      if (dlg.returnValue !== 'ok') return;
+      const sec = [...dlg.querySelectorAll('input:checked')].map((c) => c.value);
+      const salvo = SECOES.map(([k]) => k).filter((k) => sec.includes(k) || !lista.some(([q]) => q === k)); // o que não tinha dado fica marcado
+      try { localStorage.setItem('traco-exp-secoes', JSON.stringify(salvo)); } catch { /* */ }
+      faz(sec);
+    };
+    dlg.returnValue = ''; dlg.showModal();
+  }
+
   // ---------- importar de volta ----------
   const arq = document.createElement('input'); arq.type = 'file'; arq.accept = '.html,.htm,text/html'; arq.hidden = true; document.body.appendChild(arq);
   arq.onchange = async () => {
@@ -157,8 +181,8 @@ ol li,ul li{margin:4px 0}.cus-kpi{border:1px solid #ddd;border-radius:8px;paddin
   const novo = painel.querySelector('[data-q=novo]');
   if (novo) {
     const bi = document.createElement('button'); bi.type = 'button'; bi.textContent = '📥 Importar'; bi.title = 'Trazer de volta um projeto exportado em HTML'; bi.onclick = () => arq.click();
-    const be = document.createElement('button'); be.type = 'button'; be.textContent = '📤 HTML'; be.title = 'Exportar o projeto inteiro em HTML editável'; be.onclick = exportar;
+    const be = document.createElement('button'); be.type = 'button'; be.textContent = '📤 HTML'; be.title = 'Exportar o projeto inteiro em HTML editável'; be.onclick = () => escolher('📤 Exportar HTML editável', exportar);
     novo.parentElement.appendChild(be); novo.parentElement.appendChild(bi);
   }
-  window.tracoExportar = { exportar, importar: () => arq.click() };
+  window.tracoExportar = { exportar, escolher, importar: () => arq.click() };
 })();
