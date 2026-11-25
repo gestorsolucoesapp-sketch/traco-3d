@@ -7,9 +7,9 @@
   const json = (o) => JSON.stringify(o).replace(/</g, '\\u003c');
 
   // ---------- a página exportada (roda sozinha, sem o Traço) ----------
-  function pagina() {
-    const D = JSON.parse(document.getElementById('traco-dados').textContent);
-    const M = JSON.parse(document.getElementById('traco-meta').textContent);
+  function pagina(pre) { // pre = {D, M}: só devolve o HTML (para o arquivo já abrir pronto, mesmo sem JavaScript)
+    const D = pre ? pre.D : JSON.parse(document.getElementById('traco-dados').textContent);
+    const M = pre ? pre.M : JSON.parse(document.getElementById('traco-meta').textContent);
     const app = document.getElementById('app');
     let sujo = false;
     const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -18,13 +18,13 @@
     const id = () => Math.random().toString(36).slice(2, 9);
     const pega = (p) => p.split('.').reduce((o, k) => (o == null ? o : o[k]), D);
     const poe = (p, v) => { const ks = p.split('.'), u = ks.pop(); const o = ks.reduce((o, k) => (o[k] ??= /^\d+$/.test(k) ? [] : {}), D); o[u] = v; };
-    const ta = (p, ph = '', cls = '') => `<textarea data-p="${p}" class="${cls}" rows="1" placeholder="${esc(ph)}">${esc(pega(p))}</textarea>`;
+    const ta = (p, ph = '', cls = '') => `<textarea data-p="${p}" class="${cls}" rows="${Math.max(1, Math.ceil(String(pega(p) ?? '').length / 24) + (String(pega(p) ?? '').match(/\n/g) || []).length)}" placeholder="${esc(ph)}">${esc(pega(p))}</textarea>`;
     const inp = (p, cls = '', tipo = 'text') => `<input data-p="${p}" class="${cls}" ${tipo === 'num' ? 'inputmode="decimal"' : tipo === 'date' ? 'type="date"' : ''} value="${esc(pega(p))}">`;
     const marca = () => { sujo = true; document.getElementById('estado').textContent = '● alterações não salvas'; document.getElementById('estado').className = 'sujo'; };
 
-    function render() {
+    function montar() {
       const S = D.spec || {}, cv = D.canvas || {}, C = D.crono, L = D.pdm?.linhas, A = D.custos;
-      app.innerHTML = `
+      return `
       <header class="topo"><input data-p="nome" class="titulo" value="${esc(D.nome)}"><p class="sub">Projeto exportado do Traço em ${esc(M.data)} · tudo que está em caixa é editável</p></header>
       <h2>Ideia</h2>${ta('ideia', 'Descreva a ideia do projeto')}
       ${S.pecas ? `<label>O que imprimir</label>${ta('pedido')}` : ''}${D.medidas ? `<label>Medidas informadas</label>${ta('medidas')}` : ''}
@@ -42,19 +42,26 @@
       ${L ? `<h2>Diagrama de precedência</h2><table><tr><th>ID</th><th>Atividade</th><th>Duração</th><th>Predecessoras</th><th></th></tr>${L.map((l, i) => `<tr><td>${inp(`pdm.linhas.${i}.id`, 'cur')}</td><td>${inp(`pdm.linhas.${i}.desc`, 'larga')}</td><td>${inp(`pdm.linhas.${i}.dur`, 'cur', 'num')}</td><td>${inp(`pdm.linhas.${i}.pred`, 'cur')}</td><td><button class="x" data-del="pdm.linhas.${i}">×</button></td></tr>`).join('')}</table>
         <button class="mais lin" data-addpdm>＋ Atividade</button>${M.pdm ? `<details><summary>Rede (como estava ao exportar)</summary>${M.pdm}</details>` : ''}` : ''}
       ${A ? `<h2>Custos</h2><p class="obs">Contingência ${inp('custos.cont', 'cur', 'num')} % · a Curva S recalcula quando você importar de volta no Traço.</p>
-        <div class="rola"><table class="cus"><tr><th>Categoria</th><th>Descrição</th><th>Qtd</th><th>Un.</th><th>V. unit.</th><th>Total</th><th>Tipo</th><th>Mês</th><th>Gasto real</th><th>Premissa</th><th></th></tr>${A.itens.map((it, i) => `<tr><td>${inp(`custos.itens.${i}.cat`)}</td><td>${inp(`custos.itens.${i}.desc`, 'larga')}</td><td>${inp(`custos.itens.${i}.qtd`, 'cur', 'num')}</td><td>${inp(`custos.itens.${i}.un`, 'cur')}</td><td>${inp(`custos.itens.${i}.vu`, 'med', 'num')}</td><td class="v" data-tot="${i}"></td><td><select data-p="custos.itens.${i}.tipo">${['CAPEX', 'OPEX'].map((o) => `<option ${it.tipo === o ? 'selected' : ''}>${o}</option>`).join('')}</select></td><td>${inp(`custos.itens.${i}.mes`, 'cur', 'num')}</td><td>${inp(`custos.itens.${i}.real`, 'med', 'num')}</td><td>${ta(`custos.itens.${i}.premissa`)}</td><td><button class="x" data-del="custos.itens.${i}">×</button></td></tr>`).join('')}</table></div>
-        <button class="mais lin" data-addcus>＋ Item</button><div class="tots" id="tots"></div>${M.curva ? `<details><summary>Curva S e indicadores (como estavam ao exportar)</summary>${M.curva}</details>` : ''}` : ''}
+        <div class="rola"><table class="cus"><tr><th>Categoria</th><th>Descrição</th><th>Qtd</th><th>Un.</th><th>V. unit.</th><th>Total</th><th>Tipo</th><th>Mês</th><th>Gasto real</th><th>Premissa</th><th></th></tr>${A.itens.map((it, i) => `<tr><td>${inp(`custos.itens.${i}.cat`)}</td><td>${inp(`custos.itens.${i}.desc`, 'larga')}</td><td>${inp(`custos.itens.${i}.qtd`, 'cur', 'num')}</td><td>${inp(`custos.itens.${i}.un`, 'cur')}</td><td>${inp(`custos.itens.${i}.vu`, 'med', 'num')}</td><td class="v" data-tot="${i}">${brl(num(it.qtd) * num(it.vu))}</td><td><select data-p="custos.itens.${i}.tipo">${['CAPEX', 'OPEX'].map((o) => `<option ${it.tipo === o ? 'selected' : ''}>${o}</option>`).join('')}</select></td><td>${inp(`custos.itens.${i}.mes`, 'cur', 'num')}</td><td>${inp(`custos.itens.${i}.real`, 'med', 'num')}</td><td>${ta(`custos.itens.${i}.premissa`)}</td><td><button class="x" data-del="custos.itens.${i}">×</button></td></tr>`).join('')}</table></div>
+        <button class="mais lin" data-addcus>＋ Item</button><div class="tots" id="tots">${totaisHTML()}</div>${M.curva ? `<details><summary>Curva S e indicadores (como estavam ao exportar)</summary>${M.curva}</details>` : ''}` : ''}
       ${(S.montagem || []).length ? `<h2>Montagem</h2><ol>${S.montagem.map((_, i) => `<li>${ta(`spec.montagem.${i}`)}</li>`).join('')}</ol>` : ''}
       ${(S.conferir || []).length ? `<h2>Conferir antes de imprimir</h2><ul>${S.conferir.map((_, i) => `<li>${ta(`spec.conferir.${i}`)}</li>`).join('')}</ul>` : ''}`;
-      app.querySelectorAll('textarea').forEach(cresce); totais();
     }
+    function render() { app.innerHTML = montar(); app.querySelectorAll('textarea').forEach(cresce); totais(); }
     function cresce(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
-    function totais() {
-      const A = D.custos; if (!A) return; let sub = 0, real = 0, cap = 0;
-      A.itens.forEach((it, i) => { const t = num(it.qtd) * num(it.vu); sub += t; real += num(it.real); if (it.tipo === 'CAPEX') cap += t; const c = app.querySelector(`[data-tot="${i}"]`); if (c) c.textContent = brl(t); });
-      const cont = sub * num(A.cont) / 100, el = document.getElementById('tots');
-      if (el) el.innerHTML = `<div><small>Itens</small><b>${brl(sub)}</b></div><div><small>Contingência</small><b>${brl(cont)}</b></div><div><small>Orçamento total</small><b>${brl(sub + cont)}</b></div><div><small>Gasto real</small><b>${brl(real)}</b></div><div><small>CAPEX / OPEX</small><b>${brl(cap)} / ${brl(sub - cap)}</b></div>`;
+    function totaisHTML() {
+      const A = D.custos; if (!A) return ''; let sub = 0, real = 0, cap = 0;
+      A.itens.forEach((it) => { const t = num(it.qtd) * num(it.vu); sub += t; real += num(it.real); if (it.tipo === 'CAPEX') cap += t; });
+      const cont = sub * num(A.cont) / 100;
+      return `<div><small>Itens</small><b>${brl(sub)}</b></div><div><small>Contingência</small><b>${brl(cont)}</b></div><div><small>Orçamento total</small><b>${brl(sub + cont)}</b></div><div><small>Gasto real</small><b>${brl(real)}</b></div><div><small>CAPEX / OPEX</small><b>${brl(cap)} / ${brl(sub - cap)}</b></div>`;
     }
+    function totais() {
+      const A = D.custos; if (!A) return;
+      A.itens.forEach((it, i) => { const c = app.querySelector(`[data-tot="${i}"]`); if (c) c.textContent = brl(num(it.qtd) * num(it.vu)); });
+      const el = document.getElementById('tots'); if (el) el.innerHTML = totaisHTML();
+    }
+    if (pre) return montar();
+    document.getElementById('dica')?.remove();
     app.addEventListener('input', (e) => {
       const el = e.target, p = el.dataset.p; if (!p) return;
       let v = el.value; if (/\.(nivel|dur|pct|qtd|mes)$/.test(p) && v.trim() !== '' && Number.isFinite(num(v))) v = num(v);
@@ -79,7 +86,7 @@
     });
     document.getElementById('salvar').onclick = () => {
       D.quando = Date.now(); document.getElementById('traco-dados').textContent = JSON.stringify(D).replace(/</g, '\\u003c');
-      const c = document.documentElement.cloneNode(true); c.querySelector('#app').innerHTML = ''; c.querySelector('#estado').textContent = ''; c.querySelector('#estado').className = '';
+      render(); const c = document.documentElement.cloneNode(true); c.querySelector('#estado').textContent = ''; c.querySelector('#estado').className = '';
       const u = URL.createObjectURL(new Blob(['<!DOCTYPE html>\n' + c.outerHTML], { type: 'text/html' })), a = document.createElement('a');
       a.href = u; a.download = `${M.arquivo}.html`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000);
       sujo = false; document.getElementById('estado').textContent = '✓ salvo — leve este arquivo de volta no Traço: Projetos → 📥 Importar'; document.getElementById('estado').className = 'ok';
@@ -109,7 +116,7 @@
     const css = `*{box-sizing:border-box}body{font:14px/1.45 -apple-system,Segoe UI,Arial,sans-serif;color:#111;margin:0 auto;padding:0 18px 40px;max-width:1200px;background:#fafaf7}
 .barra{position:sticky;top:0;z-index:5;background:#fafaf7ee;backdrop-filter:blur(6px);padding:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #e3e3dc}
 .barra button{font:700 14px Arial;padding:9px 14px;border-radius:9px;border:1px solid #ccc;background:#fff;cursor:pointer}.barra #salvar{background:#d76845;border-color:#d76845;color:#fff}
-#estado{font-size:12.5px;color:#666}#estado.sujo{color:#b4521f;font-weight:700}#estado.ok{color:#1f9d55;font-weight:700}
+body:has(#dica) .barra,body:has(#dica) .mais,body:has(#dica) .x{display:none}#dica{background:#fff4d6;border:1px solid #f0d58a;border-radius:10px;padding:8px 12px;font-size:13px;margin:10px 0}#estado{font-size:12.5px;color:#666}#estado.sujo{color:#b4521f;font-weight:700}#estado.ok{color:#1f9d55;font-weight:700}
 .titulo{font:800 28px Manrope,Arial,sans-serif;border:0;background:none;width:100%;padding:14px 0 0}.sub{color:#777;margin:2px 0 0;font-size:12.5px}
 h2{font-size:18px;margin:28px 0 8px;border-bottom:2px solid #d76845;padding-bottom:4px}h2 small{font-weight:400;color:#888;font-size:12px}label{display:block;font-weight:700;margin:10px 0 3px;font-size:12.5px;color:#555}
 textarea,input,select{font:inherit;border:1px solid #d8d8d0;border-radius:7px;padding:5px 7px;background:#fff;width:100%;resize:none}textarea:focus,input:focus,select:focus{outline:2px solid #d7684566;border-color:#d76845}
@@ -130,7 +137,8 @@ ol li,ul li{margin:4px 0}.cus-kpi{border:1px solid #ddd;border-radius:8px;paddin
     const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${p.nome.replace(/[<&]/g, '')}</title><style>${css}</style></head><body>
 <div class="barra"><button id="salvar">💾 Salvar HTML</button><button id="imprimir">🖨️ Imprimir / PDF</button><span id="estado"></span></div>
-<main id="app"></main>
+<p id="dica">👀 Você está vendo uma pré-visualização. Para <b>editar</b>, abra este arquivo num navegador (Safari, Chrome ou Edge).</p>
+<main id="app">${pagina({ D: JSON.parse(JSON.stringify(D)), M })}</main>
 <script type="application/json" id="traco-dados">${json(D)}</script>
 <script type="application/json" id="traco-meta">${json(M)}</script>
 <script>(${pagina.toString()})();</script>

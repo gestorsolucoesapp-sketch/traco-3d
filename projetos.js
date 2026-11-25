@@ -9,7 +9,7 @@
 
   const tab = document.createElement('button');
   tab.id = 'projetosTab'; tab.type = 'button'; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', 'false');
-  tab.textContent = 'Projetos · impressão 3D'; sw.appendChild(tab);
+  tab.textContent = 'Projetos'; sw.appendChild(tab);
   const painel = document.createElement('div'); painel.id = 'projetosMode'; painel.setAttribute('role', 'tabpanel'); painel.hidden = true;
   painel.innerHTML = `
     <section class="prj-panel">

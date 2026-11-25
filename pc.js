@@ -99,7 +99,7 @@
         ['🏠 Arquitetura · ambientes', '#architectureTab'],
         ['⚙️ Mecânica · peças', '#partsTab'],
         ['✏️ Rascunhos · quadro livre', '#rascunhosTab'],
-        ['🧩 Projetos · impressão 3D', '#projetosTab'],
+        ['🧩 Projetos', '#projetosTab'],
         null,
         ['📱 Sair do modo PC', '#__sair'],
       ]],
