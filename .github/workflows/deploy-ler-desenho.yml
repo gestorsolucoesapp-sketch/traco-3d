@@ -42,10 +42,9 @@ jobs:
           jq -Rs '{query: .}' supabase/sync.sql > /tmp/q.json
           curl -sS -f -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @/tmp/q.json
-      - name: Login por código no e-mail
+      - name: Login por link no e-mail (endereços permitidos)
         run: |
-          MODELO='<h2>Traço</h2><p>Seu código para entrar:</p><p style="font-size:30px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p><p>Digite esse código no app. Se não foi você, ignore este e-mail.</p>'
-          jq -n --arg m "$MODELO" '{site_url:"https://traco-estudio.vercel.app", uri_allow_list:"https://traco-estudio.vercel.app/**,https://gestorsolucoesapp-sketch.github.io/traco-3d/**", mailer_subjects_magic_link:"Seu código do Traço", mailer_templates_magic_link_content:$m, mailer_subjects_confirmation:"Seu código do Traço", mailer_templates_confirmation_content:$m}' > /tmp/a.json
+          jq -n '{site_url:"https://traco-estudio.vercel.app", uri_allow_list:"https://traco-estudio.vercel.app/**,https://gestorsolucoesapp-sketch.github.io/traco-3d/**"}' > /tmp/a.json
           COD=$(curl -sS -o /tmp/r.txt -w '%{http_code}' -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @/tmp/a.json)
           echo "auth config: $COD"; [ "$COD" -lt 300 ] || { head -c 800 /tmp/r.txt; exit 1; }

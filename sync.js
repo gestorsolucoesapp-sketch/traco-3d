@@ -40,39 +40,35 @@
     dlg.innerHTML = `<form method="dialog" id="sgForm">
       <div class="sync-logo">traço<span>.</span></div>
       <h3>Entrar para sincronizar</h3>
-      <p class="ras-sub">Seus projetos e quadros ficam iguais no iPad, no celular e no PC. Sem senha: mandamos um código para o seu e-mail.</p>
+      <p class="ras-sub">Seus projetos e quadros ficam iguais no iPad, no celular e no PC. Sem senha: mandamos um link de acesso para o seu e-mail.</p>
       <label class="sync-campo">E-mail<input type="email" id="sgEmail" autocomplete="email" inputmode="email" value="${esc(email)}" /></label>
-      <div id="sgCodigo" hidden><label class="sync-campo">Código que chegou no e-mail<input id="sgCod" inputmode="numeric" autocomplete="one-time-code" maxlength="8" /></label>
-        <button type="button" class="sync-link" id="sgReenvia">Reenviar código</button></div>
       <p class="sync-msg" id="sgMsg">${esc(msg || '')}</p>
-      <div class="ras-acoes"><button type="button" class="secondary-button" data-x>Agora não</button><button type="submit" class="primary-button" id="sgOk">Enviar código</button></div></form>`;
+      <div class="ras-acoes"><button type="button" class="secondary-button" data-x>Agora não</button><button type="submit" class="primary-button" id="sgOk">Enviar link</button></div></form>`;
     dlg.showModal();
     const f = $('sgForm'), m = $('sgMsg'), ok = $('sgOk');
     dlg.querySelector('[data-x]').onclick = () => dlg.close();
-    let etapa = 'email';
-    const envia = async () => {
-      const em = $('sgEmail').value.trim().toLowerCase(); if (!/^\S+@\S+\.\S+$/.test(em)) { m.textContent = 'Digite um e-mail válido.'; return; }
-      ok.disabled = true; m.textContent = 'Enviando o código…';
-      try {
-        await api('/auth/v1/otp', { method: 'POST', body: JSON.stringify({ email: em, create_user: true }) });
-        LS.set('traco-email', em); etapa = 'codigo'; $('sgCodigo').hidden = false; $('sgEmail').readOnly = true; ok.textContent = 'Entrar';
-        m.textContent = `Código enviado para ${em}. Confira também a caixa de spam.`; setTimeout(() => $('sgCod').focus(), 50);
-      } catch (e) { m.textContent = e.status === 429 ? 'Muitos pedidos de código seguidos. Espere uns minutos e tente de novo.' : `Não deu para enviar: ${e.message}`; }
-      ok.disabled = false;
-    };
-    $('sgReenvia').onclick = envia;
     f.onsubmit = async (e) => {
       e.preventDefault();
-      if (etapa === 'email') return envia();
-      const cod = $('sgCod').value.replace(/\D/g, ''); if (cod.length < 6) { m.textContent = 'Digite o código de 6 dígitos.'; return; }
-      ok.disabled = true; m.textContent = 'Conferindo…';
+      const em = $('sgEmail').value.trim().toLowerCase(); if (!/^\S+@\S+\.\S+$/.test(em)) { m.textContent = 'Digite um e-mail válido.'; return; }
+      ok.disabled = true; m.textContent = 'Enviando…';
       try {
-        const em = $('sgEmail').value.trim().toLowerCase();
-        guarda(await api('/auth/v1/verify', { method: 'POST', body: JSON.stringify({ type: 'email', email: em, token: cod }) }), em);
-        dlg.close(); pinta('sinc', 'Sincronizando…'); await sincroniza(true);
-      } catch (err) { m.textContent = err.status === 403 || err.status === 400 ? 'Código errado ou vencido. Peça outro.' : `Não deu para entrar: ${err.message}`; }
+        const volta = location.origin + location.pathname;
+        await api(`/auth/v1/otp?redirect_to=${encodeURIComponent(volta)}`, { method: 'POST', body: JSON.stringify({ email: em, create_user: true }) });
+        LS.set('traco-email', em);
+        m.innerHTML = `✉️ Link enviado para <b>${esc(em)}</b>.<br>Abra o e-mail <b>neste aparelho</b> e toque no link de acesso: o Traço abre já conectado. Confira também o spam.`;
+        ok.textContent = 'Reenviar';
+      } catch (err) { m.textContent = err.status === 429 ? 'Muitos pedidos seguidos. Espere alguns minutos e tente de novo.' : `Não deu para enviar: ${err.message}`; }
       ok.disabled = false;
     };
+  }
+  // volta do link do e-mail: o endereço traz a sessão depois do "#"
+  async function voltaDoLink() {
+    const h = new URLSearchParams(location.hash.slice(1)); if (!h.get('access_token') && !h.get('error_description')) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    if (h.get('error_description')) { setTimeout(() => abreLogin(`O link não valeu (${h.get('error_description')}). Peça outro.`), 800); return; }
+    const j = { access_token: h.get('access_token'), refresh_token: h.get('refresh_token'), expires_in: +h.get('expires_in') || 3600 };
+    try { const u = await fetch(CFG.url + '/auth/v1/user', { headers: { apikey: CFG.chave, Authorization: `Bearer ${j.access_token}` } }).then((r) => r.json()); j.user = u; } catch { /* */ }
+    guarda(j, j.user?.email); pinta('sinc', 'Sincronizando…'); setTimeout(() => { toast('✅ Conectado — sincronizando seus projetos'); sincroniza(true); }, 600);
   }
   function abreConta() {
     const ult = LS.get('traco-sync-ult', 0);
@@ -148,6 +144,7 @@
   }
   function toast(t) { const d = document.createElement('div'); d.className = 'sync-toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 3500); }
 
+  if (CFG) voltaDoLink();
   // quando sincroniza: ao abrir, ao voltar para o app, ao ficar online e a cada minuto
   estadoInicial();
   window.addEventListener('online', () => sincroniza(false));
