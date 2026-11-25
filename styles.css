@@ -645,3 +645,18 @@ body.trilho.aba-livre .app-shell,body.trilho.modo-pc.aba-livre .app-shell{paddin
 .cus-tab tr.res td{font-weight:800;background:#fafbf8}.cus-tab tr.tot td{font-weight:800;border-top:2px solid #ccc}
 .cus-tab input{width:100px;border:1px solid #dfe4db;border-radius:7px;padding:6px;font:600 12.5px DM Sans,Arial,sans-serif;text-align:right;background:#fafbf8}.cus-tab input.p{width:46px}
 @media(max-width:760px){.cus-kpis{grid-template-columns:repeat(2,1fr)}}
+/* Custos v2: análise editável */
+.cus-cont{width:52px!important;border:1px solid #dfe4db;border-radius:8px;padding:7px;font:700 13px DM Sans,Arial,sans-serif;text-align:right}
+.cus-dois{display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:10px;align-items:start}
+.cus-cat{border:1px solid #e2e5dd;border-radius:12px;padding:10px 12px;background:#fff}.cus-cat:empty{display:none}.cus-sub{display:block;font:800 14px Manrope,Arial,sans-serif;margin-bottom:8px}
+.cus-barra{display:grid;grid-template-columns:96px 1fr;gap:2px 8px;align-items:center;margin-bottom:7px;font-size:12px}.cus-barra>div{height:10px;background:#f0f1ec;border-radius:5px;overflow:hidden}.cus-barra i{display:block;height:100%;border-radius:5px}.cus-barra em{grid-column:2;font-style:normal;color:#555;font-size:11.5px}
+.cus-tit{margin:16px 0 6px;font:800 15px Manrope,Arial,sans-serif}.cus-tit small{font:600 11.5px DM Sans,Arial,sans-serif;color:#666;margin-left:6px}
+#cusItens table{width:100%;border-collapse:collapse;font:600 12.5px DM Sans,Arial,sans-serif;white-space:nowrap}
+#cusItens th{background:#f4f5f1;text-align:left;padding:7px 5px;font-size:11px;border-bottom:1px solid #ccc;position:sticky;top:0}
+#cusItens td{padding:3px 4px;border-bottom:1px solid #f0f1ec}#cusItens td.v{text-align:right;font-weight:800}
+#cusItens input,#cusItens select{border:1px solid #dfe4db;border-radius:7px;padding:6px;font:600 12.5px DM Sans,Arial,sans-serif;background:#fafbf8;color:#111}
+#cusItens input.desc{width:190px}#cusItens input.n{width:52px;text-align:right}#cusItens input.un{width:46px}#cusItens input.m{width:84px;text-align:right}#cusItens input.prem{width:260px}#cusItens select{max-width:170px}
+#cusItens tr.est td{background:#fff6f3}#cusItens tr.est select[data-k=origem]{border-color:#d76845;color:#a33b1e}
+#cusItens tr.tot td{font-weight:800;border-top:2px solid #ccc;background:#fafbf8}#cusItens td button{border:0;background:none;font-size:18px;color:#999}
+@media(max-width:900px){.cus-dois{grid-template-columns:1fr}}
+#cusItens input.desc,#cusItens input.prem,#cusItens input.un{text-align:left}
