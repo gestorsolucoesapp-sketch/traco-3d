@@ -172,4 +172,5 @@
     const clone = sv.cloneNode(true); clone.style.zoom = '';
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
   };
+  window.tracoPdm = { html(p) { if (P() !== p || !(p.pdm?.linhas?.length)) return ''; monta(); return `<div class="rel-pdm">${$('pdmSvg').innerHTML}</div><div class="rel-pdmres">${$('pdmRes').innerHTML}</div>`; } };
 })();

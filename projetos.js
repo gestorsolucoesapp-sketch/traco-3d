@@ -191,6 +191,7 @@
   function pesquisarComp(nome) {
     const S = P.spec, ps = (S.parametros || []).filter((p) => p.origem === 'componente' || p.origem === 'estimado');
     window.tracoPesquisar?.({
+      aoResultado: () => document.dispatchEvent(new Event('traco-compras')),
       item: nome, auto: Boolean(nome), contexto: `${S.nome || P.nome}: ${S.resumo || P.ideia || ''}`.slice(0, 600),
       parametros: ps.map((p) => `${p.id}: ${p.nome} = ${P.valores[p.id] ?? p.valor} mm${p.obs ? ` (${p.obs})` : ''}`).join('\n'),
       parametrosIds: ps.map((p) => p.id), nomeParam: (id) => ps.find((p) => p.id === id)?.nome || id,
@@ -322,6 +323,10 @@
   window.tracoProjetos = {
     gesto: () => Boolean(gesto),
     atual: () => P,
+    malhas: () => malhas,
+    gerar: () => pedirIA(null),
+    mostra: () => mostraProjeto(),
+    pesquisar: (nome) => pesquisarComp(nome),
     salvar: () => salvar(),
     // abre o projeto do quadro e, se ainda não tem 3D, já começa a gerar (ideia = tema pedido ou notas do quadro)
     doQuadro(q, opc = {}) {

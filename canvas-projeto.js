@@ -168,4 +168,5 @@
 
   // trocou de projeto → redesenha se o canvas estiver aberto
   document.addEventListener('traco-projeto', () => { if (!area.hidden) monta(); });
+  window.tracoCanvas = { BLOCOS, notas: (p, k) => (p.canvas?.[k] || []).filter((n) => n.t?.trim()) };
 })();

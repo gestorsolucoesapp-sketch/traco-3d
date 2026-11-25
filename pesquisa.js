@@ -50,7 +50,7 @@
     try {
       const r = await window.tracoChamarIA({ pesquisa: { item, contexto: atual.contexto || '', parametros: atual.parametros || '' } });
       r._quando = new Date().toLocaleDateString('pt-BR');
-      atual.r = r; cache[k] = r;
+      atual.r = r; cache[k] = r; cache['n|' + chaveDe(item)] = r; atual.aoResultado?.(r);
       const ks = Object.keys(cache); if (ks.length > 60) delete cache[ks[0]];
       try { localStorage.setItem('traco-pesquisas', JSON.stringify(cache)); } catch { /* */ }
       mostra(r);
@@ -59,6 +59,7 @@
   }
   $('pqItem').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscar(true); } e.stopPropagation(); });
 
+  window.tracoPesquisas = { porItem: (nome) => cache['n|' + chaveDe(nome)] || null };
   // abre a janela; se já pesquisou isso antes, mostra na hora
   window.tracoPesquisar = (opc) => {
     atual = { ...opc, parametrosIds: new Set(opc.parametrosIds || []) };

@@ -547,7 +547,7 @@
   tab.addEventListener('click', () => mostrar(true));
   $('architectureTab').addEventListener('click', () => mostrar(false));
   $('partsTab').addEventListener('click', () => mostrar(false));
-  window.tracoRascunhos = { gesto: () => gesto, abrir: () => mostrar(true), quadros: () => quadros, render: () => desenhar() };
+  window.tracoRascunhos = { abrirQuadro(id) { const q = quadros.find((x) => x.id === id); if (!q) return false; fecharEdicao(); Q = q; sel = null; listaQuadros(); tab.click(); requestAnimationFrame(() => verTudo()); return true; }, gesto: () => gesto, abrir: () => mostrar(true), quadros: () => quadros, render: () => desenhar() };
   void desenharJa;
 
   escolher('caneta');

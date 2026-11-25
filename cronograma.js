@@ -15,6 +15,7 @@
     <div class="cro-barra">
       <label>Início <input type="date" id="croIni" /></label>
       <label class="cro-chk"><input type="checkbox" id="croUteis" /> só dias úteis</label>
+      <label class="cro-chk"><input type="checkbox" id="croFer" /> pular feriados nacionais</label>
       <span class="cro-sep"></span>
       <button type="button" data-c="add">＋ Tarefa</button>
       <button type="button" data-c="marco">◆ Marco</button>
@@ -38,15 +39,27 @@
 
   let sel = 0, escala = 'semana';
   try { escala = localStorage.getItem('traco-cro-escala') || 'semana'; } catch { /* */ }
-  const C = () => { const p = P(); p.crono ||= { inicio: hojeISO(), uteis: true, tarefas: [] }; return p.crono; };
+  const C = () => { const p = P(); p.crono ||= { inicio: hojeISO(), uteis: true, feriados: true, tarefas: [] }; return p.crono; };
 
   // ---------- calendário ----------
   const D = (iso) => { const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d); };
   const ISO = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
   const fds = (dt) => dt.getDay() === 0 || dt.getDay() === 6;
+  // feriados nacionais do Brasil: fixos + móveis (Páscoa → Carnaval, Sexta-feira Santa, Corpus Christi)
+  const ferCache = {};
+  function feriados(ano) {
+    if (ferCache[ano]) return ferCache[ano];
+    const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1, pascoa = new Date(ano, mes - 1, dia);
+    const mov = (n) => { const x = new Date(pascoa); x.setDate(x.getDate() + n); return ISO(x); };
+    const fixos = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'].map((md) => `${ano}-${md}`);
+    return (ferCache[ano] = new Set([...fixos, mov(-48), mov(-47), mov(-2), mov(60)]));
+  }
+  const folga = (c, dt) => (c.uteis && fds(dt)) || (c.feriados && feriados(dt.getFullYear()).has(ISO(dt)));
   function diaDe(c, k) { // k-ésimo dia de trabalho a partir do início → data
-    const dt = D(c.inicio); if (c.uteis) while (fds(dt)) dt.setDate(dt.getDate() + 1);
-    let n = k; while (n > 0) { dt.setDate(dt.getDate() + 1); if (!c.uteis || !fds(dt)) n--; }
+    const dt = D(c.inicio); while (folga(c, dt)) dt.setDate(dt.getDate() + 1);
+    let n = k; while (n > 0) { dt.setDate(dt.getDate() + 1); if (!folga(c, dt)) n--; }
     return dt;
   }
   const br = (dt) => `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getFullYear()).slice(2)}`;
@@ -95,7 +108,7 @@
   const RH = 34, PX = { dia: 30, semana: 12, mes: 3.2 };
   function monta() {
     const p = P(); if (!p) return; const c = C();
-    $('croIni').value = c.inicio; $('croUteis').checked = c.uteis;
+    $('croIni').value = c.inicio; $('croUteis').checked = c.uteis; $('croFer').checked = Boolean(c.feriados);
     area.querySelectorAll('[data-e]').forEach((b) => b.classList.toggle('on', b.dataset.e === escala));
     const T = c.tarefas, R = calcula(c);
     if (sel >= T.length) sel = Math.max(0, T.length - 1);
@@ -131,7 +144,7 @@
     for (let k = 0; k <= totCorr; k++) {
       const dt = new Date(d0); dt.setDate(dt.getDate() + k); const x = k * px;
       if (dt.getMonth() !== mesAnt) { mesAnt = dt.getMonth(); s += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#d0d4cc"/>`; if (x - ultMes > 70 || ultMes < 0) { s += `<text x="${x + 4}" y="15" class="cro-mes">${dt.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}/${String(dt.getFullYear()).slice(2)}</text>`; ultMes = x; } }
-      if (fds(dt) && px >= 8) s += `<rect x="${x}" y="40" width="${px}" height="${H - 40}" fill="#f1f2ee"/>`;
+      if (folga(c, dt) && px >= 8) s += `<rect x="${x}" y="40" width="${px}" height="${H - 40}" fill="#f1f2ee"/>`;
       if (escala === 'dia') s += `<text x="${x + px / 2}" y="34" class="cro-dia" text-anchor="middle">${dt.getDate()}</text>`;
       else if (escala === 'semana' && dt.getDay() === 1) s += `<line x1="${x}" y1="24" x2="${x}" y2="${H}" stroke="#eceee8"/><text x="${x + 3}" y="34" class="cro-dia">${dt.getDate()}/${dt.getMonth() + 1}</text>`;
     }
@@ -175,6 +188,7 @@
   });
   $('croIni').addEventListener('change', (e) => { if (e.target.value) { C().inicio = e.target.value; salvar(); monta(); } });
   $('croUteis').addEventListener('change', (e) => { C().uteis = e.target.checked; salvar(); monta(); });
+  $('croFer').addEventListener('change', (e) => { C().feriados = e.target.checked; salvar(); monta(); });
   area.querySelectorAll('[data-e]').forEach((b) => (b.onclick = () => { escala = b.dataset.e; try { localStorage.setItem('traco-cro-escala', escala); } catch { /* */ } monta(); }));
   const acoes = {
     add() { insere('Nova tarefa', 1); },
@@ -235,5 +249,21 @@
     const u = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), a = document.createElement('a');
     a.href = u; a.download = `cronograma-${p.nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').toLowerCase()}.csv`;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 3000);
+  };
+  // usado pelo resumo, pelo relatório e pelo "Puxar do projeto"
+  window.tracoCrono = {
+    resumo(p) { const c = p.crono; if (!c?.tarefas?.length) return null; const R = calcula(c); let tot = 0, feito = 0;
+      c.tarefas.forEach((t, i) => { if (!R.resumo[i]) { const d = Math.max(R.fim[i] - R.ini[i], .5); tot += d; feito += d * (+t.pct || 0) / 100; } });
+      return { ini: br(diaDe(c, 0)), fim: br(diaDe(c, Math.max(0, R.fimProj - 1))), dias: R.fimProj, pct: tot ? Math.round(feito / tot * 100) : 0, n: c.tarefas.length, atrasadas: c.tarefas.filter((t, i) => !R.resumo[i] && (+t.pct || 0) < 100 && diaDe(c, Math.max(R.ini[i], R.fim[i] - 1)) < D(hojeISO())).length }; },
+    html(p) { const ant = P(); if (ant !== p) return ''; monta(); return `<div class="rel-crono">${$('croTab').innerHTML}</div><div class="rel-gantt">${$('croGantt').innerHTML}</div>`; },
+    puxar(novas) { const c = C(), T = c.tarefas, nomes = new Set(T.map((t) => t.nome.toLowerCase())); let n = 0;
+      for (const g of novas) { const filhas = g.itens.filter((x) => !nomes.has(x.nome.toLowerCase())); if (!filhas.length) continue;
+        let gi = T.findIndex((t) => t.nome.toLowerCase() === g.grupo.toLowerCase() && t.nivel === 1);
+        if (gi < 0) { T.push({ id: novoId(), nome: g.grupo, nivel: 1, dur: 0, pred: '', pct: 0, resp: '' }); gi = T.length - 1; }
+        let fimG = gi; while (T[fimG + 1]?.nivel > 1) fimG++;
+        let ant = fimG > gi ? fimG + 1 : 0;
+        filhas.forEach((x, k) => { const pos = fimG + 1 + k; renumera(pos, 1, false); T.splice(pos, 0, { id: novoId(), nome: x.nome, nivel: 2, dur: x.dur ?? 1, pred: x.pred ?? (ant ? String(ant) : ''), pct: 0, resp: x.resp || '' }); ant = pos + 1; nomes.add(x.nome.toLowerCase()); n++; });
+      }
+      salvar(); if (!area.hidden) monta(); return n; },
   };
 })();
