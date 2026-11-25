@@ -3,11 +3,18 @@ on:
   workflow_dispatch:
     inputs:
       fase: { description: 'fase do canvas', default: 'agil' }
+      pergunta: { description: 'pergunta para a ajuda (se preenchida, testa a ajuda)', default: '' }
 jobs:
   t:
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - if: ${{ inputs.pergunta != '' }}
+        env: { Q: '${{ inputs.pergunta }}' }
+        run: |
+          jq -n --arg q "$Q" '{ajuda:{pergunta:$q, onde:"Projetos › Cronograma"}}' > c.json
+          curl -s -m 120 -X POST https://frcvjcrxcflsyzmdalom.supabase.co/functions/v1/ler-desenho -H 'content-type: application/json' -H 'Origin: https://traco-estudio.vercel.app' -d @c.json | jq -c '{erro, resposta, sugestoes}'
+      - if: ${{ inputs.pergunta == '' }}
+        run: |
           curl -s -m 170 -X POST https://frcvjcrxcflsyzmdalom.supabase.co/functions/v1/ler-desenho -H 'content-type: application/json' -H 'Origin: https://traco-estudio.vercel.app' \
             -d "{\"canvas\":{\"fase\":\"${{ inputs.fase }}\",\"nome\":\"ISO 22000\",\"ideia\":\"Implantar o SGSA ISO 22000 numa fábrica de embalagens\",\"canvas\":\"{\\\"entregas\\\":[\\\"Diagnóstico inicial\\\",\\\"Plano APPCC\\\",\\\"Treinamentos\\\"]}\"}}" > r.json
           jq -c '{erro, sprint_dias, n: (.itens|length), primeiro: .itens[0]}' r.json || head -c 600 r.json

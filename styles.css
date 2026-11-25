@@ -710,3 +710,18 @@ body.trilho.aba-livre .app-shell,body.trilho.modo-pc.aba-livre .app-shell{paddin
 .agl-f{display:flex;flex-direction:column;gap:4px;font:700 12.5px DM Sans,Arial,sans-serif;color:#555;margin-bottom:9px;flex:1}.agl-f input,.agl-f select,.agl-f textarea{border:1px solid #dfe4db;border-radius:10px;padding:9px;font:500 14.5px DM Sans,Arial,sans-serif;color:#111;background:#fff;width:100%;box-sizing:border-box}
 .agl-lin{display:flex;gap:8px}.agl-del{color:#b33!important}
 @media(max-width:860px){.agl-baixo{grid-template-columns:1fr}.agl-quadro{grid-template-columns:repeat(5,230px)}}
+
+/* ---------- ❓ dúvidas ---------- */
+.ajd-bt{border:1px solid #e3e6df;background:#fff;border-radius:999px;padding:7px 13px;font:800 13px DM Sans,Arial,sans-serif;color:#111;cursor:pointer;box-shadow:0 1px 3px #0001}
+.ajd-dlg{width:min(620px,96vw);max-height:88vh;display:none;flex-direction:column}.ajd-dlg[open]{display:flex}
+.ajd-topo{display:flex;justify-content:space-between;align-items:center}.ajd-x{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;color:#555}
+.ajd-conv{flex:1;overflow:auto;min-height:120px;max-height:52vh;display:flex;flex-direction:column;gap:8px;padding:4px 2px 8px}
+.ajd-q{align-self:flex-end;background:#d76845;color:#fff;border-radius:14px 14px 4px 14px;padding:8px 12px;max-width:85%;font:600 14px DM Sans,Arial,sans-serif}
+.ajd-r{align-self:flex-start;background:#f3f4ef;border-radius:14px 14px 14px 4px;padding:8px 12px;max-width:92%;font:500 14.5px/1.45 DM Sans,Arial,sans-serif;color:#111}
+.ajd-r p{margin:0 0 6px}.ajd-r p:last-child{margin:0}.ajd-r ul,.ajd-r ol{margin:4px 0 6px;padding-left:20px}.ajd-r li{margin:2px 0}
+.ajd-pensa{color:#777}.ajd-pensa i{animation:ajdP 1.2s infinite;font-style:normal}.ajd-pensa i:nth-child(2){animation-delay:.2s}.ajd-pensa i:nth-child(3){animation-delay:.4s}@keyframes ajdP{0%,100%{opacity:.2}50%{opacity:1}}
+.ajd-vazio{color:#888;font:500 13px DM Sans,Arial,sans-serif;margin:8px 0}
+.ajd-sug{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}.ajd-sug button{border:1px solid #f0c9b8;background:#fdf1ec;color:#a4462a;border-radius:999px;padding:6px 11px;font:700 12.5px DM Sans,Arial,sans-serif;cursor:pointer}
+.ajd-form{display:flex;gap:8px;align-items:flex-end}.ajd-form textarea{flex:1;border:1px solid #dfe4db;border-radius:12px;padding:10px;font:500 15px DM Sans,Arial,sans-serif;resize:none;max-height:120px}
+@media(max-width:600px){.ajd-bt span{display:none}}
+.pc-ajd{padding:5px 11px;font-size:12.5px;margin-right:6px}
