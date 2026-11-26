@@ -1,0 +1,9 @@
+name: Teste da ponte
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s "https://traco-estudio.vercel.app/versao.js?x=$RANDOM" | head -c 120; echo
+          curl -s -o /dev/null -w "ponte auth: %{http_code}\n" "https://traco-estudio.vercel.app/sb/auth/v1/settings" -H "apikey: $(curl -s https://traco-estudio.vercel.app/config.js | grep -o 'eyJ[A-Za-z0-9._-]*' | head -1)"
