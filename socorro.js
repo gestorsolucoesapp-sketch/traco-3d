@@ -1,3 +1,18 @@
+// Ponte: se a rede (ex.: firewall da empresa) bloquear o servidor (*.supabase.co), passa pelo próprio site (/sb → Supabase).
+(() => {
+  const orig = window.fetch.bind(window), HOST = /^https:\/\/[a-z0-9]+\.supabase\.co/i;
+  const podePonte = /\.vercel\.app$/.test(location.hostname);
+  const viaPonte = (u) => u.replace(HOST, location.origin + '/sb');
+  window.fetch = async function (rec, opc) {
+    const u = typeof rec === 'string' ? rec : rec?.url;
+    if (!podePonte || typeof u !== 'string' || !HOST.test(u)) return orig(rec, opc);
+    if (sessionStorage.getItem('tracoPonte') === '1') return orig(typeof rec === 'string' ? viaPonte(u) : new Request(viaPonte(u), rec), opc);
+    try { return await orig(rec, opc); } catch (e) {
+      if (e?.name === 'AbortError' || opc?.signal?.aborted) throw e;
+      try { const r = await orig(typeof rec === 'string' ? viaPonte(u) : new Request(viaPonte(u), rec), opc); sessionStorage.setItem('tracoPonte', '1'); return r; } catch { throw e; }
+    }
+  };
+})();
 // Relógio da sincronização: anota quando cada dado "traco-…" do aparelho mudou (para saber o que é mais novo).
 (() => {
   const LOCAL = /^traco-(sessao|sync-|apagados|email|convite-sync|copia|versao|active-mode|prj-aba|projeto-atual|rascunho-atual|pmc-zoom|cro-escala|tema|modo-pc|tambor|roda)/;

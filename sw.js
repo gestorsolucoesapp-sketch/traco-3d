@@ -26,6 +26,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const mesmo = url.origin === location.origin, fonte = /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname);
   if (!mesmo && !fonte) return; // IA (Supabase) e outros sites: direto na rede
+  if (mesmo && url.pathname.startsWith('/sb/')) return; // ponte para o Supabase: nunca guardar
   if (req.mode === 'navigate') { // página: tenta a rede (3 s), senão usa a guardada
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
