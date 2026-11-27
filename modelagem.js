@@ -192,13 +192,13 @@
         const p = tt.map(proj), n = G.normal(tt);
         const s = 0.5 + 0.5 * Math.max(0, n[0] * luz[0] + n[1] * luz[1] + n[2] * luz[2]);
         const k = selc ? 1.18 : 1;
-        faces.push({ p, d: (p[0][2] + p[1][2] + p[2][2]) / 3, f: `rgba(${rgb.map((v) => Math.min(255, Math.round(v * s * k))).join(',')},${a})`, sel: selc });
+        faces.push({ p, d: (p[0][2] + p[1][2] + p[2][2]) / 3, f: `rgba(${rgb.map((v) => Math.min(255, Math.round(v * s * k))).join(',')},${a})`, sel: selc, ref: a < 1 });
       }
     }
     faces.sort((u, v) => u.d - v.d);
     for (const fc of faces) {
       ctx.beginPath(); ctx.moveTo(fc.p[0][0], fc.p[0][1]); ctx.lineTo(fc.p[1][0], fc.p[1][1]); ctx.lineTo(fc.p[2][0], fc.p[2][1]); ctx.closePath();
-      ctx.fillStyle = fc.f; ctx.fill(); ctx.strokeStyle = fc.f; ctx.lineWidth = 0.6; ctx.stroke();
+      ctx.fillStyle = fc.f; ctx.fill(); if (!fc.ref) { ctx.strokeStyle = fc.f; ctx.lineWidth = 0.6; ctx.stroke(); }
     }
     // eixos
     const o = proj([b[0], b[1], b[2]]), d = devicePixelRatio;
@@ -378,9 +378,24 @@
   function addFuro(c, tipo) {
     const cont = G.pontos(c.contorno); let cx = 0, cy = 0; cont.forEach(([x, y]) => { cx += x; cy += y; }); cx /= cont.length; cy /= cont.length;
     const r = (v) => Math.round(v * 100) / 100; snapshot();
-    if (tipo === 'circ') c.furos.push({ t: 'circ', d: 3.2, x: r(cx), y: r(cy) });
-    else if (tipo === 'rasgo') c.furos.push({ t: 'rasgo', d: 3, x1: r(cx - 4), y1: r(cy), x2: r(cx + 4), y2: r(cy) });
-    else if (tipo === 'ret') c.furos.push({ t: 'ret', w: 8, h: 5, r: 1, x: r(cx), y: r(cy), a: 0 });
+    // procura o lugar livre mais perto do centro (dentro do contorno, sem encostar em outro furo)
+    const livre = (fazer) => {
+      const outros = (c.furos || []).map((f) => G.pontos(f));
+      const bx = cont.map((q) => q[0]), by = cont.map((q) => q[1]), cand = [];
+      for (let x = Math.min(...bx); x <= Math.max(...bx); x += 1) for (let y = Math.min(...by); y <= Math.max(...by); y += 1) cand.push([x, y]);
+      cand.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy));
+      for (const [x, y] of cand.slice(0, 6000)) {
+        const f = fazer(r(x), r(y)), p = G.pontos(f), folga = G.pontos({ ...f, d: (f.d || 0) + 1.2, w: (f.w || 0) + 1.2, h: (f.h || 0) + 1.2 });
+        if (!p.length) continue;
+        const bx0 = Math.min(...folga.map((q) => q[0])), bx1 = Math.max(...folga.map((q) => q[0])), by0 = Math.min(...folga.map((q) => q[1])), by1 = Math.max(...folga.map((q) => q[1]));
+        const perto = outros.filter((o) => o.some(([ox, oy]) => ox >= bx0 - 30 && ox <= bx1 + 30 && oy >= by0 - 30 && oy <= by1 + 30));
+        if (!G.validarFuros(cont, [...perto, folga]).ruins.includes(perto.length)) return f;
+      }
+      return fazer(r(cx), r(cy));
+    };
+    if (tipo === 'circ') c.furos.push(livre((x, y) => ({ t: 'circ', d: 3.2, x, y })));
+    else if (tipo === 'rasgo') c.furos.push(livre((x, y) => ({ t: 'rasgo', d: 3, x1: r(x - 4), y1: y, x2: r(x + 4), y2: y })));
+    else if (tipo === 'ret') c.furos.push(livre((x, y) => ({ t: 'ret', w: 8, h: 5, r: 1, x, y, a: 0 })));
     else if (tipo === 'espX' && furoSel != null) { const g = JSON.parse(JSON.stringify(c.furos[furoSel])); const m2 = (q) => { if (q.t === 'rasgo') { q.x1 = -q.x1; q.x2 = -q.x2; } else if (q.t === 'poli') q.pts = q.pts.map(([x, y]) => [-x, y]); else q.x = -q.x; }; m2(g); c.furos.push(g); }
     else if (tipo === 'circular' && furoSel != null) {
       const n = parseInt(prompt('Quantas cópias no total (contando este)?', '4'), 10); if (!(n > 1 && n <= 72)) { historico.pop(); return; }

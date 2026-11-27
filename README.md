@@ -57,6 +57,21 @@ Biblioteca própria (cama, sofá, mesa, cadeira, cozinha, banheiro, escada, pila
 
 **🖨️ Prancha PDF** (nos dois modos): folha A4/A3 deitada com moldura, carimbo com a marca (projeto, cliente, responsável, data, escala, unidade, folha), escala normalizada automática. Arquitetura: planta baixa com paredes cheias, portas (com giro) e janelas, cota de cada parede e totais, área do piso, objetos, cotas/textos do usuário e perspectiva. Peças: vistas frontal, superior e lateral esquerda em 1º diedro (NBR 10067) com cotas gerais, linhas de centro, notas técnicas (roscas ISO, furos, folga) e perspectiva. **Imprimir / Salvar PDF** ou **Baixar SVG**. Vinheta de abertura uma vez por sessão (toque pula).
 
+## 🧊 Modelagem 3D
+
+Aba **🧊 Modelagem 3D**: monta peças com vários **corpos**. Cada corpo é um contorno (retângulo com cantos arredondados, círculo, rasgo, contorno livre ou o contorno desenhado na aba Peças) extrudado numa espessura, com **furos, rasgos e recortes em qualquer posição**. Corpos com o mesmo nome de **peça (grupo)** viram um arquivo de impressão.
+
+- **Adicionar corpo**: Chapa, Cilindro/bucha, Caixa oca (fundo + paredes), Do desenho (usa o perfil fechado da aba Mecânica · peças) e STL (importa uma malha para posicionar junto).
+- **Furos**: Furo redondo, Rasgo oblongo e Recorte retangular. O novo furo nasce no lugar livre mais perto do centro. Com um furo escolhido: **Padrão circular** (n cópias em volta de um centro), **Matriz** (colunas × linhas com passo) e **Espelhar**. No quadro 2D, arraste o furo para mover (passo 0,5 mm; Alt = 0,1 mm). Furo fora do contorno ou encostando em outro fica **vermelho** e não é aplicado — nada é corrigido sozinho.
+- **Posição**: X/Y/Z e giro em X/Y/Z por corpo e também da peça inteira (ex.: berço inclinado da câmera).
+- **Material** (PETG, PLA, ASA, ABS, TPU, PLA-CF, PETG-CF) dá o peso a 100% de preenchimento. **Referência** aparece no 3D (motor, hélice, bateria) mas não entra no peso nem no STL.
+- **Vista 3D**: Perspectiva, Cima, Frente, Lado, Explodir e mostrar/ocultar Referências.
+- **Peças para imprimir**: peso de cada peça e **⬇ STL** (binário, mm) por peça ou todas.
+- **⭐ Exemplo**: chassi do drone térmico ORION-T3 (3", 136 mm motor a motor, AIO 25,5 mm, motores 1404, carcaça, ninho do GPS, trem de pouso TPU, apoio da bateria e berço da câmera térmica inclinado 30°).
+- Desfazer/refazer (Ctrl+Z), salvar/abrir modelo em arquivo (💾/📂). Tudo fica no aparelho e funciona sem internet.
+
+Limites: corpos são extrusões (não há fusão booleana entre corpos; o fatiador junta os que se sobrepõem numa mesma peça) e furos atravessam o corpo inteiro.
+
 ## Zoom e tela cheia
 
 Nos quadros de desenho (Arquitetura e Peças): **roda do mouse / pinça do trackpad** aproxima no ponto do cursor; **arrastar com o botão do meio, o direito ou segurando Espaço** move a vista; botões **− / Ver tudo / +** no canto. **⛶ Tela cheia** (computador) abre o desenho na janela inteira com o **3D numa janelinha no canto**, atualizando ao vivo; **Esc** ou o botão saem. Textos, cotas e marcadores mantêm o tamanho na tela com qualquer zoom.
