@@ -163,11 +163,18 @@
     const ctx = cv3.getContext('2d'), W = cv3.width, H = cv3.height, m = M(); if (!m || !W) return;
     ctx.clearRect(0, 0, W, H);
     const itens = [];
-    const ordemG = [...new Set(m.corpos.map((c) => c.grupo || c.nome))];
+    // vista explodida: cada peça se afasta do centro na altura (o que está em cima sobe, o de baixo desce)
+    const zc = new Map(); let zg = 0, ng = 0;
+    if (cam.explodir) {
+      for (const c of m.corpos) { if (c.mat === 'ref' || c.visivel === false) continue; const k = G.caixa(malha(c).tris); if (!Number.isFinite(k[2])) continue;
+        const g = c.grupo || c.nome, a = zc.get(g) || [Infinity, -Infinity]; zc.set(g, [Math.min(a[0], k[2]), Math.max(a[1], k[5])]); }
+      for (const [, [a, b]] of zc) { zg += (a + b) / 2; ng++; } zg = ng ? zg / ng : 0;
+    }
     for (const c of m.corpos) {
       if (c.visivel === false || (c.mat === 'ref' && !cam.ref)) continue;
       const mm = malha(c); if (!mm.tris.length) continue;
-      const gi = ordemG.indexOf(c.grupo || c.nome), dz = cam.explodir ? (c.mat === 'ref' ? 0 : (gi - ordemG.length / 2) * 14 * cam.explodir) : 0;
+      let dz = 0;
+      if (cam.explodir) { const z = zc.get(c.grupo || c.nome); if (z) { const meio = (z[0] + z[1]) / 2 - zg; dz = meio * 1.3 + Math.sign(meio || 1) * 12; } else if (c.mat === 'ref') dz = 0; }
       itens.push({ c, tris: mm.tris, dz });
     }
     if (!itens.length) { ctx.fillStyle = '#555'; ctx.font = `${14 * devicePixelRatio}px DM Sans, Arial`; ctx.textAlign = 'center'; ctx.fillText('Adicione um corpo (▭ Chapa) para começar', W / 2, H / 2); return; }
